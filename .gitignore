@@ -1,0 +1,31 @@
+# tox
+.tox
+.testrepository/
+.venv
+
+# Compiled files
+*.py[co]
+*.a
+*.o
+*.so
+
+# Packages/installer info
+*.egg
+*.egg-info
+dist
+build
+eggs
+parts
+var
+sdist
+develop-eggs
+.installed.cfg
+
+# Other
+*.DS_Store
+.*.sw[po]
+.coverage
+cover/
+AUTORS
+ChangeLog
+doc/build/

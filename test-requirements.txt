@@ -1,0 +1,14 @@
+pep8
+pyflakes
+flake8
+hacking
+coverage
+discover
+fixtures
+mox
+mock
+python-subunit
+testrepository
+testtools
+sphinx
+sphinxcontrib-httpdomain
