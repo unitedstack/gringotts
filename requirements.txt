@@ -17,3 +17,5 @@ pecan==0.3.2
 WSME==0.5b5
 oslo.config==1.2.0
 python-memcached==1.43
+kombu==2.4.8
+stevedore==0.11

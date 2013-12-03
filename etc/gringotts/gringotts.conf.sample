@@ -1,0 +1,6 @@
+[DEFAULT]
+rabbit_password=rachel
+rabbit_host=localhost
+
+[waiter]
+queue_name=gringotts.notification

@@ -1,22 +1,16 @@
-from pecan import expose, redirect
-from webob.exc import status_map
+from pecan import rest
+from wsmeext.pecan import wsexpose
+
+from gringotts.api.v1 import controller
+from gringotts.api.v1 import models
 
 
-class RootController(object):
+class RootController(rest.RestController):
 
-    @expose(generic=True, template='index.html')
-    def index(self):
-        return dict()
+    v1 = controller.V1Controller()
 
-    @index.when(method='POST')
-    def index_post(self, q):
-        redirect('http://pecan.readthedocs.org/en/latest/search.html?q=%s' % q)
-
-    @expose('error.html')
-    def error(self, status):
-        try:
-            status = int(status)
-        except ValueError:  # pragma: no cover
-            status = 500
-        message = getattr(status_map.get(status), 'explanation', '')
-        return dict(status=status, message=message)
+    @wsexpose(models.Version)
+    def get(self):
+        """Return the version info when request the root path
+        """
+        return models.Version(version='0.0.1')

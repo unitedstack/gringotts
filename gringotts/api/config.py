@@ -17,6 +17,12 @@ app = {
     }
 }
 
+# Wether or not to include exception tracebacks
+# in the returned server-side errors.
+wsme = {
+    'debug': True
+}
+
 # Custom Configurations must be in Python dictionary format::
 #
 # foo = {'bar':'baz'}
