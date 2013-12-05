@@ -98,7 +98,7 @@ class WaiterService(rpc_service.Service):
         try:
             ext.obj.do_actions(notification)
         except Exception:
-            LOG.exception("Some errors occured when handling event_type: %s,"
+            LOG.exception("Some errors occured when handling event_type: %s,"\
                           "the message content is: %s",
                           notification.get('event_type'),
                           notification)
