@@ -71,11 +71,55 @@ class Query(APIBase):
                    )
 
 
-class Time(APIBase):
-    value = float
-    unit = wtypes.text
-
-
 class Version(APIBase):
     """The version model"""
     version = wtypes.text
+
+
+class Product(APIBase):
+    """A product represents a rule applied to resources to be billed 
+    """
+    uuid = wtypes.text
+    name = wtypes.text
+    description = wtypes.text
+
+    meter_name = wtypes.text
+    source = wtypes.text
+
+    region_id = wtypes.text
+    user_id = wtypes.text
+    project_id = wtypes.text
+
+    type = wtypes.text
+    time_size = int
+    time_unit = wtypes.text
+    quantity_from = int
+    quantity_to = int
+    quantity_unit = wtypes.text
+
+    price = float
+    currency = wtypes.text
+
+    created_at = datetime.datetime
+    updated_at = datetime.datetime
+
+    @classmethod
+    def sample(cls):
+        return cls(uuid='uuid',
+                   name='product-1',
+                   description='some decs',
+                   meter_name='instance',
+                   source='nova',
+                   region_id='region-xxx',
+                   user_id='user-xxx',
+                   project_id='project-xxx',
+                   type='time',
+                   time_size=1,
+                   time_unit='hour',
+                   quantity_from=0,
+                   quantity_to=0,
+                   quantity_unit='KB',
+                   price=2.5,
+                   currency='RMB',
+                   created_at=datetime.datetime.utcnow(),
+                   updated_at=datetime.datetime.utcnow())

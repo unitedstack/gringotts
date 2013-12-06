@@ -4,3 +4,6 @@ rabbit_host=localhost
 
 [waiter]
 queue_name=gringotts.notification
+
+[database]
+connection=mysql://root:rachel@localhost/gringotts?charset=utf8

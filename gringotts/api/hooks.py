@@ -16,3 +16,14 @@ class ConfigHook(hooks.PecanHook):
 
     def before(self, state):
         state.request.cfg = cfg.CONF
+
+
+class DBHook(hooks.PecanHook):
+    """Attache the db connection to the request
+    """
+
+    def __init__(self, conn):
+        self.conn = conn
+
+    def before(self, state):
+        state.request.db_conn = self.conn

@@ -1,6 +1,7 @@
 """
 Alembic Migrations
 """
+import os
 
 import alembic
 from alembic import config as alembic_config
@@ -11,7 +12,7 @@ from gringotts.openstack.common import log
 LOG = log.getLogger(__name__)
 
 
-def db_sync(engine):
+def db_sync():
     alembic.command.upgrade(_alembic_config(), "head")
 
 

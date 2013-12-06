@@ -2,6 +2,7 @@ import pecan
 
 from oslo.config import cfg
 
+from gringotts import db
 from gringotts.api import config
 from gringotts.api import hooks
 from gringotts.api import middleware
@@ -20,7 +21,8 @@ def get_pecan_config():
 
 def setup_app(config, extra_hooks=None):
 
-    app_hooks = [hooks.ConfigHook()]
+    app_hooks = [hooks.ConfigHook(),
+                 hooks.DBHook(db.get_connection(CONF))]
 
     if extra_hooks:
         app_hooks.extend(extra_hooks)

@@ -9,9 +9,9 @@ from oslo.config import cfg
 from sqlalchemy import Column, Integer, String, Table, ForeignKey
 from sqlalchemy import DateTime, Index, Float, Boolean, Text
 from sqlalchemy.types import TypeDecorator, DATETIME
-
 from sqlalchemy.ext.declarative import declarative_base
 
+from gringotts.openstack.common import timeutils
 
 sql_opts = [
     cfg.StrOpt('mysql_engine',
@@ -63,6 +63,36 @@ class GringottsBase(object):
             setattr(self, k, v)
 
 
-Base = declarative_base(cls=CeilometerBase)
+Base = declarative_base(cls=GringottsBase)
 
 
+class Product(Base):
+    """Product DB Model of SQLAlchemy"""
+
+    __tablename__ = 'product'
+
+    id = Column(Integer, primary_key=True)
+
+    uuid = Column(String(255))
+    name = Column(String(255))
+    description = Column(String(255))
+
+    meter_name = Column(String(255))
+    source = Column(String(255))
+
+    region_id = Column(String(255))
+    user_id = Column(String(255))
+    project_id = Column(String(255))
+
+    type = Column(String(255))
+    time_size = Column(Integer)
+    time_unit = Column(String(255))
+    quantity_from = Column(Integer)
+    quantity_to = Column(Integer)
+    quantity_unit = Column(String(255))
+
+    price = Column(Float)
+    currency = Column(String(255))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime)

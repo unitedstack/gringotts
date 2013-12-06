@@ -7,7 +7,7 @@ from oslo.config import cfg
 from stevedore import driver
 
 from gringotts.openstack.common import log
-from ceilometer import service
+from gringotts import service
 
 
 LOG = log.getLogger(__name__)

@@ -13,4 +13,4 @@ class RootController(rest.RestController):
     def get(self):
         """Return the version info when request the root path
         """
-        return models.Version(version='0.0.1')
+        return models.Version(version='0.1.0')
