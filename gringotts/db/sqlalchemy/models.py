@@ -73,26 +73,19 @@ class Product(Base):
 
     id = Column(Integer, primary_key=True)
 
-    uuid = Column(String(255))
+    product_id = Column(String(255))
     name = Column(String(255))
+    service = Column(String(255))
+    region_id = Column(String(255))
     description = Column(String(255))
 
-    meter_name = Column(String(255))
-    source = Column(String(255))
-
-    region_id = Column(String(255))
-    user_id = Column(String(255))
-    project_id = Column(String(255))
-
-    type = Column(String(255))
-    time_size = Column(Integer)
-    time_unit = Column(String(255))
-    quantity_from = Column(Integer)
-    quantity_to = Column(Integer)
-    quantity_unit = Column(String(255))
+    type = Column(String(64))
+    period = Column(String(64))
+    accurate = Column(Boolean, default=True)
 
     price = Column(Float)
-    currency = Column(String(255))
+    currency = Column(String(64))
+    unit = Column(String(64))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)

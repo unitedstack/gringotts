@@ -3,7 +3,7 @@ from oslo.config import cfg
 # Register options for the service
 API_SERVICE_OPTS = [
     cfg.IntOpt('port',
-               default=8777,
+               default=8975,
                help='The port for the gringotts API server',
                ),
     cfg.StrOpt('host',

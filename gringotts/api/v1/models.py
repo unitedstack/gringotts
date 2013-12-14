@@ -35,6 +35,12 @@ class APIBase(wtypes.Base):
         for key in state:
             setattr(self, key, state[key])
 
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
 
 class Query(APIBase):
     """Sample query filter.
@@ -79,47 +85,34 @@ class Version(APIBase):
 class Product(APIBase):
     """A product represents a rule applied to resources to be billed 
     """
-    uuid = wtypes.text
-    name = wtypes.text
+    product_id = wtypes.text
+    name = wsme.wsattr(wtypes.text, mandatory=True)
+    service = wsme.wsattr(wtypes.text, mandatory=True)
+    region_id = wsme.wsattr(wtypes.text, default='default')
     description = wtypes.text
 
-    meter_name = wtypes.text
-    source = wtypes.text
-
-    region_id = wtypes.text
-    user_id = wtypes.text
-    project_id = wtypes.text
-
-    type = wtypes.text
-    time_size = int
-    time_unit = wtypes.text
-    quantity_from = int
-    quantity_to = int
-    quantity_unit = wtypes.text
-
-    price = float
-    currency = wtypes.text
+    type = wsme.wsattr(wtypes.text, default='regular')
+    period = wsme.wsattr(wtypes.text, default='hourly')
+    accurate = wsme.wsattr(bool, default=True)
+    price = wsme.wsattr(float, mandatory=True)
+    currency = wsme.wsattr(wtypes.text, default='CNY')
+    unit = wsme.wsattr(wtypes.text, mandatory=True, default='hour')
 
     created_at = datetime.datetime
     updated_at = datetime.datetime
 
     @classmethod
     def sample(cls):
-        return cls(uuid='uuid',
+        return cls(product_id='product-xxx',
                    name='product-1',
-                   description='some decs',
-                   meter_name='instance',
-                   source='nova',
+                   service='Compute',
                    region_id='region-xxx',
-                   user_id='user-xxx',
-                   project_id='project-xxx',
-                   type='time',
-                   time_size=1,
-                   time_unit='hour',
-                   quantity_from=0,
-                   quantity_to=0,
-                   quantity_unit='KB',
+                   description='some decs',
+                   type='regular',
+                   period='hourly',
+                   accurate=True,
                    price=2.5,
-                   currency='RMB',
+                   currency='CNY',
+                   unit='hour',
                    created_at=datetime.datetime.utcnow(),
                    updated_at=datetime.datetime.utcnow())

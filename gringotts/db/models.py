@@ -26,37 +26,49 @@ class Model(object):
     def __eq__(self, other):
         return self.as_dict() == other.as_dict()
 
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
 
 class Product(Model):
     """The DB Model for Product, which should has the same fields
     with API models.
-    """
 
+    :param product_id: UUID of the product
+    :param name: The name of the product
+    :param service: The service the product belongs to
+    :param region_id: The region id the product belongs to
+    :param description: Some description to this product
+    :param type: The charge type of the product(free/once/regular/metered)
+    :param period: How often the product will be charged. Default is hourly.
+    :param accurate: Whether do accurate charging, such as charging one hour
+                     even if the resource has been deleted within one hour,
+                     or charging by seconds if the resource has been deleted
+                     within one hour, default is True.
+    :param price: The price of the product
+    :param currency: The currency of the price
+    :param unit: The unit of the price, currently there are fllowing options:
+                 hour, month, year, GB-hour, IOPS-hour (regular)
+    """
     def __init__(self,
-                 uuid, name, description,
-                 meter_name, source,
-                 region_id, user_id, project_id,
-                 type, time_size, time_unit,
-                 quantity_from, quantity_to, quantity_unit,
-                 price,currency,
-                 created_at, updated_at):
+                 product_id, name, service, region_id, description,
+                 type, period, accurate, price, currency, unit,
+                 created_at=None, updated_at=None):
         Model.__init__(
             self,
-            uuid=uuid,
+            product_id=product_id,
             name=name,
-            description=description,
-            meter_name=meter_name,
-            source=source,
+            service=service,
             region_id=region_id,
-            user_id=user_id,
-            project_id=project_id,
+            description=description,
             type=type,
-            time_size=time_size,
-            time_unit=time_unit,
-            quantity_from=quantity_from,
-            quantity_to=quantity_to,
-            quantity_unit=quantity_unit,
+            period=period,
+            accurate=accurate,
             price=price,
             currency=currency,
+            unit=unit,
             created_at=created_at,
             updated_at=updated_at)

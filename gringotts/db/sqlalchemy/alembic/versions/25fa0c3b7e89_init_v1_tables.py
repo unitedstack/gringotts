@@ -20,26 +20,19 @@ def upgrade():
 
         sa.Column('id', sa.Integer, primary_key=True),
 
-        sa.Column('uuid', sa.String(255)),
+        sa.Column('product_id', sa.String(255)),
         sa.Column('name', sa.String(255)),
+        sa.Column('service', sa.String(255)),
+        sa.Column('region_id', sa.String(255)),
         sa.Column('description', sa.String(255)),
 
-        sa.Column('meter_name', sa.String(255)),
-        sa.Column('source', sa.String(255)),
-
-        sa.Column('region_id', sa.String(255)),
-        sa.Column('user_id', sa.String(255)),
-        sa.Column('project_id', sa.String(255)),
-
-        sa.Column('type', sa.String(255)),
-        sa.Column('time_size', sa.Integer),
-        sa.Column('time_unit', sa.String(255)),
-        sa.Column('quantity_from', sa.Integer),
-        sa.Column('quantity_to', sa.Integer),
-        sa.Column('quantity_unit', sa.String(255)),
+        sa.Column('type', sa.String(64)),
+        sa.Column('period', sa.String(64)),
+        sa.Column('accurate', sa.Boolean),
 
         sa.Column('price', sa.Float),
-        sa.Column('currency', sa.String(255)),
+        sa.Column('currency', sa.String(64)),
+        sa.Column('unit', sa.String(64)),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
