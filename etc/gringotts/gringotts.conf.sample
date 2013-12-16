@@ -1,6 +1,8 @@
 [DEFAULT]
 rabbit_password=rachel
 rabbit_host=localhost
+rabbit_port=5673
+debut=True
 
 [waiter]
 queue_name=gringotts.notification

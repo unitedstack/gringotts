@@ -72,3 +72,39 @@ class Product(Model):
             unit=unit,
             created_at=created_at,
             updated_at=updated_at)
+
+
+class Subscirption(Model):
+    """The DB Model for Subscription
+
+    :param subscription_id: UUID of the subscription
+    :param resource_id: UUID of the resource
+    :param resource_name: The name of the resource 
+    :param resource_type: The type of the resource
+    :param resource_status: The status of the resource
+    :param product_id: The product this resource subscribes to
+    :param current_fee: The total fee this resource spent from creation to now
+    :param cron_time: The next charge time
+    :param status: The status of this subscription, maybe active, delete
+    :param user_id: The user id this subscription belongs to
+    :param project_id: The project id this subscription belongs to
+    """
+    def __init__(self,
+                 subscription_id, resource_id, resource_name, resource_type,
+                 resource_status, product_id, current_fee, cron_time, status,
+                 user_id, project_id, created_at, updated_at):
+        Model.__init__(
+            self,
+            subscription_id=subscription_id,
+            resource_id=resource_id,
+            resource_name=resource_name,
+            resource_type=resource_type,
+            resource_status=resource_status,
+            product_id=product_id,
+            current_fee=current_fee,
+            cron_time=cron_time,
+            status=status,
+            user_id=user_id,
+            project_id=project_id,
+            created_at=created_at,
+            updated_at=updated_at)

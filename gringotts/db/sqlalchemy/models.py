@@ -81,11 +81,37 @@ class Product(Base):
 
     type = Column(String(64))
     period = Column(String(64))
-    accurate = Column(Boolean, default=True)
+    accurate = Column(String(64))
 
     price = Column(Float)
     currency = Column(String(64))
     unit = Column(String(64))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime)
+
+
+class Subscription(Base):
+    """Subscription DB Model of SQLAlchemy"""
+
+    __tablename__ = 'subscription'
+
+    id = Column(Integer, primary_key=True)
+
+    subscription_id = Column(String(255))
+
+    resource_id = Column(String(255))
+    resource_name = Column(String(255))
+    resource_type = Column(String(255))
+    resource_status = Column(String(255))
+
+    product_id = Column(String(255))
+    current_fee = Column(Float)
+    cron_time = Column(DateTime)
+    status = Column(String(64))
+
+    user_id = Column(String(255))
+    project_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)

@@ -141,6 +141,10 @@ class ImageUnacceptable(GringottsException):
     message = _("Image %(image_id)s is unacceptable: %(reason)s")
 
 
+class InstanceCreateError(GringottsException):
+    message = _("Fail to create Instance %(instance_id)s")
+
+
 # Cannot be templated as the error syntax varies.
 # msg needs to be constructed when raised.
 class InvalidParameterValue(Invalid):

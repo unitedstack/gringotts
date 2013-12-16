@@ -87,6 +87,23 @@ class Connection(base.Connection):
                                  created_at=row.created_at,
                                  updated_at=row.updated_at)
 
+    @staticmethod
+    def _row_to_db_subscription_model(row):
+        return db_models.Subscription(subscription_id=row.subscription_id,
+                                      resource_id=row.resource_id,
+                                      resource_name=row.resource_name,
+                                      resource_type=row.resource_type,
+                                      resource_status=row.resource_status,
+                                      product_id=row.product_id,
+                                      current_fee=row.current_fee,
+                                      cron_time=row.cron_time,
+                                      status=row.status,
+                                      user_id=row.user_id,
+                                      project_id=row.project_id,
+                                      created_at=row.created_at,
+                                      updated_at=row.updated_at)
+
+
     def create_product(self, context, product):
         session = db_session.get_session()
         with session.begin():
@@ -131,3 +148,11 @@ class Connection(base.Connection):
             query.update(product.as_dict(), synchronize_session='fetch')
             ref = query.one()
         return self._row_to_db_product_model(ref)
+
+    def create_subscription(self, context, subscription):
+        session = db_session.get_session()
+        with session.begin():
+            sub_ref = sa_models.Subscription()
+            sub_ref.update(subscription.as_dict())
+            session.add(sub_ref)
+        return self._row_to_db_subscription_model(sub_ref)

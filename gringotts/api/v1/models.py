@@ -93,7 +93,7 @@ class Product(APIBase):
 
     type = wsme.wsattr(wtypes.text, default='regular')
     period = wsme.wsattr(wtypes.text, default='hourly')
-    accurate = wsme.wsattr(bool, default=True)
+    accurate = wsme.wsattr(wtypes.text, default='second')
     price = wsme.wsattr(float, mandatory=True)
     currency = wsme.wsattr(wtypes.text, default='CNY')
     unit = wsme.wsattr(wtypes.text, mandatory=True, default='hour')
@@ -110,7 +110,7 @@ class Product(APIBase):
                    description='some decs',
                    type='regular',
                    period='hourly',
-                   accurate=True,
+                   accurate='second',
                    price=2.5,
                    currency='CNY',
                    unit='hour',
