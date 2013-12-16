@@ -30,10 +30,10 @@ class ProductController(rest.RestController):
         self.conn = pecan.request.db_conn
         try:
             product = self.conn.get_product(None,
-                                          product_id=self._id)
+                                            product_id=self._id)
         except Exception as e:
             LOG.error('Product %s not found' % self._id)
-            raise exception.ProductNotFound(product_id=self._id)
+            raise exception.ProductIdNotFound(product_id=self._id)
         return product
 
     @wsexpose(models.Product, wtypes.text)

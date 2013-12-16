@@ -74,7 +74,7 @@ class Product(Model):
             updated_at=updated_at)
 
 
-class Subscirption(Model):
+class Subscription(Model):
     """The DB Model for Subscription
 
     :param subscription_id: UUID of the subscription
@@ -92,7 +92,8 @@ class Subscirption(Model):
     def __init__(self,
                  subscription_id, resource_id, resource_name, resource_type,
                  resource_status, product_id, current_fee, cron_time, status,
-                 user_id, project_id, created_at, updated_at):
+                 user_id, project_id,
+                 created_at=None, updated_at=None):
         Model.__init__(
             self,
             subscription_id=subscription_id,

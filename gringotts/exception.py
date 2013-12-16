@@ -141,8 +141,8 @@ class ImageUnacceptable(GringottsException):
     message = _("Image %(image_id)s is unacceptable: %(reason)s")
 
 
-class InstanceCreateError(GringottsException):
-    message = _("Fail to create Instance %(instance_id)s")
+class InstanceStateError(GringottsException):
+    message = _("The state of the instance %(instance_id)s is not active")
 
 
 # Cannot be templated as the error syntax varies.
@@ -156,9 +156,32 @@ class NotFound(GringottsException):
     code = 404
 
 
-class ProductNotFound(NotFound):
+class ProductIdNotFound(NotFound):
     message = _("Product %(product_id)s could not be found")
 
+
+class ProductNameNotFound(NotFound):
+    message = _("Product %(product_name)s could not be found")
+
+
+class DiskNotFound(NotFound):
+    message = _("No disk at %(location)s")
+
+
+class DriverNotFound(NotFound):
+    message = _("Failed to load driver %(driver_name)s.")
+
+
+class ImageNotFound(NotFound):
+    message = _("Image %(image_id)s could not be found.")
+
+
+class HostNotFound(NotFound):
+    message = _("Host %(host)s could not be found.")
+
+
+class FileNotFound(NotFound):
+    message = _("File %(file_path)s could not be found.")
 
 class DiskNotFound(NotFound):
     message = _("No disk at %(location)s")
