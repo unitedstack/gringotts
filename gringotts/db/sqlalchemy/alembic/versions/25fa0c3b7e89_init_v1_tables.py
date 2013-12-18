@@ -31,7 +31,6 @@ def upgrade():
         sa.Column('accurate', sa.String(64)),
 
         sa.Column('price', sa.Float),
-        sa.Column('currency', sa.String(64)),
         sa.Column('unit', sa.String(64)),
 
         sa.Column('created_at', sa.DateTime),
@@ -62,7 +61,52 @@ def upgrade():
         sa.Column('updated_at', sa.DateTime),
     )
 
+    op.create_table(
+        'bill',
+
+        sa.Column('id', sa.Integer, primary_key=True),
+
+        sa.Column('bill_id', sa.String(255)),
+
+        sa.Column('start_time', sa.DateTime),
+        sa.Column('end_time', sa.DateTime),
+
+        sa.Column('fee', sa.Float),
+        sa.Column('price', sa.Float),
+        sa.Column('unit', sa.String(64)),
+        sa.Column('subscription_id', sa.String(255)),
+
+        sa.Column('remarks', sa.String(255)),
+
+        sa.Column('user_id', sa.String(255)),
+        sa.Column('project_id', sa.String(255)),
+
+        sa.Column('created_at', sa.DateTime),
+        sa.Column('updated_at', sa.DateTime),
+    )
+
+    op.create_table(
+        'account',
+        sa.Column('user_id', sa.String(255)),
+        sa.Column('project_id', sa.String(255)),
+        sa.Column('balance', sa.Float),
+        sa.Column('consumption', sa.Float)
+        sa.Column('currency', sa.String(64)),
+    )
+
+    op.create_table(
+        'charge',
+        sa.Column('charge_id', sa.String(255)),
+        sa.Column('user_id', sa.String(255)),
+        sa.Column('project_id', sa.String(255)),
+        sa.Column('value', sa.Float),
+        sa.Column('currency', sa.String(64)),
+        sa.Column('charge_time', sa.DateTime)
+    )
+
 
 def downgrade():
     op.drop_table('product')
     op.drop_table('subscription')
+    op.drop_table('bill')
+    op.drop_table('account')

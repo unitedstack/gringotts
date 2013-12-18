@@ -1,5 +1,5 @@
 """Model classes for use in the storage API.
-This model is the abstraction layer across all DB models.
+This model is the abstraction layer across all DB backends.
 """
 
 
@@ -42,20 +42,24 @@ class Product(Model):
     :param service: The service the product belongs to
     :param region_id: The region id the product belongs to
     :param description: Some description to this product
-    :param type: The charge type of the product(free/once/regular/metered)
-    :param period: How often the product will be charged. Default is hourly.
+    :param type: The bill type of the product(free/once/regular/metered)
+    :param period: How often the product will be billd. For now, there are
+                   4 options: hourly/dayly/monthly/yearly, and default is
+                   hourly.
     :param accurate: Whether do accurate charging, such as charging one hour
                      even if the resource has been deleted within one hour,
                      or charging by seconds if the resource has been deleted
                      within one hour, default is True.
     :param price: The price of the product
-    :param currency: The currency of the price
     :param unit: The unit of the price, currently there are fllowing options:
-                 hour, month, year, GB-hour, IOPS-hour (regular)
+                 hour, month, year, GB-hour, IOPS-hour. Note that the unit
+                 here should be corresponding to the period field. Fox example,
+                 if period is hourly, and the unit here should be hour or GB-hour,
+                 not month or GB-month.
     """
     def __init__(self,
                  product_id, name, service, region_id, description,
-                 type, period, accurate, price, currency, unit,
+                 type, period, accurate, price, unit,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,
@@ -68,7 +72,6 @@ class Product(Model):
             period=period,
             accurate=accurate,
             price=price,
-            currency=currency,
             unit=unit,
             created_at=created_at,
             updated_at=updated_at)
@@ -84,7 +87,7 @@ class Subscription(Model):
     :param resource_status: The status of the resource
     :param product_id: The product this resource subscribes to
     :param current_fee: The total fee this resource spent from creation to now
-    :param cron_time: The next charge time
+    :param cron_time: The next bill time
     :param status: The status of this subscription, maybe active, delete
     :param user_id: The user id this subscription belongs to
     :param project_id: The project id this subscription belongs to
@@ -109,3 +112,77 @@ class Subscription(Model):
             project_id=project_id,
             created_at=created_at,
             updated_at=updated_at)
+
+
+class Bill(Model):
+    """A detail bill record
+    :param bill_id: The UUID of the bill
+    :param start_time: The start time of the bill
+    :param end_time: The end time of the bill
+    :param fee: The fee between start_time and end_time
+    :param price: The price of the resource
+    :param unit: The unit of the price
+    :param subscription_id: The subscription id the bill belongs to
+    :param remarks: The remarks of this bill
+    :param user_id: The user id this bill belongs to
+    :param project_id: The project id this bill belongs to
+    """
+
+    def __init__(self, bill_id, start_time, end_time, fee, price,
+                 unit, subscription_id, remarks, user_id, project_id,
+                 created_at=None, updated_at=None):
+        Model.__init__(
+            self,
+            bill_id=bill_id,
+            start_time=start_time,
+            end_time=end_time,
+            fee=fee,
+            price=price,
+            unit=unit,
+            subscription_id=subscription_id,
+            remarks=remarks,
+            user_id=user_id,
+            project_id=project_id,
+            created_at=created_at,
+            updated_at=updated_at)
+
+
+class Account(Model):
+    """The DB model of account
+    :param user_id: The uuid of the user
+    :param project_id: The uuid of the project
+    :param balance: The balance of the account
+    :param consumption: The consumption of the account
+    :param currency: The currency of the account
+    """
+
+    def __init__(user_id, project_id, balance, consumption, currency):
+        Model.__init(
+            self,
+            user_id=user_id,
+            project_id=project_id,
+            balance=balance,
+            consumption=consumption,
+            currency=currency)
+
+
+class Charge(Model):
+    """The charge record db model
+    :param charge_id: The uuid of the charge
+    :param user_id: The uuid of the user
+    :param project_id: The uuid of the project
+    :param value: The charge value one time
+    :param currency: The currency of the value
+    :param charge_time: The charge time
+    """
+
+    def __init__(charge_id, user_id, project_id, value,
+                 currency, charge_time):
+        Model.__init__(
+            self,
+            charge_id=charge_id,
+            user_id=user_id,
+            project_id=project_id,
+            value=value,
+            currency=currency,
+            charge_time=charge_time)

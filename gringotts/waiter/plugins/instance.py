@@ -32,7 +32,7 @@ db_conn = db.get_connection(cfg.CONF)
 master_api = master.API()
 
 
-def _get_product(message):
+def _get_products(message):
     """Get product id from message info
     """
     instance_type = message['payload']['instance_type']
@@ -90,7 +90,7 @@ class InstanceCreateEnd(ComputeNotificationBase):
             raise exception.InstanceStateError(instance_id=instance_id)
 
         # Get product from db based on message info
-        product = _get_product(message)
+        products = _get_products(message)
 
         # Create subscription for this resource
         subscription_id = uuidutils.generate_uuid()

@@ -84,7 +84,6 @@ class Product(Base):
     accurate = Column(String(64))
 
     price = Column(Float)
-    currency = Column(String(64))
     unit = Column(String(64))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
@@ -115,3 +114,49 @@ class Subscription(Base):
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
+
+
+class Bill(Base):
+
+    __tablename__ = 'bill'
+
+    id = Column(Integer, primary_key=True)
+
+    charge_id = Column(String(255))
+    start_time = Column(Datetime)
+    end_time = Column(Datetime)
+
+    fee = Column(Float)
+    price = Column(Float)
+    unit = Column(String(64))
+    subscription_id = Column(String(255))
+    remarks = Column(String(255)
+
+    user_id = Column(String(255))
+    project_id = Column(String(255))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime)
+
+
+class Account(Base):
+
+    __tablename__ = 'account'
+
+    user_id = Column(String(255))
+    project_id = Column(String(255))
+    balance = Column(Float)
+    consumption = Column(Float)
+    currency = Column(String(64))
+
+
+class Charge(Base):
+    
+    __tablename__ = 'charge'
+
+    charge_id = Column(String(255))
+    user_id = Column(String(255))
+    project_id = Column(String(255))
+    value = Column(Float)
+    currency = Column(String(64))
+    charge_time = Column(DateTime)

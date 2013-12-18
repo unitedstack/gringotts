@@ -40,27 +40,27 @@ class MasterService(rpc_service.Service):
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
-    def _pre_charge(self):
-        pass
+    def _pre_deduct(self):
+        self.worker_api.pre_deduct()
 
-    def _back_charge(self):
-        pass
+    def _back_deduct(self):
+        self.worker_api.back_deduct()
 
     def _create_cron_job(self, launched_at, period, *args, **kwargs):
         if period == 'hourly':
-            self.apsched.add_interval_job(_pre_charge, hours=1,
+            self.apsched.add_interval_job(_pre_deduct, hours=1,
                                           start_date=launched_at+timedelta(hours=1),
                                           args=args, kwargs=kwargs)
         elif period == 'dayly':
-            self.apsched.add_interval_job(_pre_charge, days=1,
+            self.apsched.add_interval_job(_pre_deduct, days=1,
                                           start_date=launched_at+timedelta(days=1),
                                           args=args, kwargs=kwargs)
         elif period == 'monthly':
-            self.apsched.add_interval_job(_pre_charge, weeks=4,
+            self.apsched.add_interval_job(_pre_deduct, weeks=4,
                                           start_date=launched_at+timedelta(weeks=4),
                                           args=args, kwargs=kwargs)
         elif period == 'yearly':
-            self.apsched.add_interval_job(_pre_charge, weeks=48,
+            self.apsched.add_interval_job(_pre_deduct, weeks=48,
                                           start_date=launched_at+timedelta(weeks=48),
                                           args=args, kwargs=kwargs)
 
@@ -76,8 +76,10 @@ class MasterService(rpc_service.Service):
         launched_at = message['payload']['launched_at']
         period = product.period
 
-        # send a pre-charge command to worker for this subscription
-        self._pre_charge()
+        remarks = 'Instance has been created'
+
+        # send a initialized bill command to worker for this subscription
+        self.worker_api.init_bill(message, subscription, product, remarks)
 
         # create a cron job for this subscription
         self._create_cron_job(launched_at, period,

@@ -99,6 +99,11 @@ class NotAuthorized(GringottsException):
     code = 403
 
 
+class NotSufficientFund(GringottsException):
+    message = _("The user %(user_id)s balance is not sufficient")
+    code = 400
+
+
 class AdminRequired(NotAuthorized):
     message = _("User does not have admin privileges")
 

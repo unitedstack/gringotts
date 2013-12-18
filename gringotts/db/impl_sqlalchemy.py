@@ -82,7 +82,6 @@ class Connection(base.Connection):
                                  period=row.period,
                                  accurate=row.accurate,
                                  price=row.price,
-                                 currency=row.currency,
                                  unit=row.unit,
                                  created_at=row.created_at,
                                  updated_at=row.updated_at)
@@ -103,6 +102,29 @@ class Connection(base.Connection):
                                       created_at=row.created_at,
                                       updated_at=row.updated_at)
 
+    @staticmethod
+    def _row_to_db_bill_model(row):
+        return db_models.Bill(bill_id=row.bill_id,
+                              start_time=row.start_time,
+                              end_time=row.end_time,
+                              fee=row.fee,
+                              price=row.price,
+                              unit=row.unit,
+                              subscription_id=row.subscription_id,
+                              remakrs=remarks,
+                              user_id=row.user_id,
+                              project_id=row.project_id,
+                              created_at=row.created_at,
+                              updated_at=row.updated_at)
+
+    @staticmethod
+    def _row_to_db_charge_model(row):
+        return db_models.Charge(charge_id=row.charge_id,
+                                user_id=row.user_id,
+                                project_id=row.project_id,
+                                value=row.value,
+                                unit=row.unit,
+                                charge_time=row.charge_time)
 
     def create_product(self, context, product):
         session = db_session.get_session()
@@ -156,3 +178,60 @@ class Connection(base.Connection):
             sub_ref.update(subscription.as_dict())
             session.add(sub_ref)
         return self._row_to_db_subscription_model(sub_ref)
+
+    def update_subscription(self, context, subscription):
+        session = db_session.get_session()
+        with session.begin():
+            query = model_query(context, sa_models.Subscription)
+            query = query.filter_by(subscription_id=subscription.subscription_id)
+            query.update(subscription.as_dict(), synchronize_session='fetch')
+            ref = query.one()
+        return self._row_to_db_subscription_model(ref)
+
+    def create_bill(self, context, bill):
+        session = db_session.get_session()
+        with session.begin():
+            bill_ref = sa_models.Bill()
+            bill_ref.update(bill.as_dict())
+            session.add(bill_ref)
+        return self._row_to_db_bill_model(bill_ref)
+
+    def update_bill(self, context, bill):
+        session = db_session.get_session()
+        with session.begin():
+            query = model_query(context, sa_models.Bill)
+            query = query.filter_by(bill_id=bill.bill_id)
+            query.update(bill.as_dict(), synchronize_session='fetch')
+            ref = query.one()
+        return self._row_to_db_bill_model(ref)
+
+    def create_account(self, context, account):
+        session = db_session.get_session()
+        with session.begin():
+            account_ref = sa_models.Account()
+            account_ref.update(account.as_dict())
+            session.add(account_ref)
+        return self._row_to_db_account_model(account_ref)
+
+    def get_account(self, context, user_id):
+        query = model_query(context, sa_models.Account).\
+                filter_by(user_id=user_id)
+        ref = query.one()
+        return self._row_to_db_account_model(ref)
+
+    def update_account(self, context, account):
+        session = db_session.get_session()
+        with session.begin():
+            query = model_query(context, sa_models.Account)
+            query = query.filter_by(user_id=account.user_id)
+            query.update(account.as_dict(), synchronize_session='fetch')
+            ref = query.one()
+        return self._row_to_db_account_model(ref)
+
+    def create_charge(self, context, charge):
+        session = db_session.get_session()
+        with session.begin():
+            ref = sa_models.Charge()
+            ref.update(charge.as_dict())
+            session.add(ref)
+        return self._row_to_db_charge_model(ref)
