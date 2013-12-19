@@ -4,9 +4,10 @@
 import datetime
 
 from oslo.config import cfg
+from stevedore import extension
 
 from gringotts import db
-from gringotts import plugin
+from gringotts.waiter import plugin
 from gringotts import exception
 from gringotts.db import models as db_models
 from gringotts import master
@@ -32,50 +33,55 @@ db_conn = db.get_connection(cfg.CONF)
 master_api = master.API()
 
 
-def _get_products(message):
-    """Get product id from message info
-    """
-    instance_type = message['payload']['instance_type']
-    product_name = 'instance:%s' % instance_type
-    service = 'Compute'
-    region_id = 'default'
+class FlavorItem(plugin.ProductItem):
 
-    filters = dict(name=product_name,
-                   service=service,
-                   region_id=region_id)
-
-    result = list(db_conn.get_products(None, filters=filters))
-
-    if len(result) > 1:
-        error = "Duplicated products with name(%s) within service(%s) in region_id(%s)" % \
-                (product_name, service, region_id)
-        LOG.warning(error)
-        raise exception.DuplicatedProduct(reason=error)
-
-    if len(result) == 0:
-        error = "Product with name(%s) within service(%s) in region_id(%s) not found" % \
-                (product_name, service, region_id)
-        LOG.warning(error)
-        raise exception.ProductNameNotFound(product_name=product_name)
-
-    return result[0]
-
-
-class ComputeNotificationBase(plugin.NotificationBase):
     @staticmethod
-    def get_exchange_topics(conf):
-        """Return a sequence of ExchangeTopics defining the exchange and
-        topics to be connected for this plugin.
+    def get_product_filter(self, message):
+        """Get product id from message info
         """
-        return [
-            plugin.ExchangeTopics(
-                exchange=conf.nova_control_exchange,
-                topics=set(topic + ".info"
-                           for topic in conf.notification_topics)),
-        ]
+        instance_type = message['payload']['instance_type']
+        product_name = 'instance:%s' % instance_type
+        service = 'Compute'
+        region_id = 'default'
+
+        filters = dict(name=product_name,
+                       service=service,
+                       region_id=region_id)
+        return filters
 
 
-class InstanceCreateEnd(ComputeNotificationBase):
+class ImageItem(plugin.ProductItem):
+
+    @staticmethod
+    def get_product_filter(self, message):
+        """Get product id from message info
+        """
+        instance_type = message['payload']['instance_type']
+        product_name = 'instance:%s' % instance_type
+        service = 'Compute'
+        region_id = 'default'
+
+        filters = dict(name=product_name,
+                       service=service,
+                       region_id=region_id)
+        return filters
+
+
+product_items = extension.ExtensionManager(
+    namespace='gringotts.instance.product_item',
+    invoke_on_load=True,
+)
+
+
+def get_products(message):
+    products = []
+    for item in product_items.extensions:
+        product = item.obj.get_product(None, message)
+        products.append(product)
+    return products
+
+
+class InstanceCreateEnd(plugin.ComputeNotificationBase):
     """Handle the event that instance be created
     """
     event_types = ['compute.instance.create.end']
@@ -89,8 +95,8 @@ class InstanceCreateEnd(ComputeNotificationBase):
             LOG.warning('The state of instance %s is not active' % instance_id)
             raise exception.InstanceStateError(instance_id=instance_id)
 
-        # Get product from db based on message info
-        products = _get_products(message)
+        # Get products from db based on message info
+        products = get_products(message)
 
         # Create subscription for this resource
         subscription_id = uuidutils.generate_uuid()
@@ -123,7 +129,7 @@ class InstanceCreateEnd(ComputeNotificationBase):
         LOG.debug('I am here')
 
 
-class InstanceChangeEnd(ComputeNotificationBase):
+class InstanceChangeEnd(plugin.ComputeNotificationBase):
     """Handle the events that instances be changed
     """
     event_types = ['compute.instance.start.end',
@@ -134,7 +140,7 @@ class InstanceChangeEnd(ComputeNotificationBase):
         LOG.debug('Do action for event: %s', message['event_type'])
 
 
-class InstanceDeleteEnd(ComputeNotificationBase):
+class InstanceDeleteEnd(plugin.ComputeNotificationBase):
     """Handle the event that instance be deleted
     """
     event_types = ['compute.instance.delete.end']
