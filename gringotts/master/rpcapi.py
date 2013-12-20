@@ -24,9 +24,9 @@ class MasterAPI(proxy.RpcProxy):
             topic=cfg.CONF.master.master_topic,
             default_version=self.BASE_RPC_VERSION)
 
-    def instance_created(self, ctxt, message, subscription, product):
+    def resource_created(self, ctxt, message, subscription, product):
         return self.call(ctxt,
-                         self.make_msg('instance_created',
+                         self.make_msg('resource_created',
                                        message=message,
                                        subscription=subscription,
                                        product=product))

@@ -47,7 +47,7 @@ class WorkerService(rpc_service.Service):
         elif period == 'yearly':
             return datetime.timedelta(weeks=48)
 
-    def init_bill(self, message, subscription, product, remarks):
+    def create_bill(self, message, subscription, product, remarks):
 
         user_id = message['payload']['user_id']
         fee = product.price

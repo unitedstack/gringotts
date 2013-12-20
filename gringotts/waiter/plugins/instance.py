@@ -8,6 +8,7 @@ from stevedore import extension
 
 from gringotts import db
 from gringotts.waiter import plugin
+from gringotts.waiter.plugin import Collection
 from gringotts import exception
 from gringotts.db import models as db_models
 from gringotts import master
@@ -36,35 +37,64 @@ master_api = master.API()
 class FlavorItem(plugin.ProductItem):
 
     @staticmethod
-    def get_product_filter(self, message):
-        """Get product id from message info
+    def get_collection(self, message):
+        """Get collection from message
         """
         instance_type = message['payload']['instance_type']
+
         product_name = 'instance:%s' % instance_type
         service = 'Compute'
         region_id = 'default'
+        resource_id = message['payload']['instance_id']
+        resource_name = message['payload']['hostname']
+        resource_type = 'instance'
+        resource_status = message['payload']['state']
+        user_id = message['payload']['user_id']
+        project_id = message['payload']['tenant_id']
+        action_time = message['timestamp']
 
-        filters = dict(name=product_name,
-                       service=service,
-                       region_id=region_id)
-        return filters
+        return Collection(product_name=product_name,
+                          service=service,
+                          region_id=region_id,
+                          resource_id=resource_id,
+                          resource_name=resource_name,
+                          resource_type=resource_type,
+                          resource_status=resource_status,
+                          user_id=user_id,
+                          project_id=project_id,
+                          action_time=action_time)
 
 
 class ImageItem(plugin.ProductItem):
 
     @staticmethod
-    def get_product_filter(self, message):
-        """Get product id from message info
+    def get_collection(self, message):
+        """Get collection from message
         """
-        instance_type = message['payload']['instance_type']
-        product_name = 'instance:%s' % instance_type
+        image_name = message['payload']['image_name']
+        image_id = message['payload']['image_meta']['base_image_ref']
+
+        product_name = '%s-%s' % (image_name, image_id)
         service = 'Compute'
         region_id = 'default'
+        resource_id = message['payload']['instance_id']
+        resource_name = message['payload']['hostname']
+        resource_type = 'instance'
+        resource_status = message['payload']['state']
+        user_id = message['payload']['user_id']
+        project_id = message['payload']['tenant_id']
+        action_time = message['timestamp']
 
-        filters = dict(name=product_name,
-                       service=service,
-                       region_id=region_id)
-        return filters
+        return Collection(product_name=product_name,
+                          service=service,
+                          region_id=region_id,
+                          resource_id=resource_id,
+                          resource_name=resource_name,
+                          resource_type=resource_type,
+                          resource_status=resource_status,
+                          user_id=user_id,
+                          project_id=project_id,
+                          action_time=action_time)
 
 
 product_items = extension.ExtensionManager(
@@ -73,16 +103,9 @@ product_items = extension.ExtensionManager(
 )
 
 
-def get_products(message):
-    products = []
-    for item in product_items.extensions:
-        product = item.obj.get_product(None, message)
-        products.append(product)
-    return products
-
-
 class InstanceCreateEnd(plugin.ComputeNotificationBase):
-    """Handle the event that instance be created
+    """Handle the event that instance be created, for now, it
+       will handle two products: flavor and image
     """
     event_types = ['compute.instance.create.end']
 
@@ -95,46 +118,45 @@ class InstanceCreateEnd(plugin.ComputeNotificationBase):
             LOG.warning('The state of instance %s is not active' % instance_id)
             raise exception.InstanceStateError(instance_id=instance_id)
 
-        # Get products from db based on message info
-        products = get_products(message)
+        subscriptions = []
 
-        # Create subscription for this resource
-        subscription_id = uuidutils.generate_uuid()
-        resource_id = message['payload']['instance_id']
-        resource_name = message['payload']['hostname']
-        resource_type = 'instance'
-        resource_status = message['payload']['state']
-        product_id = product.product_id
-        current_fee = 0
-        cron_time = None
-        status = 'active'
-        user_id = message['payload']['user_id']
-        project_id = message['payload']['tenant_id']
+        # Create subscriptions
+        for item in product_items.extensions:
+            subscription = item.obj.create_subscription(message)
+            subscriptions.append(subscription)
 
-        subscription = db_models.Subscription(
-                subscription_id, resource_id,
-                resource_name, resource_type, resource_status, product_id,
-                current_fee, cron_time, status, user_id, project_id)
-
-        try:
-            db_conn.create_subscription(None, subscription)
-        except Exception:
-            LOG.exception('Fail to create subscription: %s' % \
-                          subscription.as_dict())
-            raise exception.DBError(reason='Fail to create subscription')
+        remarks = 'Instance has been created.'
+        action_time = message['timestamp']
 
         # Notify master, just give master messages it needs
-        master_api.instance_created(context.RequestContext(),
-                                    message, subscription, product)
-        LOG.debug('I am here')
+        master_api.resource_created(context.RequestContext(),
+                                    subscriptions, action_time, remarks)
 
 
-class InstanceChangeEnd(plugin.ComputeNotificationBase):
+class InstanceStartEnd(plugin.ComputeNotificationBase):
+    """Handle the events that instances be started, for now, it will
+    handle two product: flavor and image
+    """
+    event_types = ['compute.instance.start.end']
+
+    def process_notification(self, message):
+        LOG.debug('Do action for event: %s', message['event_type'])
+
+
+class InstanceStopEnd(plugin.ComputeNotificationBase):
+    """Handle the events that instances be stopped, for now,
+       it will only handle one product: stop
+    """
+    event_types = ['compute.instance.stop.end']
+
+    def process_notification(self, message):
+        LOG.debug('Do action for event: %s', message['event_type'])
+
+
+class InstanceResizeEnd(plugin.ComputeNotificationBase):
     """Handle the events that instances be changed
     """
-    event_types = ['compute.instance.start.end',
-                   'compute.instance.stop.end',
-                   'compute.instance.resize.end']
+    event_types = ['compute.instance.resize.end']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])

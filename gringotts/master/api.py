@@ -31,7 +31,7 @@ class LocalAPI(object):
     def __init__(self):
         self._service = service.MasterService()
 
-    def instance_created(self, ctxt, message, subscription, product):
+    def resource_created(self, ctxt, message, subscription, product):
         self._service.instance_created(ctxt, message, subscription, product)
 
 

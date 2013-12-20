@@ -70,27 +70,25 @@ class MasterService(rpc_service.Service):
     def _delete_cron_job(self):
         pass
 
-    def instance_created(self, ctxt, message, subscription, product):
-        LOG.debug('Instance created: %s' % values)
+    def resource_created(self, ctxt, subscriptions, action_time, remarks):
+        LOG.debug('Resource created')
 
         launched_at = message['payload']['launched_at']
         period = product.period
 
-        remarks = 'Instance has been created'
-
         # send a initialized bill command to worker for this subscription
-        self.worker_api.init_bill(message, subscription, product, remarks)
+        self.worker_api.create_bill(message, subscriptions, remarks)
 
         # create a cron job for this subscription
         self._create_cron_job(launched_at, period,
                               message, subscription, product)
 
-    def instance_deleted(self, ctxt, values):
+    def resource_deleted(self, ctxt, values):
         LOG.debug('Instance deleted: %s' % values)
         self._back_charge()
         self._delete_cron_job()
 
-    def instance_changed(self, ctxt, values):
+    def resource_changed(self, ctxt, values):
         LOG.debug('Instance changed: %s' % values)
         self._back_charge()
         self._pre_charge()
