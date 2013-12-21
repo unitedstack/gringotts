@@ -1,5 +1,7 @@
 """SQLAlchemy storage backend."""
 
+from sqlalchemy import func
+
 from gringotts.db import base
 from gringotts.db import models as db_models
 
@@ -79,8 +81,6 @@ class Connection(base.Connection):
                                  region_id=row.region_id,
                                  description=row.description,
                                  type=row.type,
-                                 period=row.period,
-                                 accurate=row.accurate,
                                  price=row.price,
                                  unit=row.unit,
                                  created_at=row.created_at,
@@ -203,6 +203,12 @@ class Connection(base.Connection):
             query = query.filter_by(bill_id=bill.bill_id)
             query.update(bill.as_dict(), synchronize_session='fetch')
             ref = query.one()
+        return self._row_to_db_bill_model(ref)
+
+    def get_latest_bill(self, context, subscription_id):
+        session = db_session.get_session()
+        with session.begin():
+            ref = session.query(func.max(sa_models.Bill.id).label('id'))
         return self._row_to_db_bill_model(ref)
 
     def create_account(self, context, account):

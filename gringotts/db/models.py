@@ -43,13 +43,6 @@ class Product(Model):
     :param region_id: The region id the product belongs to
     :param description: Some description to this product
     :param type: The bill type of the product(free/once/regular/metered)
-    :param period: How often the product will be billd. For now, there are
-                   4 options: hourly/dayly/monthly/yearly, and default is
-                   hourly.
-    :param accurate: Whether do accurate charging, such as charging one hour
-                     even if the resource has been deleted within one hour,
-                     or charging by seconds if the resource has been deleted
-                     within one hour, default is True.
     :param price: The price of the product
     :param unit: The unit of the price, currently there are fllowing options:
                  hour, month, year, GB-hour, IOPS-hour. Note that the unit
@@ -59,7 +52,7 @@ class Product(Model):
     """
     def __init__(self,
                  product_id, name, service, region_id, description,
-                 type, period, accurate, price, unit,
+                 type, price, unit,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,
@@ -69,8 +62,6 @@ class Product(Model):
             region_id=region_id,
             description=description,
             type=type,
-            period=period,
-            accurate=accurate,
             price=price,
             unit=unit,
             created_at=created_at,

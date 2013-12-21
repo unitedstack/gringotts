@@ -118,19 +118,19 @@ class InstanceCreateEnd(plugin.ComputeNotificationBase):
             LOG.warning('The state of instance %s is not active' % instance_id)
             raise exception.InstanceStateError(instance_id=instance_id)
 
-        subscriptions = []
+        subs_products = []
 
         # Create subscriptions
         for item in product_items.extensions:
-            subscription = item.obj.create_subscription(message)
-            subscriptions.append(subscription)
+            sub, product = item.obj.create_subscription(message)
+            subs_prods.append((sub, product))
 
-        remarks = 'Instance has been created.'
+        remarks = 'Instance Has Been Created.'
         action_time = message['timestamp']
 
         # Notify master, just give master messages it needs
         master_api.resource_created(context.RequestContext(),
-                                    subscriptions, action_time, remarks)
+                                    subs_products, action_time, remarks)
 
 
 class InstanceStartEnd(plugin.ComputeNotificationBase):

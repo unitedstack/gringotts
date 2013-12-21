@@ -169,6 +169,10 @@ class ProductNameNotFound(NotFound):
     message = _("Product %(product_name)s could not be found")
 
 
+class LatestBillNotFound(NotFound):
+    message = _("Can't find latest bill for subscription: %s(subscription_id)s")
+
+
 class DiskNotFound(NotFound):
     message = _("No disk at %(location)s")
 

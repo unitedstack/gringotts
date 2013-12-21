@@ -108,7 +108,7 @@ class ProductItem(plugin.PluginBase):
             LOG.exception('Fail to create subscription: %s' % \
                           subscription.as_dict())
             raise exception.DBError(reason='Fail to create subscription')
-        return subscription
+        return subscription, product
 
 
     def get_subscription():

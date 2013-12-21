@@ -40,29 +40,18 @@ class MasterService(rpc_service.Service):
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
-    def _pre_deduct(self):
-        self.worker_api.pre_deduct()
+    def _pre_deduct(self, subscription):
+        self.worker_api.pre_deduct(subscription)
 
-    def _back_deduct(self):
-        self.worker_api.back_deduct()
+    def _back_deduct(self, subscription):
+        self.worker_api.back_deduct(subscription)
 
-    def _create_cron_job(self, launched_at, period, *args, **kwargs):
-        if period == 'hourly':
-            self.apsched.add_interval_job(_pre_deduct, hours=1,
-                                          start_date=launched_at+timedelta(hours=1),
-                                          args=args, kwargs=kwargs)
-        elif period == 'dayly':
-            self.apsched.add_interval_job(_pre_deduct, days=1,
-                                          start_date=launched_at+timedelta(days=1),
-                                          args=args, kwargs=kwargs)
-        elif period == 'monthly':
-            self.apsched.add_interval_job(_pre_deduct, weeks=4,
-                                          start_date=launched_at+timedelta(weeks=4),
-                                          args=args, kwargs=kwargs)
-        elif period == 'yearly':
-            self.apsched.add_interval_job(_pre_deduct, weeks=48,
-                                          start_date=launched_at+timedelta(weeks=48),
-                                          args=args, kwargs=kwargs)
+    def _create_cron_job(self, subscription, action_time):
+        """For now, we only supprot hourly cron job"""
+        self.apsched.add_interval_job(_pre_deduct,
+                                      hours=1, # interval
+                                      start_date=action_time+timedelta(hours=1),
+                                      args=[subscirption])
 
     def _update_cron_job(self):
         pass
@@ -70,18 +59,15 @@ class MasterService(rpc_service.Service):
     def _delete_cron_job(self):
         pass
 
-    def resource_created(self, ctxt, subscriptions, action_time, remarks):
+    def resource_created(self, ctxt, subs_products, action_time, remarks):
         LOG.debug('Resource created')
 
-        launched_at = message['payload']['launched_at']
-        period = product.period
+        for sub, product in subs_products:
+            # Create a bill for this subscription
+            self.worker_api.create_bill(sub, product, action_time, remarks)
 
-        # send a initialized bill command to worker for this subscription
-        self.worker_api.create_bill(message, subscriptions, remarks)
-
-        # create a cron job for this subscription
-        self._create_cron_job(launched_at, period,
-                              message, subscription, product)
+            # Create a cron job for this subscription
+            self._create_cron_job(sub, action_time)
 
     def resource_deleted(self, ctxt, values):
         LOG.debug('Instance deleted: %s' % values)

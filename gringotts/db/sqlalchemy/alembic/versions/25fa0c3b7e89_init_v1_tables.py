@@ -27,8 +27,6 @@ def upgrade():
         sa.Column('description', sa.String(255)),
 
         sa.Column('type', sa.String(64)),
-        sa.Column('period', sa.String(64)),
-        sa.Column('accurate', sa.String(64)),
 
         sa.Column('price', sa.Float),
         sa.Column('unit', sa.String(64)),

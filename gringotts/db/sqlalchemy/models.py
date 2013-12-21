@@ -80,8 +80,6 @@ class Product(Base):
     description = Column(String(255))
 
     type = Column(String(64))
-    period = Column(String(64))
-    accurate = Column(String(64))
 
     price = Column(Float)
     unit = Column(String(64))
