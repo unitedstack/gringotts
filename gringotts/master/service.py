@@ -32,6 +32,7 @@ class MasterService(rpc_service.Service):
         self.worker_api = worker.API()
         self.apsched = APScheduler()
         self.db_conn = db.get_connection(cfg.CONF)
+        self.jobs = {}
         super(MasterService, self).__init__(*args, **kwargs)
 
     def start(self):
@@ -43,42 +44,42 @@ class MasterService(rpc_service.Service):
     def _pre_deduct(self, subscription):
         self.worker_api.pre_deduct(subscription)
 
-    def _back_deduct(self, subscription):
-        self.worker_api.back_deduct(subscription)
-
     def _create_cron_job(self, subscription, action_time):
         """For now, we only supprot hourly cron job"""
-        self.apsched.add_interval_job(_pre_deduct,
-                                      hours=1, # interval
-                                      start_date=action_time+timedelta(hours=1),
-                                      args=[subscirption])
+        job = self.apsched.add_interval_job(_pre_deduct,
+                                            hours=1, # interval
+                                            start_date=action_time+timedelta(hours=1),
+                                            args=[subscirption])
+        self.jobs.update(subscription.subscription_id=job)
 
-    def _update_cron_job(self):
-        pass
+    def _delete_cron_job(self, subscription_id):
+        """Delete cron job related to this subscription"""
 
-    def _delete_cron_job(self):
-        pass
+        # FIXME(suo): Actually, we should store job to DB layer, not
+        # in memory
+        job = self.jobs.get(subscription_id))
+        self.apsched.unschedule_job(job)
 
-    def resource_created(self, ctxt, subs_products, action_time, remarks):
+    def resource_created(self, ctxt, subscriptions, action_time, remarks):
         LOG.debug('Resource created')
-
-        for sub, product in subs_products:
-            # Create a bill for this subscription
-            self.worker_api.create_bill(sub, product, action_time, remarks)
-
-            # Create a cron job for this subscription
+        for sub in subscriptions:
+            self.worker_api.create_bill(sub, action_time, remarks)
             self._create_cron_job(sub, action_time)
 
-    def resource_deleted(self, ctxt, values):
+    def resource_deleted(self, ctxt, subscriptions, action_time):
         LOG.debug('Instance deleted: %s' % values)
-        self._back_charge()
-        self._delete_cron_job()
+        for sub in subscriptions:
+            self.worker_api.back_deduct(sub, action_time)
+            self._delete_cron_job(sub.subscription_id)
 
-    def resource_changed(self, ctxt, values):
-        LOG.debug('Instance changed: %s' % values)
-        self._back_charge()
-        self._pre_charge()
-        self._update_cron_job()
+    def resource_changed(self, ctxt, subscriptions, action_time, remarks):
+        for sub in subscriptions:
+            if sub.status == 'active':
+                self.worker_api.back_deduct(sub, action_time)
+                self._delete_cron_job(sub.subscription_id)
+            elif sub.status == 'inactive':
+                self.worker_api.create_bill(sub, action_time, remarks)
+                self._create_cron_job(sub, action_time)
 
 
 def master():

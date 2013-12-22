@@ -45,6 +45,7 @@ def upgrade():
         sa.Column('resource_name', sa.String(255)),
         sa.Column('resource_type', sa.String(255)),
         sa.Column('resource_status', sa.String(255)),
+        sa.Column('resource_volume', sa.Integer),
 
 
         sa.Column('product_id', sa.String(255)),

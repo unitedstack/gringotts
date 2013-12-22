@@ -24,6 +24,17 @@ class ComputeNotificationBase(plugin.NotificationBase):
                            for topic in conf.notification_topics)),
         ]
 
+    def get_subscriptions(self, resource_id, status=None):
+        try:
+            subscriptions = db_conn.get_subscriptions_by_resource_id(
+                    None, resource_id, status=status)
+
+            return subscriptions
+        except Exception:
+            LOG.exception('Fail to get subscriptions of resoruce: %s' % \
+                          resource_id)
+            raise exception.DBError(reason='Fail to get subscriptions')
+
 
 class Collection(object):
     """Some field collection that ProductItem will use to get product or
@@ -31,7 +42,7 @@ class Collection(object):
     """
     def __init__(self, product_name, service, region_id, resource_id,
                  resource_name, resource_type, resource_status,
-                 user_id, project_id, action_time):
+                 resource_volume, user_id, project_id, action_time):
         self.product_name = product_name
         self.service = service
         self.region_id = region_id
@@ -39,6 +50,7 @@ class Collection(object):
         self.resource_name = resource_name
         self.resource_type = resource_type
         self.resource_status = resource_status
+        self.resource_volume = resource_volume
         self.user_id = user_id
         self.project_id = project_id
         self.action_time = action_time
@@ -79,7 +91,7 @@ class ProductItem(plugin.PluginBase):
 
         return result[0]
 
-    def create_subscription(self):
+    def create_subscription(self, message, status='active'):
         """Subscribe to this product"""
         collection = self.get_collection(message)
         product = self._get_product(collection)
@@ -90,17 +102,18 @@ class ProductItem(plugin.PluginBase):
         resource_name = collection.resource_name
         resource_type = collection.resource_type
         resource_status = collection.resource_status
+        resource_volume = collection.resource_volume
         product_id = product.product_id
         current_fee = 0
         cron_time = None
-        status = 'active'
+        status = status
         user_id = collection.user_id
         project_id = collection.project_id
 
         subscription = db_models.Subscription(
                 subscription_id, resource_id,
-                resource_name, resource_type, resource_status, product_id,
-                current_fee, cron_time, status, user_id, project_id)
+                resource_name, resource_type, resource_status, resource_volume,
+                product_id, current_fee, cron_time, status, user_id, project_id)
 
         try:
             db_conn.create_subscription(None, subscription)
@@ -108,14 +121,4 @@ class ProductItem(plugin.PluginBase):
             LOG.exception('Fail to create subscription: %s' % \
                           subscription.as_dict())
             raise exception.DBError(reason='Fail to create subscription')
-        return subscription, product
-
-
-    def get_subscription():
-        pass
-    
-    def update_subscription():
-        pass
-
-    def delete_subscription():
-        pass
+        return subscription

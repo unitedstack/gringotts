@@ -39,8 +39,15 @@ class WorkerService(rpc_service.Service):
 
     def create_bill(self, subscription, product, action_time, remarks):
 
+        # Get product
+        try:
+            product = self.db_conn.get_product(subscription.product_id)
+        except Exception:
+            LOG.error('Fail to find the product: %s' % subscription.product_id)
+            raise exception.ProductIdNotFound(product_id=subscription.product_id)
+
         user_id = subscription.user_id
-        fee = product.price
+        fee = product.price * subscription.resource_volume
 
         # Confirm the user's balance is enough
         try:
@@ -97,7 +104,6 @@ class WorkerService(rpc_service.Service):
             raise exception.DBError(reason='Fail to update the account')
 
     def pre_deduct(self, subscription):
-        LOG.debug('%s, you are here' % values)
 
         user_id = subscription.user_id
         try:
@@ -107,7 +113,7 @@ class WorkerService(rpc_service.Service):
             LOG.error('Fail to find product: %s' % subscription.product_id)
             raise exception.ProductIdNotFound(product_id=subscription.product_id)
 
-        fee = product.price
+        fee = product.price * subscription.resource_volume
 
         # Confirm the user's balance is enough
         try:
@@ -164,8 +170,59 @@ class WorkerService(rpc_service.Service):
             LOG.waring('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
 
-    def back_deduct(self, subscription):
-        pass
+    def back_deduct(self, subscription, action_time):
+        # Get product
+        try:
+            product = self.db_conn.get_product(None,
+                                               subscription.product_id)
+        except Exception:
+            LOG.error('Fail to find product: %s' % subscription.product_id)
+            raise exception.ProductIdNotFound(product_id=subscription.product_id)
+
+        # Confirm the resource is health
+
+        # Update the bill
+        try:
+            bill = self.db_conn.get_latest_bill(None, subscription.subscription_id)
+        except Exception:
+            LOG.error('Fail to get latest bill belongs to subscription: %s' \
+                      % subscription.product_id)
+            raise exception.LatestBillNotFound(subscription_id=\
+                                               subscription.subscription_id)
+
+        delta = (bill.end_time - action_time).seconds
+        more_fee = (delta/3600.0) * product.price * subscription.resource_volume
+        bill.end_time = action_time
+        bill.fee -= more_fee
+        bill.price = product.price
+        bill.unit = product.unit
+
+        try:
+            self.db_conn.update_bill(None, bill)
+        except Exception:
+            LOG.exception('Fail to update bill: %s' % bill.as_dict())
+            raise exception.DBError(reason='Fail to update bill')
+
+        # Update the subscription
+        subscription.current_fee -= more_fee
+        subscription.cron_time = None
+        subscription.status = 'inactive'
+        try:
+            sub = self.db_conn.update_subscription(None, subscription)
+        except Exception:
+            LOG.waring('Fail to update the subscription: %s' % subscription_id)
+            raise exception.DBError(reason='Fail to update the subscription')
+
+        # Update the account
+        user_id = subscription.user_id
+        try:
+            account = self.db_conn.get_account(None, user_id)
+            account.balance += more_fee
+            account.consumption -= more_fee
+            account = self.db_conn.update_account(None, account)
+        except Exception:
+            LOG.waring('Fail to update the account: %s' % user_id)
+            raise exception.DBError(reason='Fail to update the account')
 
 
 def worker():

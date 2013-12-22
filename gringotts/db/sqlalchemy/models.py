@@ -101,6 +101,7 @@ class Subscription(Base):
     resource_name = Column(String(255))
     resource_type = Column(String(255))
     resource_status = Column(String(255))
+    resource_volume = Column(Integer)
 
     product_id = Column(String(255))
     current_fee = Column(Float)

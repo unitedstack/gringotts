@@ -147,7 +147,7 @@ class ImageUnacceptable(GringottsException):
 
 
 class InstanceStateError(GringottsException):
-    message = _("The state of the instance %(instance_id)s is not active")
+    message = _("The state of the instance %(instance_id)s is %(state)s")
 
 
 # Cannot be templated as the error syntax varies.

@@ -15,6 +15,7 @@ from gringotts import master
 
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import context
 
 
@@ -49,9 +50,10 @@ class FlavorItem(plugin.ProductItem):
         resource_name = message['payload']['hostname']
         resource_type = 'instance'
         resource_status = message['payload']['state']
+        resource_volume = 1
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
-        action_time = message['timestamp']
+        action_time = timeutils.parse_isotime(message['timestamp'])
 
         return Collection(product_name=product_name,
                           service=service,
@@ -60,6 +62,7 @@ class FlavorItem(plugin.ProductItem):
                           resource_name=resource_name,
                           resource_type=resource_type,
                           resource_status=resource_status,
+                          resource_volume=resource_volume,
                           user_id=user_id,
                           project_id=project_id,
                           action_time=action_time)
@@ -81,9 +84,10 @@ class ImageItem(plugin.ProductItem):
         resource_name = message['payload']['hostname']
         resource_type = 'instance'
         resource_status = message['payload']['state']
+        resource_volume = 1
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
-        action_time = message['timestamp']
+        action_time = timeutils.parse_isotime(message['timestamp'])
 
         return Collection(product_name=product_name,
                           service=service,
@@ -92,6 +96,38 @@ class ImageItem(plugin.ProductItem):
                           resource_name=resource_name,
                           resource_type=resource_type,
                           resource_status=resource_status,
+                          resource_volume=resource_volume,
+                          user_id=user_id,
+                          project_id=project_id,
+                          action_time=action_time)
+
+
+class DiskItem(plugin.ProductItem):
+
+    @staticmethod
+    def get_collection(self, message):
+        """Get collection from message
+        """
+        product_name = 'volume.size'
+        service = 'BlockStorage'
+        region_id = 'default'
+        resource_id = message['payload']['instance_id']
+        resource_name = message['payload']['hostname']
+        resource_type = 'instance'
+        resource_status = message['payload']['state']
+        resource_volume = message['payload']['disk_gb']
+        user_id = message['payload']['user_id']
+        project_id = message['payload']['tenant_id']
+        action_time = timeutils.parse_isotime(message['timestamp'])
+
+        return Collection(product_name=product_name,
+                          service=service,
+                          region_id=region_id,
+                          resource_id=resource_id,
+                          resource_name=resource_name,
+                          resource_type=resource_type,
+                          resource_status=resource_status,
+                          resource_volume=resource_volume,
                           user_id=user_id,
                           project_id=project_id,
                           action_time=action_time)
@@ -116,41 +152,85 @@ class InstanceCreateEnd(plugin.ComputeNotificationBase):
         if message['payload']['state'] != 'active':
             instance_id = message['payload']['instance_id']
             LOG.warning('The state of instance %s is not active' % instance_id)
-            raise exception.InstanceStateError(instance_id=instance_id)
+            raise exception.InstanceStateError(instance_id=instance_id,
+                                               state=message['payload']['state'])
 
-        subs_products = []
+        subscriptions = []
 
         # Create subscriptions
-        for item in product_items.extensions:
-            sub, product = item.obj.create_subscription(message)
-            subs_prods.append((sub, product))
+        for ext in product_items.extensions:
+            # disk extension is used when instance been stopped
+            if ext.name == 'disk':
+                ext.obj.create_subscription(message, status='inactive')
+            else:
+                sub = ext.obj.create_subscription(message)
+                subscriptions.append(sub)
 
         remarks = 'Instance Has Been Created.'
-        action_time = message['timestamp']
+        action_time = timeutils.parse_isotime(message['timestamp'])
 
         # Notify master, just give master messages it needs
         master_api.resource_created(context.RequestContext(),
-                                    subs_products, action_time, remarks)
+                                    subscriptions, action_time, remarks)
 
 
 class InstanceStartEnd(plugin.ComputeNotificationBase):
     """Handle the events that instances be started, for now, it will
     handle two product: flavor and image
     """
-    event_types = ['compute.instance.start.end']
+    event_types = ['compute.instance.power_on.end']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
+
+        # We only care the instance started successfully
+        if message['payload']['state'] != 'active':
+            instance_id = message['payload']['instance_id']
+            LOG.warning('The state of instance %s is not stopped' % instance_id)
+            raise exception.InstanceStateError(instance_id=instance_id
+                                               state=message['payload']['state'])
+
+        resource_id = message['payload']['instance_id']
+
+        # Get all subscriptions, include active and inactive
+        subscriptions = self.get_subscriptions(resource_id)
+
+        remarks = 'Instance Has Been Started.'
+        action_time = timeutils.parse_isotime(message['timestamp'])
+
+        # Notify master, just give master messages it needs
+        master_api.resource_started(context.RequestContext(),
+                                    subscriptions,
+                                    action_time, remarks)
 
 
 class InstanceStopEnd(plugin.ComputeNotificationBase):
     """Handle the events that instances be stopped, for now,
-       it will only handle one product: stop
+       it will only handle one product: volume.size
     """
-    event_types = ['compute.instance.stop.end']
+    event_types = ['compute.instance.power_off.end']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
+
+        # We only care the instance stopped successfully
+        if message['payload']['state'] != 'stopped':
+            instance_id = message['payload']['instance_id']
+            LOG.warning('The state of instance %s is not stopped' % instance_id)
+            raise exception.InstanceStateError(instance_id=instance_id
+                                               state=message['payload']['state'])
+
+        # Get all subscriptions
+        resource_id = message['payload']['instance_id']
+        subscriptions = self.get_subscriptions(resource_id)
+
+        remarks = 'Instance Has Been Stopped.'
+        action_time = timeutils.parse_isotime(message['timestamp'])
+
+        # Notify master, just give master messages it needs
+        master_api.resource_changed(context.RequestContext(),
+                                    subscriptions,
+                                    action_time, remarks)
 
 
 class InstanceResizeEnd(plugin.ComputeNotificationBase):
@@ -169,3 +249,21 @@ class InstanceDeleteEnd(plugin.ComputeNotificationBase):
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
+
+        # We only care the instance stopped successfully
+        if message['payload']['state'] != 'deleted':
+            instance_id = message['payload']['instance_id']
+            LOG.warning('The state of instance %s is not stopped' % instance_id)
+            raise exception.InstanceStateError(instance_id=instance_id
+                                               state=message['payload']['state'])
+
+        # Get active subscriptions
+        resource_id = message['payload']['instance_id']
+        subscriptions = self.get_subscriptions(resource_id,
+                                               status='active')
+
+        action_time = timeutils.parse_isotime(message['timestamp'])
+
+        # Notify master, just give master messages it needs
+        master_api.resource_deleted(context.RequestContext(),
+                                    subscriptions, action_time)

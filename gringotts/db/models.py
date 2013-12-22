@@ -42,7 +42,7 @@ class Product(Model):
     :param service: The service the product belongs to
     :param region_id: The region id the product belongs to
     :param description: Some description to this product
-    :param type: The bill type of the product(free/once/regular/metered)
+    :param type: The bill type of the product(regular/metered)
     :param price: The price of the product
     :param unit: The unit of the price, currently there are fllowing options:
                  hour, month, year, GB-hour, IOPS-hour. Note that the unit
@@ -76,6 +76,7 @@ class Subscription(Model):
     :param resource_name: The name of the resource 
     :param resource_type: The type of the resource
     :param resource_status: The status of the resource
+    :param resource_volume: The volume of the resource
     :param product_id: The product this resource subscribes to
     :param current_fee: The total fee this resource spent from creation to now
     :param cron_time: The next bill time
@@ -85,7 +86,8 @@ class Subscription(Model):
     """
     def __init__(self,
                  subscription_id, resource_id, resource_name, resource_type,
-                 resource_status, product_id, current_fee, cron_time, status,
+                 resource_status, resoruce_volume, product_id, current_fee,
+                 cron_time, status,
                  user_id, project_id,
                  created_at=None, updated_at=None):
         Model.__init__(
@@ -95,6 +97,7 @@ class Subscription(Model):
             resource_name=resource_name,
             resource_type=resource_type,
             resource_status=resource_status,
+            resource_volume=resource_volume,
             product_id=product_id,
             current_fee=current_fee,
             cron_time=cron_time,

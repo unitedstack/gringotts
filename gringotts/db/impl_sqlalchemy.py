@@ -93,6 +93,7 @@ class Connection(base.Connection):
                                       resource_name=row.resource_name,
                                       resource_type=row.resource_type,
                                       resource_status=row.resource_status,
+                                      resource_volume=row.resource_volume,
                                       product_id=row.product_id,
                                       current_fee=row.current_fee,
                                       cron_time=row.cron_time,
@@ -187,6 +188,14 @@ class Connection(base.Connection):
             query.update(subscription.as_dict(), synchronize_session='fetch')
             ref = query.one()
         return self._row_to_db_subscription_model(ref)
+
+    def get_subscriptions_by_resource_id(self, context, resource_id,
+                                         status=None):
+        query = model_query(context, sa_models.Subscription).\
+                filter_by(resource_id=resource_id).
+                filter_by(status=sub_status)
+        ref = query.all()
+        return (self._row_to_db_subscription_model(r) for r in ref)
 
     def create_bill(self, context, bill):
         session = db_session.get_session()
