@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 
-from sqlalchemy import func
+from sqlalchemy import desc
 
 from gringotts.db import base
 from gringotts.db import models as db_models
@@ -207,6 +207,14 @@ class Connection(base.Connection):
         ref = query.all()
         return (self._row_to_db_subscription_model(r) for r in ref)
 
+    def get_subscription(self, context, subscription_id):
+        session = db_session.get_session()
+        with session.begin():
+            query = model_query(context, sa_models.Subscription)
+            query = query.filter_by(subscription_id=subscription_id)
+            ref = query.one()
+        return self._row_to_db_subscription_model(ref)
+
     def create_bill(self, context, bill):
         session = db_session.get_session()
         with session.begin():
@@ -227,7 +235,9 @@ class Connection(base.Connection):
     def get_latest_bill(self, context, subscription_id):
         session = db_session.get_session()
         with session.begin():
-            ref = session.query(func.max(sa_models.Bill.id).label('id'))
+            query = model_query(context, sa_models.Bill)
+            query = query.filter_by(subscription_id=subscription_id)
+            ref = query.order_by(desc(sa_models.Bill.id)).one()
         return self._row_to_db_bill_model(ref)
 
     def create_account(self, context, account):

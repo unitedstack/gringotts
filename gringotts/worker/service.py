@@ -8,10 +8,13 @@ from gringotts import exception
 from gringotts.openstack.common import log
 from gringotts.openstack.common.rpc import service as rpc_service
 from gringotts.openstack.common import service as os_service
+from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import uuidutils
 
 from gringotts.service import prepare_service
 
+
+TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 
 LOG = log.getLogger(__name__)
 
@@ -39,6 +42,11 @@ class WorkerService(rpc_service.Service):
         self.tg.add_timer(604800, lambda: None)
 
     def create_bill(self, ctxt, subscription, action_time, remarks):
+
+        # Convert serialized dict/string to object
+        subscription = db_models.Subscription(**subscription)
+        action_time = timeutils.parse_strtime(action_time,
+                                              fmt=TIMESTAMP_TIME_FORMAT)
 
         # Get product
         try:
@@ -104,7 +112,15 @@ class WorkerService(rpc_service.Service):
             LOG.warning('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
 
-    def pre_deduct(self, ctxt, subscription):
+    def pre_deduct(self, ctxt, subscription_id):
+
+        # Get subscription
+        try:
+            subscription = self.db_conn.get_subscription(None, subscription_id)
+        except Exception:
+            LOG.exception('Fail to get subscription: %s' %
+                          subscription_id)
+            raise exception.DBError(reason='Fail to get subscription')
 
         user_id = subscription.user_id
         try:
@@ -171,7 +187,13 @@ class WorkerService(rpc_service.Service):
             LOG.warning('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
 
-    def back_deduct(self, ctxt, subscription, action_time):
+    def close_bill(self, ctxt, subscription, action_time):
+
+        # Convert serialized dict/string to object
+        subscription = db_models.Subscription(**subscription)
+        action_time = timeutils.parse_strtime(action_time,
+                                              fmt=TIMESTAMP_TIME_FORMAT)
+
         # Get product
         try:
             product = self.db_conn.get_product(None,

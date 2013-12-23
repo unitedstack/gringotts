@@ -12,12 +12,9 @@ from gringotts.waiter.plugin import Collection
 
 from gringotts.openstack.common import context
 from gringotts.openstack.common import log
-from gringotts.openstack.common import timeutils
 
 
 LOG = log.getLogger(__name__)
-
-TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 
 
 OPTS = [
@@ -50,7 +47,6 @@ class FlavorItem(plugin.ProductItem):
         resource_volume = 1
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
-        action_time = timeutils.parse_isotime(message['timestamp'])
 
         return Collection(product_name=product_name,
                           service=service,
@@ -61,8 +57,7 @@ class FlavorItem(plugin.ProductItem):
                           resource_status=resource_status,
                           resource_volume=resource_volume,
                           user_id=user_id,
-                          project_id=project_id,
-                          action_time=action_time)
+                          project_id=project_id)
 
 
 class ImageItem(plugin.ProductItem):
@@ -83,7 +78,6 @@ class ImageItem(plugin.ProductItem):
         resource_volume = 1
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
-        action_time = timeutils.parse_isotime(message['timestamp'])
 
         return Collection(product_name=product_name,
                           service=service,
@@ -94,8 +88,7 @@ class ImageItem(plugin.ProductItem):
                           resource_status=resource_status,
                           resource_volume=resource_volume,
                           user_id=user_id,
-                          project_id=project_id,
-                          action_time=action_time)
+                          project_id=project_id)
 
 
 class DiskItem(plugin.ProductItem):
@@ -113,7 +106,6 @@ class DiskItem(plugin.ProductItem):
         resource_volume = message['payload']['disk_gb']
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
-        action_time = timeutils.parse_isotime(message['timestamp'])
 
         return Collection(product_name=product_name,
                           service=service,
@@ -124,8 +116,7 @@ class DiskItem(plugin.ProductItem):
                           resource_status=resource_status,
                           resource_volume=resource_volume,
                           user_id=user_id,
-                          project_id=project_id,
-                          action_time=action_time)
+                          project_id=project_id)
 
 
 product_items = extension.ExtensionManager(
@@ -159,11 +150,10 @@ class InstanceCreateEnd(plugin.ComputeNotificationBase):
                 ext.obj.create_subscription(message, status='inactive')
             else:
                 sub = ext.obj.create_subscription(message)
-                subscriptions.append(sub)
+                subscriptions.append(sub.as_dict())
 
         remarks = 'Instance Has Been Created.'
-        action_time = timeutils.parse_strtime(message['timestamp'],
-                                              fmt=TIMESTAMP_TIME_FORMAT)
+        action_time = message['timestamp']
 
         # Notify master, just give master messages it needs
         master_api.resource_created(context.RequestContext(),
@@ -192,8 +182,7 @@ class InstanceStartEnd(plugin.ComputeNotificationBase):
         subscriptions = self.get_subscriptions(resource_id)
 
         remarks = 'Instance Has Been Started.'
-        action_time = timeutils.parse_strtime(message['timestamp'],
-                                              fmt=TIMESTAMP_TIME_FORMAT)
+        action_time = message['timestamp']
 
         # Notify master, just give master messages it needs
         master_api.resource_started(context.RequestContext(),
@@ -222,8 +211,7 @@ class InstanceStopEnd(plugin.ComputeNotificationBase):
         subscriptions = self.get_subscriptions(resource_id)
 
         remarks = 'Instance Has Been Stopped.'
-        action_time = timeutils.parse_strtime(message['timestamp'],
-                                              fmt=TIMESTAMP_TIME_FORMAT)
+        action_time = message['timestamp']
 
         # Notify master, just give master messages it needs
         master_api.resource_changed(context.RequestContext(),
@@ -260,8 +248,7 @@ class InstanceDeleteEnd(plugin.ComputeNotificationBase):
         subscriptions = self.get_subscriptions(resource_id,
                                                status='active')
 
-        action_time = timeutils.parse_strtime(message['timestamp'],
-                                              fmt=TIMESTAMP_TIME_FORMAT)
+        action_time = message['timestamp']
 
         # Notify master, just give master messages it needs
         master_api.resource_deleted(context.RequestContext(),

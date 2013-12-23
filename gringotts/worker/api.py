@@ -34,11 +34,11 @@ class LocalAPI(object):
     def create_bill(self, ctxt, subscription, action_time, remarks):
         self._service.create_bill(ctxt, subscription, action_time, remarks)
 
-    def pre_deduct(self, ctxt, subscription):
-        self._service.pre_deduct(ctxt, subscription)
+    def pre_deduct(self, ctxt, subscription_id):
+        self._service.pre_deduct(ctxt, subscription_id)
 
-    def back_deduct(self, ctxt, subscription, action_time):
-        self._service.back_deduct(ctxt, subscription, action_time)
+    def close_bill(self, ctxt, subscription, action_time):
+        self._service.close_bill(ctxt, subscription, action_time)
 
 
 class API(LocalAPI):

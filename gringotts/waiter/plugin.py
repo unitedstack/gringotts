@@ -32,10 +32,10 @@ class ComputeNotificationBase(plugin.NotificationBase):
 
     def get_subscriptions(self, resource_id, status=None):
         try:
-            subscriptions = db_conn.get_subscriptions_by_resource_id(
+            subs = db_conn.get_subscriptions_by_resource_id(
                 None, resource_id, status=status)
 
-            return subscriptions
+            return [sub.as_dict() for sub in subs]
         except Exception:
             LOG.exception('Fail to get subscriptions of resoruce: %s' %
                           resource_id)
@@ -48,7 +48,7 @@ class Collection(object):
     """
     def __init__(self, product_name, service, region_id, resource_id,
                  resource_name, resource_type, resource_status,
-                 resource_volume, user_id, project_id, action_time):
+                 resource_volume, user_id, project_id):
         self.product_name = product_name
         self.service = service
         self.region_id = region_id
@@ -59,7 +59,6 @@ class Collection(object):
         self.resource_volume = resource_volume
         self.user_id = user_id
         self.project_id = project_id
-        self.action_time = action_time
 
     def as_dict(self):
         return copy.copy(self.__dict__)

@@ -10,10 +10,13 @@ from gringotts.openstack.common import context
 from gringotts.openstack.common import log
 from gringotts.openstack.common.rpc import service as rpc_service
 from gringotts.openstack.common import service as os_service
+from gringotts.openstack.common import timeutils
 from gringotts.service import prepare_service
 
 
 LOG = log.getLogger(__name__)
+
+TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 
 OPTS = []
 
@@ -32,32 +35,31 @@ class MasterService(rpc_service.Service):
         )
         self.worker_api = worker.API()
         self.apsched = APScheduler()
-        self.apsched.start()
         self.db_conn = db.get_connection(cfg.CONF)
         self.jobs = {}
         super(MasterService, self).__init__(*args, **kwargs)
 
     def start(self):
         super(MasterService, self).start()
+        self.apsched.start()
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
-    def _pre_deduct(self, subscription):
-        self.worker_api.pre_deduct(context.RequestContext(), subscription)
+    def _pre_deduct(self, subscription_id):
+        self.worker_api.pre_deduct(context.RequestContext(), subscription_id)
 
-    def _test(self, subscription):
-        LOG.debug('in testing....')
-
-    def _create_cron_job(self, subscription, action_time):
+    def _create_cron_job(self, subscription_id, action_time):
         """For now, we only supprot hourly cron job
         """
-        job = self.apsched.add_interval_job(self._test,
+        action_time = timeutils.parse_strtime(action_time,
+                                              fmt=TIMESTAMP_TIME_FORMAT)
+        job = self.apsched.add_interval_job(self._pre_deduct,
                                             #hours=1,
                                             minutes=1,
                                             start_date=action_time + timedelta(minutes=1),
                                             #start_date=action_time + timedelta(hours=1),
-                                            args=[subscription])
-        self.jobs[subscription.subscription_id] = job
+                                            args=[subscription_id])
+        self.jobs[subscription_id] = job
 
     def _delete_cron_job(self, subscription_id):
         """Delete cron job related to this subscription
@@ -72,25 +74,25 @@ class MasterService(rpc_service.Service):
         for sub in subscriptions:
             self.worker_api.create_bill(context.RequestContext(),
                                         sub, action_time, remarks)
-            self._create_cron_job(sub, action_time)
+            self._create_cron_job(sub.get('subscription_id'), action_time)
 
     def resource_deleted(self, ctxt, subscriptions, action_time):
         LOG.debug('Instance deleted')
         for sub in subscriptions:
-            self.worker_api.back_deduct(context.RequestContext(),
-                                        sub, action_time)
-            self._delete_cron_job(sub.subscription_id)
+            self.worker_api.close_bill(context.RequestContext(),
+                                       sub, action_time)
+            self._delete_cron_job(sub.get('subscription_id'))
 
     def resource_changed(self, ctxt, subscriptions, action_time, remarks):
         for sub in subscriptions:
             if sub.status == 'active':
-                self.worker_api.back_deduct(context.RequestContext(),
-                                            sub, action_time)
-                self._delete_cron_job(sub.subscription_id)
+                self.worker_api.close_bill(context.RequestContext(),
+                                           sub, action_time)
+                self._delete_cron_job(sub.get('subscription_id'))
             elif sub.status == 'inactive':
                 self.worker_api.create_bill(context.RequestContext(),
                                             sub, action_time, remarks)
-                self._create_cron_job(sub, action_time)
+                self._create_cron_job(sub.get('subscription_id'), action_time)
 
 
 def master():
