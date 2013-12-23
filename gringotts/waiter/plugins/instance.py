@@ -17,6 +17,8 @@ from gringotts.openstack.common import timeutils
 
 LOG = log.getLogger(__name__)
 
+TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
+
 
 OPTS = [
     cfg.StrOpt('nova_control_exchange',
@@ -33,7 +35,6 @@ master_api = master.API()
 
 class FlavorItem(plugin.ProductItem):
 
-    @staticmethod
     def get_collection(self, message):
         """Get collection from message
         """
@@ -66,7 +67,6 @@ class FlavorItem(plugin.ProductItem):
 
 class ImageItem(plugin.ProductItem):
 
-    @staticmethod
     def get_collection(self, message):
         """Get collection from message
         """
@@ -100,7 +100,6 @@ class ImageItem(plugin.ProductItem):
 
 class DiskItem(plugin.ProductItem):
 
-    @staticmethod
     def get_collection(self, message):
         """Get collection from message
         """
@@ -163,7 +162,8 @@ class InstanceCreateEnd(plugin.ComputeNotificationBase):
                 subscriptions.append(sub)
 
         remarks = 'Instance Has Been Created.'
-        action_time = timeutils.parse_isotime(message['timestamp'])
+        action_time = timeutils.parse_strtime(message['timestamp'],
+                                              fmt=TIMESTAMP_TIME_FORMAT)
 
         # Notify master, just give master messages it needs
         master_api.resource_created(context.RequestContext(),
@@ -192,7 +192,8 @@ class InstanceStartEnd(plugin.ComputeNotificationBase):
         subscriptions = self.get_subscriptions(resource_id)
 
         remarks = 'Instance Has Been Started.'
-        action_time = timeutils.parse_isotime(message['timestamp'])
+        action_time = timeutils.parse_strtime(message['timestamp'],
+                                              fmt=TIMESTAMP_TIME_FORMAT)
 
         # Notify master, just give master messages it needs
         master_api.resource_started(context.RequestContext(),
@@ -221,7 +222,8 @@ class InstanceStopEnd(plugin.ComputeNotificationBase):
         subscriptions = self.get_subscriptions(resource_id)
 
         remarks = 'Instance Has Been Stopped.'
-        action_time = timeutils.parse_isotime(message['timestamp'])
+        action_time = timeutils.parse_strtime(message['timestamp'],
+                                              fmt=TIMESTAMP_TIME_FORMAT)
 
         # Notify master, just give master messages it needs
         master_api.resource_changed(context.RequestContext(),
@@ -258,7 +260,8 @@ class InstanceDeleteEnd(plugin.ComputeNotificationBase):
         subscriptions = self.get_subscriptions(resource_id,
                                                status='active')
 
-        action_time = timeutils.parse_isotime(message['timestamp'])
+        action_time = timeutils.parse_strtime(message['timestamp'],
+                                              fmt=TIMESTAMP_TIME_FORMAT)
 
         # Notify master, just give master messages it needs
         master_api.resource_deleted(context.RequestContext(),

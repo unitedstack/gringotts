@@ -86,6 +86,8 @@ def upgrade():
 
     op.create_table(
         'account',
+
+        sa.Column('id', sa.Integer, primary_key=True),
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255)),
         sa.Column('balance', sa.Float),
@@ -95,6 +97,8 @@ def upgrade():
 
     op.create_table(
         'charge',
+
+        sa.Column('id', sa.Integer, primary_key=True),
         sa.Column('charge_id', sa.String(255)),
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255)),

@@ -31,8 +31,8 @@ class LocalAPI(object):
     def __init__(self):
         self._service = service.WorkerService()
 
-    def create_bill(self, ctxt, subscription, product, action_time, remarks):
-        self._service.create_bill(ctxt, subscription, product, action_time, remarks)
+    def create_bill(self, ctxt, subscription, action_time, remarks):
+        self._service.create_bill(ctxt, subscription, action_time, remarks)
 
     def pre_deduct(self, ctxt, subscription):
         self._service.pre_deduct(ctxt, subscription)

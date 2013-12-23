@@ -77,8 +77,8 @@ class ProductItem(plugin.PluginBase):
     def _get_product(self, collection):
         """Get product from db
         """
-        filters = dict(product_name=collection.product_name,
-                       service=collection.collection,
+        filters = dict(name=collection.product_name,
+                       service=collection.service,
                        region_id=collection.region_id)
 
         result = list(db_conn.get_products(None, filters=filters))

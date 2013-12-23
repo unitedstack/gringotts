@@ -121,7 +121,7 @@ class Bill(Base):
 
     id = Column(Integer, primary_key=True)
 
-    charge_id = Column(String(255))
+    bill_id = Column(String(255))
     start_time = Column(DateTime)
     end_time = Column(DateTime)
 
@@ -141,7 +141,7 @@ class Bill(Base):
 class Account(Base):
 
     __tablename__ = 'account'
-    
+
     id = Column(Integer, primary_key=True)
     user_id = Column(String(255))
     project_id = Column(String(255))

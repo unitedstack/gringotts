@@ -38,11 +38,11 @@ class WorkerService(rpc_service.Service):
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
-    def create_bill(self, ctxt, subscription, product, action_time, remarks):
+    def create_bill(self, ctxt, subscription, action_time, remarks):
 
         # Get product
         try:
-            product = self.db_conn.get_product(subscription.product_id)
+            product = self.db_conn.get_product(None, subscription.product_id)
         except Exception:
             LOG.error('Fail to find the product: %s' % subscription.product_id)
             raise exception.ProductIdNotFound(product_id=subscription.product_id)
@@ -54,11 +54,11 @@ class WorkerService(rpc_service.Service):
         try:
             account = self.db_conn.get_account(None, user_id)
         except Exception:
-            LOG.waring('Fail to find the account: %s' % user_id)
+            LOG.warning('Fail to find the account: %s' % user_id)
             raise exception.DBError(reason='Fail to find the account')
 
         if account.balance < fee:
-            LOG.waring("The balance of the account(%s) is not enough to"
+            LOG.warning("The balance of the account(%s) is not enough to"
                        "pay for the fee: %s" % (user_id, fee))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
@@ -92,7 +92,7 @@ class WorkerService(rpc_service.Service):
         try:
             self.db_conn.update_subscription(None, subscription)
         except Exception:
-            LOG.waring('Fail to update the subscription: %s' % subscription_id)
+            LOG.warning('Fail to update the subscription: %s' % subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
 
         # Update the account
@@ -101,7 +101,7 @@ class WorkerService(rpc_service.Service):
         try:
             account = self.db_conn.update_account(None, account)
         except Exception:
-            LOG.waring('Fail to update the account: %s' % user_id)
+            LOG.warning('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
 
     def pre_deduct(self, ctxt, subscription):
@@ -120,11 +120,11 @@ class WorkerService(rpc_service.Service):
         try:
             account = self.db_conn.get_account(None, user_id)
         except Exception:
-            LOG.waring('Fail to find the account: %s' % user_id)
+            LOG.warning('Fail to find the account: %s' % user_id)
             raise exception.DBError(reason='Fail to find the account')
 
         if account.balance < fee:
-            LOG.waring("The balance of the account(%s) is not enough to"
+            LOG.warning("The balance of the account(%s) is not enough to"
                        "pay for the fee: %s" % (user_id, fee))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
@@ -159,7 +159,7 @@ class WorkerService(rpc_service.Service):
         try:
             self.db_conn.update_subscription(None, subscription)
         except Exception:
-            LOG.waring('Fail to update the subscription: %s' % subscription.subscription_id)
+            LOG.warning('Fail to update the subscription: %s' % subscription.subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
 
         # Update the account
@@ -168,7 +168,7 @@ class WorkerService(rpc_service.Service):
         try:
             account = self.db_conn.update_account(None, account)
         except Exception:
-            LOG.waring('Fail to update the account: %s' % user_id)
+            LOG.warning('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
 
     def back_deduct(self, ctxt, subscription, action_time):
@@ -211,7 +211,7 @@ class WorkerService(rpc_service.Service):
         try:
             self.db_conn.update_subscription(None, subscription)
         except Exception:
-            LOG.waring('Fail to update the subscription: %s' % subscription.subscription_id)
+            LOG.warning('Fail to update the subscription: %s' % subscription.subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
 
         # Update the account
@@ -222,7 +222,7 @@ class WorkerService(rpc_service.Service):
             account.consumption -= more_fee
             account = self.db_conn.update_account(None, account)
         except Exception:
-            LOG.waring('Fail to update the account: %s' % user_id)
+            LOG.warning('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
 
 

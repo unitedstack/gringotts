@@ -93,7 +93,6 @@ class Product(APIBase):
 
     type = wsme.wsattr(wtypes.text, default='regular')
     price = wsme.wsattr(float, mandatory=True)
-    currency = wsme.wsattr(wtypes.text, default='CNY')
     unit = wsme.wsattr(wtypes.text, mandatory=True, default='hour')
 
     created_at = datetime.datetime
@@ -108,7 +107,6 @@ class Product(APIBase):
                    description='some decs',
                    type='regular',
                    price=2.5,
-                   currency='CNY',
                    unit='hour',
                    created_at=datetime.datetime.utcnow(),
                    updated_at=datetime.datetime.utcnow())

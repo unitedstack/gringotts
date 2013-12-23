@@ -86,7 +86,7 @@ class Subscription(Model):
     """
     def __init__(self,
                  subscription_id, resource_id, resource_name, resource_type,
-                 resource_status, resoruce_volume, product_id, current_fee,
+                 resource_status, resource_volume, product_id, current_fee,
                  cron_time, status,
                  user_id, project_id,
                  created_at=None, updated_at=None):
@@ -150,7 +150,7 @@ class Account(Model):
     :param currency: The currency of the account
     """
 
-    def __init__(user_id, project_id, balance, consumption, currency):
+    def __init__(self, user_id, project_id, balance, consumption, currency):
         Model.__init__(
             self,
             user_id=user_id,
@@ -170,7 +170,7 @@ class Charge(Model):
     :param charge_time: The charge time
     """
 
-    def __init__(charge_id, user_id, project_id, value,
+    def __init__(self, charge_id, user_id, project_id, value,
                  currency, charge_time):
         Model.__init__(
             self,
