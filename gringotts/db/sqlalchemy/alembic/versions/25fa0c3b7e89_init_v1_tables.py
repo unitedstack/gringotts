@@ -89,7 +89,7 @@ def upgrade():
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255)),
         sa.Column('balance', sa.Float),
-        sa.Column('consumption', sa.Float)
+        sa.Column('consumption', sa.Float),
         sa.Column('currency', sa.String(64)),
     )
 
@@ -109,3 +109,4 @@ def downgrade():
     op.drop_table('subscription')
     op.drop_table('bill')
     op.drop_table('account')
+    op.drop_table('charge')

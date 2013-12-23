@@ -1,6 +1,6 @@
 import eventlet
-import sys
 import socket
+import sys
 
 from oslo.config import cfg
 

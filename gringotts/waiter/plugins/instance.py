@@ -1,22 +1,18 @@
 #!/usr/bin/python
 """Plugins for executing specific actions acrronding to notification events.
 """
-import datetime
-
 from oslo.config import cfg
 from stevedore import extension
 
 from gringotts import db
+from gringotts import exception
+from gringotts import master
 from gringotts.waiter import plugin
 from gringotts.waiter.plugin import Collection
-from gringotts import exception
-from gringotts.db import models as db_models
-from gringotts import master
 
-from gringotts.openstack.common import log
-from gringotts.openstack.common import uuidutils
-from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import context
+from gringotts.openstack.common import log
+from gringotts.openstack.common import timeutils
 
 
 LOG = log.getLogger(__name__)
@@ -187,7 +183,7 @@ class InstanceStartEnd(plugin.ComputeNotificationBase):
         if message['payload']['state'] != 'active':
             instance_id = message['payload']['instance_id']
             LOG.warning('The state of instance %s is not stopped' % instance_id)
-            raise exception.InstanceStateError(instance_id=instance_id
+            raise exception.InstanceStateError(instance_id=instance_id,
                                                state=message['payload']['state'])
 
         resource_id = message['payload']['instance_id']
@@ -217,7 +213,7 @@ class InstanceStopEnd(plugin.ComputeNotificationBase):
         if message['payload']['state'] != 'stopped':
             instance_id = message['payload']['instance_id']
             LOG.warning('The state of instance %s is not stopped' % instance_id)
-            raise exception.InstanceStateError(instance_id=instance_id
+            raise exception.InstanceStateError(instance_id=instance_id,
                                                state=message['payload']['state'])
 
         # Get all subscriptions
@@ -254,7 +250,7 @@ class InstanceDeleteEnd(plugin.ComputeNotificationBase):
         if message['payload']['state'] != 'deleted':
             instance_id = message['payload']['instance_id']
             LOG.warning('The state of instance %s is not stopped' % instance_id)
-            raise exception.InstanceStateError(instance_id=instance_id
+            raise exception.InstanceStateError(instance_id=instance_id,
                                                state=message['payload']['state'])
 
         # Get active subscriptions

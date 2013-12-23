@@ -1,7 +1,7 @@
 from oslo.config import cfg
 
-from gringotts.openstack.common.rpc import proxy
 from gringotts.openstack.common import log
+from gringotts.openstack.common.rpc import proxy
 
 
 LOG = log.getLogger(__name__)
@@ -24,9 +24,22 @@ class MasterAPI(proxy.RpcProxy):
             topic=cfg.CONF.master.master_topic,
             default_version=self.BASE_RPC_VERSION)
 
-    def resource_created(self, ctxt, message, subscription, product):
+    def resource_created(self, ctxt, subscriptions, action_time, remarks):
         return self.call(ctxt,
                          self.make_msg('resource_created',
-                                       message=message,
-                                       subscription=subscription,
-                                       product=product))
+                                       subscriptions=subscriptions,
+                                       action_time=action_time,
+                                       remarks=remarks))
+
+    def resource_deleted(self, ctxt, subscriptions, action_time):
+        return self.call(ctxt,
+                         self.make_msg('resource_deleted',
+                                       subscriptions=subscriptions,
+                                       action_time=action_time))
+
+    def resource_changed(self, ctxt, subscriptions, action_time, remarks):
+        return self.call(ctxt,
+                         self.make_msg('resource_changed',
+                                       subscriptions=subscriptions,
+                                       action_time=action_time,
+                                       remarks=remarks))

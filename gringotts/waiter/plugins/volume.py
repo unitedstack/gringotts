@@ -1,9 +1,8 @@
 #!/usr/bin/python
 """Plugins for executing specific actions acrronding to notification events.
 """
-
-from oslo.config import cfg
 from gringotts import plugin
+from oslo.config import cfg
 
 from gringotts.openstack.common import log
 

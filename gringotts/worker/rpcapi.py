@@ -1,7 +1,7 @@
 from oslo.config import cfg
 
-from gringotts.openstack.common.rpc import proxy
 from gringotts.openstack.common import log
+from gringotts.openstack.common.rpc import proxy
 
 
 LOG = log.getLogger(__name__)
@@ -24,5 +24,13 @@ class WorkerAPI(proxy.RpcProxy):
             topic=cfg.CONF.worker.worker_topic,
             default_version=self.BASE_RPC_VERSION)
 
-    def pre_charge(self, ctxt, values):
-        return self.call(ctxt, self.make_msg('pre_charge', values=values))
+    def pre_deduct(self, ctxt, subscription):
+        return self.call(ctxt,
+                         self.make_msg('pre_deduct',
+                                       subscription=subscription))
+
+    def back_deduct(self, ctxt, subscription, action_time):
+        return self.call(ctxt,
+                         self.make_msg('back_deduct',
+                                       subscription=subscription,
+                                       action_time=action_time))

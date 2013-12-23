@@ -1,16 +1,15 @@
 from oslo.config import cfg
-from stevedore import extension
 
-from datetime import datetime, timedelta
 from apscheduler.scheduler import Scheduler as APScheduler
+from datetime import timedelta
 
 from gringotts import db
 from gringotts import worker
 
-from gringotts.service import prepare_service
 from gringotts.openstack.common import log
-from gringotts.openstack.common import service as os_service
 from gringotts.openstack.common.rpc import service as rpc_service
+from gringotts.openstack.common import service as os_service
+from gringotts.service import prepare_service
 
 
 LOG = log.getLogger(__name__)
@@ -21,6 +20,7 @@ cfg.CONF.register_opts(OPTS, group="master")
 
 cfg.CONF.import_opt('master_topic', 'gringotts.master.rpcapi',
                     group='master')
+
 
 class MasterService(rpc_service.Service):
 
@@ -45,19 +45,20 @@ class MasterService(rpc_service.Service):
         self.worker_api.pre_deduct(subscription)
 
     def _create_cron_job(self, subscription, action_time):
-        """For now, we only supprot hourly cron job"""
-        job = self.apsched.add_interval_job(_pre_deduct,
-                                            hours=1, # interval
-                                            start_date=action_time+timedelta(hours=1),
-                                            args=[subscirption])
-        self.jobs.update(subscription.subscription_id=job)
+        """For now, we only supprot hourly cron job
+        """
+        job = self.apsched.add_interval_job(MasterService._pre_deduct,
+                                            hours=1,
+                                            start_date=action_time + timedelta(hours=1),
+                                            args=[subscription])
+        self.jobs[subscription.subscription_id] = job
 
     def _delete_cron_job(self, subscription_id):
-        """Delete cron job related to this subscription"""
-
+        """Delete cron job related to this subscription
+        """
         # FIXME(suo): Actually, we should store job to DB layer, not
         # in memory
-        job = self.jobs.get(subscription_id))
+        job = self.jobs.get(subscription_id)
         self.apsched.unschedule_job(job)
 
     def resource_created(self, ctxt, subscriptions, action_time, remarks):
@@ -67,7 +68,7 @@ class MasterService(rpc_service.Service):
             self._create_cron_job(sub, action_time)
 
     def resource_deleted(self, ctxt, subscriptions, action_time):
-        LOG.debug('Instance deleted: %s' % values)
+        LOG.debug('Instance deleted')
         for sub in subscriptions:
             self.worker_api.back_deduct(sub, action_time)
             self._delete_cron_job(sub.subscription_id)

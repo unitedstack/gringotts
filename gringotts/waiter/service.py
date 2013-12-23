@@ -1,10 +1,11 @@
 from oslo.config import cfg
 from stevedore import extension
 
-from gringotts.service import prepare_service
 from gringotts.openstack.common import log
-from gringotts.openstack.common import service as os_service
 from gringotts.openstack.common.rpc import service as rpc_service
+from gringotts.openstack.common import service as os_service
+
+from gringotts.service import prepare_service
 
 
 LOG = log.getLogger(__name__)
@@ -98,7 +99,7 @@ class WaiterService(rpc_service.Service):
         try:
             ext.obj.do_actions(notification)
         except Exception:
-            LOG.exception("Some errors occured when handling event_type: %s,"\
+            LOG.exception("Some errors occured when handling event_type: %s,"
                           "the message content is: %s",
                           notification.get('event_type'),
                           notification)

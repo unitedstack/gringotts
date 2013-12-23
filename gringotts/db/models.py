@@ -151,7 +151,7 @@ class Account(Model):
     """
 
     def __init__(user_id, project_id, balance, consumption, currency):
-        Model.__init(
+        Model.__init__(
             self,
             user_id=user_id,
             project_id=project_id,

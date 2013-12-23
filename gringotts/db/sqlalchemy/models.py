@@ -122,14 +122,14 @@ class Bill(Base):
     id = Column(Integer, primary_key=True)
 
     charge_id = Column(String(255))
-    start_time = Column(Datetime)
-    end_time = Column(Datetime)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
 
     fee = Column(Float)
     price = Column(Float)
     unit = Column(String(64))
     subscription_id = Column(String(255))
-    remarks = Column(String(255)
+    remarks = Column(String(255))
 
     user_id = Column(String(255))
     project_id = Column(String(255))
@@ -141,7 +141,8 @@ class Bill(Base):
 class Account(Base):
 
     __tablename__ = 'account'
-
+    
+    id = Column(Integer, primary_key=True)
     user_id = Column(String(255))
     project_id = Column(String(255))
     balance = Column(Float)
@@ -153,6 +154,7 @@ class Charge(Base):
     
     __tablename__ = 'charge'
 
+    id = Column(Integer, primary_key=True)
     charge_id = Column(String(255))
     user_id = Column(String(255))
     project_id = Column(String(255))

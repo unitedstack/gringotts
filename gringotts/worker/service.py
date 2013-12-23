@@ -1,16 +1,16 @@
 import datetime
 from oslo.config import cfg
-from stevedore import extension
 
 from gringotts import db
-from gringotts import exception
 from gringotts.db import models as db_models
+from gringotts import exception
+
+from gringotts.openstack.common import log
+from gringotts.openstack.common.rpc import service as rpc_service
+from gringotts.openstack.common import service as os_service
+from gringotts.openstack.common import uuidutils
 
 from gringotts.service import prepare_service
-from gringotts.openstack.common import log
-from gringotts.openstack.common import uuidutils
-from gringotts.openstack.common import service as os_service
-from gringotts.openstack.common.rpc import service as rpc_service
 
 
 LOG = log.getLogger(__name__)
@@ -21,6 +21,7 @@ cfg.CONF.register_opts(OPTS, group="worker")
 
 cfg.CONF.import_opt('worker_topic', 'gringotts.worker.rpcapi',
                     group='worker')
+
 
 class WorkerService(rpc_service.Service):
 
@@ -37,7 +38,7 @@ class WorkerService(rpc_service.Service):
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
-    def create_bill(self, subscription, product, action_time, remarks):
+    def create_bill(self, ctxt, subscription, product, action_time, remarks):
 
         # Get product
         try:
@@ -58,7 +59,7 @@ class WorkerService(rpc_service.Service):
 
         if account.balance < fee:
             LOG.waring("The balance of the account(%s) is not enough to"
-                       "pay for the bill: %s" % (user_id, bill.as_dict()))
+                       "pay for the fee: %s" % (user_id, fee))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
             # exception.
@@ -87,9 +88,9 @@ class WorkerService(rpc_service.Service):
 
         # Update the subscription
         subscription.current_fee += fee
-        subscription.cron_time = action_time + timedelta(hours=1)
+        subscription.cron_time = action_time + datetime.timedelta(hours=1)
         try:
-            sub = self.db_conn.update_subscription(None, subscription)
+            self.db_conn.update_subscription(None, subscription)
         except Exception:
             LOG.waring('Fail to update the subscription: %s' % subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
@@ -103,7 +104,7 @@ class WorkerService(rpc_service.Service):
             LOG.waring('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
 
-    def pre_deduct(self, subscription):
+    def pre_deduct(self, ctxt, subscription):
 
         user_id = subscription.user_id
         try:
@@ -124,7 +125,7 @@ class WorkerService(rpc_service.Service):
 
         if account.balance < fee:
             LOG.waring("The balance of the account(%s) is not enough to"
-                       "pay for the bill: %s" % (user_id, bill.as_dict()))
+                       "pay for the fee: %s" % (user_id, fee))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
             # exception.
@@ -136,9 +137,9 @@ class WorkerService(rpc_service.Service):
         try:
             bill = self.db_conn.get_latest_bill(None, subscription.subscription_id)
         except Exception:
-            LOG.error('Fail to get latest bill belongs to subscription: %s' \
+            LOG.error('Fail to get latest bill belongs to subscription: %s'
                       % subscription.product_id)
-            raise exception.LatestBillNotFound(subscription_id=\
+            raise exception.LatestBillNotFound(subscription_id=
                                                subscription.subscription_id)
 
         bill.end_time += datetime.timedelta(hours=1)
@@ -154,11 +155,11 @@ class WorkerService(rpc_service.Service):
 
         # Update the subscription
         subscription.current_fee += fee
-        subscription.cron_time += timedelta(hours=1)
+        subscription.cron_time += datetime.timedelta(hours=1)
         try:
-            sub = self.db_conn.update_subscription(None, subscription)
+            self.db_conn.update_subscription(None, subscription)
         except Exception:
-            LOG.waring('Fail to update the subscription: %s' % subscription_id)
+            LOG.waring('Fail to update the subscription: %s' % subscription.subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
 
         # Update the account
@@ -170,7 +171,7 @@ class WorkerService(rpc_service.Service):
             LOG.waring('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
 
-    def back_deduct(self, subscription, action_time):
+    def back_deduct(self, ctxt, subscription, action_time):
         # Get product
         try:
             product = self.db_conn.get_product(None,
@@ -185,13 +186,13 @@ class WorkerService(rpc_service.Service):
         try:
             bill = self.db_conn.get_latest_bill(None, subscription.subscription_id)
         except Exception:
-            LOG.error('Fail to get latest bill belongs to subscription: %s' \
+            LOG.error('Fail to get latest bill belongs to subscription: %s'
                       % subscription.product_id)
-            raise exception.LatestBillNotFound(subscription_id=\
+            raise exception.LatestBillNotFound(subscription_id=
                                                subscription.subscription_id)
 
         delta = (bill.end_time - action_time).seconds
-        more_fee = (delta/3600.0) * product.price * subscription.resource_volume
+        more_fee = (delta / 3600.0) * product.price * subscription.resource_volume
         bill.end_time = action_time
         bill.fee -= more_fee
         bill.price = product.price
@@ -208,9 +209,9 @@ class WorkerService(rpc_service.Service):
         subscription.cron_time = None
         subscription.status = 'inactive'
         try:
-            sub = self.db_conn.update_subscription(None, subscription)
+            self.db_conn.update_subscription(None, subscription)
         except Exception:
-            LOG.waring('Fail to update the subscription: %s' % subscription_id)
+            LOG.waring('Fail to update the subscription: %s' % subscription.subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
 
         # Update the account

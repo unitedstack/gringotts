@@ -24,12 +24,9 @@ SHOULD include dedicated exception logging.
 
 """
 
-import functools
-
 from oslo.config import cfg
 import six
 
-from gringotts.openstack.common import excutils
 from gringotts.openstack.common.gettextutils import _
 from gringotts.openstack.common import log as logging
 
@@ -172,25 +169,6 @@ class ProductNameNotFound(NotFound):
 class LatestBillNotFound(NotFound):
     message = _("Can't find latest bill for subscription: %s(subscription_id)s")
 
-
-class DiskNotFound(NotFound):
-    message = _("No disk at %(location)s")
-
-
-class DriverNotFound(NotFound):
-    message = _("Failed to load driver %(driver_name)s.")
-
-
-class ImageNotFound(NotFound):
-    message = _("Image %(image_id)s could not be found.")
-
-
-class HostNotFound(NotFound):
-    message = _("Host %(host)s could not be found.")
-
-
-class FileNotFound(NotFound):
-    message = _("File %(file_path)s could not be found.")
 
 class DiskNotFound(NotFound):
     message = _("No disk at %(location)s")

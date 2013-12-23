@@ -2,8 +2,8 @@
 
 from oslo.config import cfg
 
-from gringotts.worker import service
 from gringotts.worker import rpcapi
+from gringotts.worker import service
 
 from gringotts.openstack.common import log as logging
 
@@ -31,8 +31,14 @@ class LocalAPI(object):
     def __init__(self):
         self._service = service.WorkerService()
 
-    def pre_charge(self, ctxt, values):
-        self._service.pre_charge(ctxt, values)
+    def create_bill(self, ctxt, subscription, product, action_time, remarks):
+        self._service.create_bill(ctxt, subscription, product, action_time, remarks)
+
+    def pre_deduct(self, ctxt, subscription):
+        self._service.pre_deduct(ctxt, subscription)
+
+    def back_deduct(self, ctxt, subscription, action_time):
+        self._service.back_deduct(ctxt, subscription, action_time)
 
 
 class API(LocalAPI):

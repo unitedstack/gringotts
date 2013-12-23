@@ -2,8 +2,8 @@
 
 from oslo.config import cfg
 
-from gringotts.master import service
 from gringotts.master import rpcapi
+from gringotts.master import service
 
 from gringotts.openstack.common import log as logging
 
@@ -31,8 +31,14 @@ class LocalAPI(object):
     def __init__(self):
         self._service = service.MasterService()
 
-    def resource_created(self, ctxt, message, subscription, product):
-        self._service.instance_created(ctxt, message, subscription, product)
+    def resource_created(self, ctxt, subscriptions, action_time, remarks):
+        self._service.instance_created(ctxt, subscriptions, action_time, remarks)
+
+    def resource_deleted(self, ctxt, subscriptions, action_time):
+        self._service.instance_deleted(ctxt, subscriptions, action_time)
+
+    def resource_changed(self, ctxt, subscriptions, action_time, remarks):
+        self._service.instance_changed(ctxt, subscriptions, action_time, remarks)
 
 
 class API(LocalAPI):

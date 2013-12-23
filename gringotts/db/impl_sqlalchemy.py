@@ -1,5 +1,7 @@
 """SQLAlchemy storage backend."""
 
+from __future__ import absolute_import
+
 from sqlalchemy import func
 
 from gringotts.db import base
@@ -192,7 +194,7 @@ class Connection(base.Connection):
     def get_subscriptions_by_resource_id(self, context, resource_id,
                                          status=None):
         query = model_query(context, sa_models.Subscription).\
-                filter_by(resource_id=resource_id).
+                filter_by(resource_id=resource_id).\
                 filter_by(status=sub_status)
         ref = query.all()
         return (self._row_to_db_subscription_model(r) for r in ref)
