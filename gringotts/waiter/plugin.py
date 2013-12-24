@@ -83,15 +83,15 @@ class ProductItem(plugin.PluginBase):
         result = list(db_conn.get_products(None, filters=filters))
 
         if len(result) > 1:
-            error = "Duplicated products with name(%s) within service(%s) in region_id(%s)" % \
-                    (collection.product_name, collection.service, collection.region_id)
-            LOG.error(error)
-            raise exception.DuplicatedProduct(reason=error)
+            msg = "Duplicated products with name(%s) within service(%s) in region_id(%s)" % \
+                   (collection.product_name, collection.service, collection.region_id)
+            LOG.error(msg)
+            raise exception.DuplicatedProduct(reason=msg)
 
         if len(result) == 0:
-            error = "Product with name(%s) within service(%s) in region_id(%s) not found" % \
-                    (collection.product_name, collection.service, collection.region_id)
-            LOG.warning(error)
+            msg = "Product with name(%s) within service(%s) in region_id(%s) not found" % \
+                   (collection.product_name, collection.service, collection.region_id)
+            LOG.warning(msg)
             return None
 
         return result[0]
@@ -101,6 +101,10 @@ class ProductItem(plugin.PluginBase):
         """
         collection = self.get_collection(message)
         product = self._get_product(collection)
+
+        # We don't bill the resource that can't find its products
+        if not product:
+            return None
 
         # Create subscription
         subscription_id = uuidutils.generate_uuid()

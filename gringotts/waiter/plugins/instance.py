@@ -150,7 +150,8 @@ class InstanceCreateEnd(plugin.ComputeNotificationBase):
                 ext.obj.create_subscription(message, status='inactive')
             else:
                 sub = ext.obj.create_subscription(message)
-                subscriptions.append(sub.as_dict())
+                if sub:
+                    subscriptions.append(sub.as_dict())
 
         remarks = 'Instance Has Been Created.'
         action_time = message['timestamp']
