@@ -180,3 +180,15 @@ class Charge(Model):
             value=value,
             currency=currency,
             charge_time=charge_time)
+
+
+class Region(Model):
+    """The region model
+    """
+
+    def __init__(self, region_id, name, description):
+        Model.__init__(
+            self,
+            region_id=region_id,
+            name=name,
+            description=description)

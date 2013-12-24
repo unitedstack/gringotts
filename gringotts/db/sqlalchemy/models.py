@@ -161,3 +161,13 @@ class Charge(Base):
     value = Column(Float)
     currency = Column(String(64))
     charge_time = Column(DateTime)
+
+
+class Region(Base):
+
+    __tablename__ = 'region'
+
+    id = Column(Integer, primary_key=True)
+    region_id = Column(String(255))
+    name = Column(String(255))
+    description = Column(String(255))

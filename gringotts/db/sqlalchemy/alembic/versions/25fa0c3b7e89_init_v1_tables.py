@@ -107,6 +107,14 @@ def upgrade():
         sa.Column('charge_time', sa.DateTime)
     )
 
+    op.create_table(
+        'region',
+
+        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('region_id', sa.String(255)),
+        sa.Column('name', sa.String(255)),
+        sa.Column('description', sa.String(255))
+    )
 
 def downgrade():
     op.drop_table('product')
@@ -114,3 +122,4 @@ def downgrade():
     op.drop_table('bill')
     op.drop_table('account')
     op.drop_table('charge')
+    op.drop_table('region')
