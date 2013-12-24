@@ -180,6 +180,9 @@ class InstanceStartEnd(plugin.ComputeNotificationBase):
 
         # Get all subscriptions, include active and inactive
         subscriptions = self.get_subscriptions(resource_id)
+        for sub in subscriptions:
+            sub.update(resource_status=message['payload']['state'])
+            sub.update(resource_name=message['payload']['hostname'])
 
         remarks = 'Instance Has Been Started.'
         action_time = message['timestamp']
@@ -209,6 +212,9 @@ class InstanceStopEnd(plugin.ComputeNotificationBase):
         # Get all subscriptions of this resource
         resource_id = message['payload']['instance_id']
         subscriptions = self.get_subscriptions(resource_id)
+        for sub in subscriptions:
+            sub.update(resource_status=message['payload']['state'])
+            sub.update(resource_name=message['payload']['hostname'])
 
         remarks = 'Instance Has Been Stopped.'
         action_time = message['timestamp']
@@ -247,6 +253,9 @@ class InstanceDeleteEnd(plugin.ComputeNotificationBase):
         resource_id = message['payload']['instance_id']
         subscriptions = self.get_subscriptions(resource_id,
                                                status='active')
+        for sub in subscriptions:
+            sub.update(resource_status=message['payload']['state'])
+            sub.update(resource_name=message['payload']['hostname'])
 
         action_time = message['timestamp']
 
