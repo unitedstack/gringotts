@@ -54,10 +54,8 @@ class MasterService(rpc_service.Service):
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=TIMESTAMP_TIME_FORMAT)
         job = self.apsched.add_interval_job(self._pre_deduct,
-                                            #hours=1,
-                                            minutes=1,
-                                            start_date=action_time + timedelta(minutes=1),
-                                            #start_date=action_time + timedelta(hours=1),
+                                            hours=1,
+                                            start_date=action_time + timedelta(hours=1),
                                             args=[subscription_id])
         self.jobs[subscription_id] = job
 
@@ -85,11 +83,11 @@ class MasterService(rpc_service.Service):
 
     def resource_changed(self, ctxt, subscriptions, action_time, remarks):
         for sub in subscriptions:
-            if sub.status == 'active':
+            if sub.get('status') == 'active':
                 self.worker_api.close_bill(context.RequestContext(),
                                            sub, action_time)
                 self._delete_cron_job(sub.get('subscription_id'))
-            elif sub.status == 'inactive':
+            elif sub.get('status') == 'inactive':
                 self.worker_api.create_bill(context.RequestContext(),
                                             sub, action_time, remarks)
                 self._create_cron_job(sub.get('subscription_id'), action_time)

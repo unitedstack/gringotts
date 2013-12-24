@@ -97,6 +97,7 @@ class WorkerService(rpc_service.Service):
         # Update the subscription
         subscription.current_fee += fee
         subscription.cron_time = action_time + datetime.timedelta(hours=1)
+        subscription.status = 'active'
         try:
             self.db_conn.update_subscription(None, subscription)
         except Exception:
@@ -214,7 +215,7 @@ class WorkerService(rpc_service.Service):
                                                subscription.subscription_id)
 
         delta = (bill.end_time - action_time).seconds
-        more_fee = (delta / 3600.0) * product.price * subscription.resource_volume
+        more_fee = round(((delta / 3600.0) * product.price * subscription.resource_volume), 4)
         bill.end_time = action_time
         bill.fee -= more_fee
         bill.price = product.price

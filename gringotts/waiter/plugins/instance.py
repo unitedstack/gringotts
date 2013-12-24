@@ -185,7 +185,7 @@ class InstanceStartEnd(plugin.ComputeNotificationBase):
         action_time = message['timestamp']
 
         # Notify master, just give master messages it needs
-        master_api.resource_started(context.RequestContext(),
+        master_api.resource_changed(context.RequestContext(),
                                     subscriptions,
                                     action_time, remarks)
 
@@ -206,7 +206,7 @@ class InstanceStopEnd(plugin.ComputeNotificationBase):
             raise exception.InstanceStateError(instance_id=instance_id,
                                                state=message['payload']['state'])
 
-        # Get all subscriptions
+        # Get all subscriptions of this resource
         resource_id = message['payload']['instance_id']
         subscriptions = self.get_subscriptions(resource_id)
 

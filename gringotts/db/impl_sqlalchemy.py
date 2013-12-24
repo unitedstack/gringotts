@@ -202,8 +202,9 @@ class Connection(base.Connection):
     def get_subscriptions_by_resource_id(self, context, resource_id,
                                          status=None):
         query = model_query(context, sa_models.Subscription).\
-                filter_by(resource_id=resource_id).\
-                filter_by(status=status)
+                filter_by(resource_id=resource_id)
+        if status:
+            query = query.filter_by(status=status)
         ref = query.all()
         return (self._row_to_db_subscription_model(r) for r in ref)
 
@@ -237,7 +238,7 @@ class Connection(base.Connection):
         with session.begin():
             query = model_query(context, sa_models.Bill)
             query = query.filter_by(subscription_id=subscription_id)
-            ref = query.order_by(desc(sa_models.Bill.id)).one()
+            ref = query.order_by(desc(sa_models.Bill.id)).all()[0]
         return self._row_to_db_bill_model(ref)
 
     def create_account(self, context, account):
