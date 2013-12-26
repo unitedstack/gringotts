@@ -114,7 +114,6 @@ class WorkerService(rpc_service.Service):
             raise exception.DBError(reason='Fail to update the account')
 
     def pre_deduct(self, ctxt, subscription_id):
-
         # Get subscription
         try:
             subscription = self.db_conn.get_subscription(None, subscription_id)
@@ -179,7 +178,9 @@ class WorkerService(rpc_service.Service):
             LOG.warning('Fail to update the subscription: %s' % subscription.subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
 
-        # Update the account
+        # Update the account.
+        # Note that the account is shared among different jobs, but every job has its
+        # own subcription and bill
         account.balance -= fee
         account.consumption += fee
         try:

@@ -1,4 +1,5 @@
 from oslo.config import cfg
+from eventlet.green.threading import Lock
 
 from apscheduler.scheduler import Scheduler as APScheduler
 from datetime import timedelta
@@ -37,6 +38,7 @@ class MasterService(rpc_service.Service):
         self.apsched = APScheduler()
         self.db_conn = db.get_connection(cfg.CONF)
         self.jobs = {}
+        self.lock = Lock()
         super(MasterService, self).__init__(*args, **kwargs)
 
     def start(self):
@@ -46,7 +48,11 @@ class MasterService(rpc_service.Service):
         self.tg.add_timer(604800, lambda: None)
 
     def _pre_deduct(self, subscription_id):
-        self.worker_api.pre_deduct(context.RequestContext(), subscription_id)
+        # NOTE(suo): Because account is shared among different cron job threads, so we must
+        # ensure thread synchronization here. Because we use greenthread in master service,
+        # so we also should use green lock.
+        with self.lock:
+            self.worker_api.pre_deduct(context.RequestContext(), subscription_id)
 
     def _create_cron_job(self, subscription_id, action_time):
         """For now, we only supprot hourly cron job
