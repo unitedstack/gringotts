@@ -2,10 +2,22 @@
 rabbit_password=rachel
 rabbit_host=localhost
 rabbit_port=5673
-debut=True
+debug=True
 
 [waiter]
 queue_name=gringotts.notification
 
 [database]
 connection=mysql://root:rachel@localhost/gringotts?charset=utf8
+
+[keystone_authtoken]
+
+# Keystone account username (string value)
+#admin_user=<None>
+
+# Keystone account password (string value)
+#admin_password=<None>
+
+# Keystone service account tenant name to validate user tokens
+# (string value)
+#admin_tenant_name=admin

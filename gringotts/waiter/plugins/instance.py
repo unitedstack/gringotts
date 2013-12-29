@@ -4,7 +4,6 @@
 from oslo.config import cfg
 from stevedore import extension
 
-from gringotts import db
 from gringotts import exception
 from gringotts import master
 from gringotts.waiter import plugin
@@ -26,7 +25,6 @@ OPTS = [
 
 cfg.CONF.register_opts(OPTS)
 
-db_conn = db.get_connection(cfg.CONF)
 master_api = master.API()
 
 

@@ -11,10 +11,7 @@ app = {
     'static_root': '%(confdir)s/public',
     'template_path': '%(confdir)s/v1/templates',
     'debug': True,
-    'errors': {
-        404: '/error/404',
-        '__force_dict__': True
-    }
+    'enable_acl': True,
 }
 
 # Wether or not to include exception tracebacks

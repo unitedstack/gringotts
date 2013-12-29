@@ -110,3 +110,154 @@ class Product(APIBase):
                    unit='hour',
                    created_at=datetime.datetime.utcnow(),
                    updated_at=datetime.datetime.utcnow())
+
+
+class Purchase(APIBase):
+    """A Purchase
+    """
+    product_name = wtypes.text
+    service = wtypes.text
+    region_id = wtypes.text
+    amount = int
+
+
+class Price(APIBase):
+    """Price represents some products collection
+    """
+    unit_price = float
+    total_price = float
+    unit = wtypes.text
+    currency = wtypes.text
+
+
+class ProductStatistics(APIBase):
+    """Statisttics Model for one single product
+    """
+    product_id = wtypes.text
+    product_name = wtypes.text
+    service = wtypes.text
+    region_id = wtypes.text
+
+    volume = float
+    unit = wtypes.text
+    sales = float
+
+
+    @classmethod
+    def sample(cls):
+        return cls(product_id='product-xxx',
+                   name='product-1',
+                   service='Compute',
+                   region_id='region-xxx',
+                   volume=1000,
+                   price=0.48,
+                   unit='hour',
+                   sales=1234.7996,
+                   start_time=datetime.datetime.utcnow(),
+                   end_time=datetime.datetime.utcnow())
+
+
+class ProductsStatistics(APIBase):
+    """Statistics for all products
+    """
+    total_sales = float
+    products = [ProductStatistics]
+    start_time = datetime.datetime
+    end_time = datetime.datetime
+
+
+class ProductSubscription(APIBase):
+    """Represent model for a subscription to a product
+    """
+    resource_id = wtypes.text
+    resource_name = wtypes.text
+    resource_volume = int
+    user_id = wtypes.text
+    project_id = wtypes.text
+    sales = float
+    created_time =  datetime.datetime
+
+
+class ProductStatisticsDetail(APIBase):
+    """Statisttics Model for product
+    """
+    product_id = wtypes.text
+    product_name = wtypes.text
+    service = wtypes.text
+    region_id = wtypes.text
+
+    total_sales = float
+    total_volume = int
+    subscriptions = [ProductSubscription]
+
+    start_time = datetime.datetime
+    end_time = datetime.datetime
+
+
+class ResourceStatistics(APIBase):
+    """One resource statistics
+    """
+    resource_id = wtypes.text
+    resource_name = wtypes.text
+    resource_status = wtypes.text
+    resource_volume = int
+    total_price = float
+    created_time = datetime.datetime
+
+
+class ResourcesStatistics(APIBase):
+    """Statistics for all products
+    """
+    total_price = float
+    resource_amount = int
+    resources= [ResourceStatistics]
+    resource_type = wtypes.text
+
+
+class ResourceBill(APIBase):
+    """Detail bill records of one resource
+    """
+    start_time = datetime.datetime
+    end_time = datetime.datetime
+    total_price = float
+    unit_price = float
+    unit = wtypes.text
+    remarks = wtypes.text
+
+    @classmethod
+    def sample1(cls):
+        return cls(start_time=datetime.datetime(2013, 12, 29, 03, 00, 00),
+                   end_time=datetime.datetime(2013, 12, 29, 04, 00, 00),
+                   total_price=12.34,
+                   unit_price=0.48,
+                   remarks='Instance has been created')
+
+    @classmethod
+    def sample2(cls):
+        return cls(start_time=datetime.datetime(2013, 12, 29, 04, 00, 00),
+                   end_time=datetime.datetime(2013, 12, 29, 05, 00, 00),
+                   total_price=12.34,
+                   unit_price=0.48,
+                   remarks='Instance has been changed')
+
+    @classmethod
+    def sample3(cls):
+        return cls(start_time=datetime.datetime(2013, 12, 29, 05, 00, 00),
+                   end_time=datetime.datetime(2013, 12, 29, 06, 00, 00),
+                   total_price=12.34,
+                   unit_price=0.48,
+                   remarks='Instance has been stopped')
+
+
+class ResourceStatisticsDetail(APIBase):
+    """Statistics for a resoruce
+    """
+    total_price = float
+    bills = [ResourceBill]
+
+    @classmethod
+    def sample(cls):
+        return cls(total_price=37.02,
+                   bills=[ResourceBill.sample1(),
+                          ResourceBill.sample2(),
+                          ResourceBill.sample3()])

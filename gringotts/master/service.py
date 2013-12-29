@@ -2,9 +2,9 @@ from oslo.config import cfg
 from eventlet.green.threading import Lock
 
 from apscheduler.scheduler import Scheduler as APScheduler
+from apscheduler.jobstores.shelve_store import ShelveJobStore
 from datetime import timedelta
 
-from gringotts import db
 from gringotts import worker
 
 from gringotts.openstack.common import context
@@ -36,7 +36,7 @@ class MasterService(rpc_service.Service):
         )
         self.worker_api = worker.API()
         self.apsched = APScheduler()
-        self.db_conn = db.get_connection(cfg.CONF)
+        self.apsched.add_jobstore(ShelveJobStore('example.db'), 'shelve')
         self.jobs = {}
         self.lock = Lock()
         super(MasterService, self).__init__(*args, **kwargs)
@@ -48,9 +48,9 @@ class MasterService(rpc_service.Service):
         self.tg.add_timer(604800, lambda: None)
 
     def _pre_deduct(self, subscription_id):
-        # NOTE(suo): Because account is shared among different cron job threads, so we must
-        # ensure thread synchronization here. Because we use greenthread in master service,
-        # so we also should use green lock.
+        # NOTE(suo): Because account is shared among different cron job threads, we must
+        # ensure thread synchronization here. Further more, because we use greenthread in
+        # master service, we also should use green lock.
         with self.lock:
             self.worker_api.pre_deduct(context.RequestContext(), subscription_id)
 
@@ -60,8 +60,10 @@ class MasterService(rpc_service.Service):
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=TIMESTAMP_TIME_FORMAT)
         job = self.apsched.add_interval_job(self._pre_deduct,
-                                            hours=1,
-                                            start_date=action_time + timedelta(hours=1),
+                                            #hours=1,
+                                            #start_date=action_time + timedelta(hours=1),
+                                            minutes=5,
+                                            start_date=action_time + timedelta(minutes=5),
                                             args=[subscription_id])
         self.jobs[subscription_id] = job
 

@@ -3,6 +3,7 @@ import wsme
 import datetime
 
 from pecan import rest
+from pecan import request
 from wsmeext.pecan import wsexpose
 from wsme import types as wtypes
 
@@ -29,7 +30,7 @@ class ProductController(rest.RestController):
     def _product(self):
         self.conn = pecan.request.db_conn
         try:
-            product = self.conn.get_product(None,
+            product = self.conn.get_product(request.context,
                                             product_id=self._id)
         except Exception as e:
             LOG.error('Product %s not found' % self._id)
@@ -47,7 +48,7 @@ class ProductController(rest.RestController):
         # ensure product exists before deleting
         product = self._product()
         try:
-            self.conn.delete_product(None, product.product_id)
+            self.conn.delete_product(request.context, product.product_id)
         except Exception as e:
             error = 'Error while deleting product: %s' % product.product_id
             LOG.exception(error)
@@ -69,7 +70,7 @@ class ProductController(rest.RestController):
         filters = {'name': data.name,
                    'service': data.service,
                    'region_id': data.region_id}
-        products = list(self.conn.get_products(None, filters=filters))
+        products = list(self.conn.get_products(request.context, filters=filters))
 
         if len(products) > 0 and (data.name != product_in.name or
                                   data.service != product_in.service or
@@ -90,7 +91,7 @@ class ProductController(rest.RestController):
 
         # Update product model to DB
         try:
-            product = self.conn.update_product(None, product_in)
+            product = self.conn.update_product(request.context, product_in)
         except Exception as e:
             error = 'Error while updating product: %s' % data.as_dict()
             LOG.exception(error)
@@ -103,7 +104,6 @@ class ProductController(rest.RestController):
 class ProductsController(rest.RestController):
     """Manages operations on the products collection
     """
-
     @pecan.expose()
     def _lookup(self, product_id, *remainder):
         if remainder and not remainder[-1]:
@@ -129,7 +129,7 @@ class ProductsController(rest.RestController):
         filters = {'name': data.name,
                    'service': data.service,
                    'region_id': data.region_id}
-        products = list(conn.get_products(None, filters=filters))
+        products = list(conn.get_products(request.context, filters=filters))
 
         if len(products) > 0:
             error = "Product with name(%s) within service(%s) already "\
@@ -140,7 +140,7 @@ class ProductsController(rest.RestController):
 
         # Write product model to DB
         try:
-            product = conn.create_product(None, product_in)
+            product = conn.create_product(request.context, product_in)
         except Exception as e:
             error = 'Error while creating product: %s' % data.as_dict()
             LOG.exception(error)
@@ -165,7 +165,7 @@ class ProductsController(rest.RestController):
 
         conn = pecan.request.db_conn
 
-        result = conn.get_products(None,
+        result = conn.get_products(request.context,
                                    filters=filters,
                                    limit=limit,
                                    marker=marker,

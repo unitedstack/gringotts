@@ -2,7 +2,10 @@
 
 from __future__ import absolute_import
 
+import functools
 from sqlalchemy import desc
+
+from gringotts import context as gring_context
 
 from gringotts.db import base
 from gringotts.db import models as db_models
@@ -21,6 +24,38 @@ LOG = log.getLogger(__name__)
 get_session = db_session.get_session
 
 
+def require_admin_context(f):
+    """Decorator to require admin request context.
+
+    The second argument to the wrapped function must be the context.
+
+    """
+
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        gring_context.require_admin_context(args[1])
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def require_context(f):
+    """Decorator to require *any* user or admin context.
+
+    This does no authorization for user or project access matching, see
+    :py:func:`nova.context.authorize_project_context` and
+    :py:func:`nova.context.authorize_user_context`.
+
+    The second argument to the wrapped function must be the context.
+
+    """
+
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        gring_context.require_context(args[1])
+        return f(*args, **kwargs)
+    return wrapper
+
+
 def model_query(context, model, *args, **kwargs):
     """Query helper for simpler session usage.
 
@@ -31,6 +66,9 @@ def model_query(context, model, *args, **kwargs):
 
     session = kwargs.get('session') or get_session()
     query = session.query(model, *args)
+
+    if gring_context.is_user_context(context):
+        query = query.filter_by(project_id=context.project_id)
     return query
 
 
@@ -137,6 +175,7 @@ class Connection(base.Connection):
                                 unit=row.unit,
                                 charge_time=row.charge_time)
 
+    @require_admin_context
     def create_product(self, context, product):
         session = db_session.get_session()
         with session.begin():
@@ -145,6 +184,7 @@ class Connection(base.Connection):
             session.add(product_ref)
         return self._row_to_db_product_model(product_ref)
 
+    @require_context
     def get_products(self, context, filters=None, limit=None,
                      marker=None, sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.Product)
@@ -160,12 +200,14 @@ class Connection(base.Connection):
                                   query=query)
         return (self._row_to_db_product_model(p) for p in result)
 
+    @require_context
     def get_product(self, context, product_id):
         query = model_query(context, sa_models.Product).\
                 filter_by(product_id=product_id)
         ref = query.one()
         return self._row_to_db_product_model(ref)
 
+    @require_admin_context
     def delete_product(self, context, product_id):
         session = db_session.get_session()
         with session.begin():
@@ -173,6 +215,7 @@ class Connection(base.Connection):
             query = query.filter_by(product_id=product_id)
             query.delete()
 
+    @require_admin_context
     def update_product(self, context, product):
         session = db_session.get_session()
         with session.begin():
@@ -182,6 +225,7 @@ class Connection(base.Connection):
             ref = query.one()
         return self._row_to_db_product_model(ref)
 
+    @require_admin_context
     def create_subscription(self, context, subscription):
         session = db_session.get_session()
         with session.begin():
@@ -190,6 +234,7 @@ class Connection(base.Connection):
             session.add(sub_ref)
         return self._row_to_db_subscription_model(sub_ref)
 
+    @require_admin_context
     def update_subscription(self, context, subscription):
         session = db_session.get_session()
         with session.begin():
@@ -199,6 +244,7 @@ class Connection(base.Connection):
             ref = query.one()
         return self._row_to_db_subscription_model(ref)
 
+    @require_context
     def get_subscriptions_by_resource_id(self, context, resource_id,
                                          status=None):
         query = model_query(context, sa_models.Subscription).\
@@ -208,6 +254,7 @@ class Connection(base.Connection):
         ref = query.all()
         return (self._row_to_db_subscription_model(r) for r in ref)
 
+    @require_context
     def get_subscription(self, context, subscription_id):
         session = db_session.get_session()
         with session.begin():
@@ -216,6 +263,50 @@ class Connection(base.Connection):
             ref = query.one()
         return self._row_to_db_subscription_model(ref)
 
+    @require_admin_context
+    def get_subscriptions_by_product_id(self, context, product_id,
+                                        start_time=None, end_time=None,
+                                        limit=None, marker=None, sort_key=None,
+                                        sort_dir=None):
+        query = model_query(context, sa_models.Subscription).\
+                filter_by(product_id=product_id)
+
+        if start_time:
+            query = query.filter_by(created_at >= start_time)
+        if end_time:
+            query = query.filter_by(create_at <= end_time)
+
+        ref =  _paginate_query(context, sa_models.Subscription,
+                               limit=limit, marker=marker,
+                               sort_key=sort_key, sort_dir=sort_dir,
+                               query=query)
+
+        return (self._row_to_db_subscription_model(r) for r in ref)
+
+    @require_context
+    def get_subscriptions_group_by_resource_id(self,
+        context, resource_type=None,
+        start_time=None, end_time=None,
+        limit=None, marker=None, sort_key=None, sort_dir=None):
+
+        query = model_query(context, sa_models.Subscription).\
+                group_by(sa_models.Subscription.resource_id)
+
+        if resource_type:
+            query = query.filter_by(resource_type=resource_type)
+        if start_time:
+            query = query.filter_by(created_at >= start_time)
+        if end_time:
+            query = query.filter_by(create_at <= end_time)
+
+        ref =  _paginate_query(context, sa_models.Subscription,
+                               limit=limit, marker=marker,
+                               sort_key=sort_key, sort_dir=sort_dir,
+                               query=query)
+
+        return (self._row_to_db_subscription_model(r) for r in ref)
+
+    @require_admin_context
     def create_bill(self, context, bill):
         session = db_session.get_session()
         with session.begin():
@@ -224,6 +315,7 @@ class Connection(base.Connection):
             session.add(bill_ref)
         return self._row_to_db_bill_model(bill_ref)
 
+    @require_admin_context
     def update_bill(self, context, bill):
         session = db_session.get_session()
         with session.begin():
@@ -233,6 +325,7 @@ class Connection(base.Connection):
             ref = query.one()
         return self._row_to_db_bill_model(ref)
 
+    @require_context
     def get_latest_bill(self, context, subscription_id):
         session = db_session.get_session()
         with session.begin():
@@ -241,6 +334,14 @@ class Connection(base.Connection):
             ref = query.order_by(desc(sa_models.Bill.id)).all()[0]
         return self._row_to_db_bill_model(ref)
 
+    @require_admin_context
+    def get_bills_by_subscription_id(self, context, subscription_id):
+        query = model_query(context, sa_models.Bill).\
+                filter_by(subscription_id=subscription_id)
+        ref = query.all()
+        return (self._row_to_db_bill_model(r) for r in ref)
+
+    @require_context
     def create_account(self, context, account):
         session = db_session.get_session()
         with session.begin():
@@ -249,12 +350,14 @@ class Connection(base.Connection):
             session.add(account_ref)
         return self._row_to_db_account_model(account_ref)
 
+    @require_context
     def get_account(self, context, user_id):
         query = model_query(context, sa_models.Account).\
                 filter_by(user_id=user_id)
         ref = query.one()
         return self._row_to_db_account_model(ref)
 
+    @require_context
     def update_account(self, context, account):
         session = db_session.get_session()
         with session.begin():
@@ -264,6 +367,7 @@ class Connection(base.Connection):
             ref = query.one()
         return self._row_to_db_account_model(ref)
 
+    @require_context
     def create_charge(self, context, charge):
         session = db_session.get_session()
         with session.begin():

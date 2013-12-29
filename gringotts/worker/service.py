@@ -1,6 +1,7 @@
 import datetime
 from oslo.config import cfg
 
+from gringotts import context
 from gringotts import db
 from gringotts.db import models as db_models
 from gringotts import exception
@@ -50,7 +51,8 @@ class WorkerService(rpc_service.Service):
 
         # Get product
         try:
-            product = self.db_conn.get_product(None, subscription.product_id)
+            product = self.db_conn.get_product(context.get_admin_context(),
+                                               subscription.product_id)
         except Exception:
             LOG.error('Fail to find the product: %s' % subscription.product_id)
             raise exception.ProductIdNotFound(product_id=subscription.product_id)
@@ -60,7 +62,7 @@ class WorkerService(rpc_service.Service):
 
         # Confirm the user's balance is enough
         try:
-            account = self.db_conn.get_account(None, user_id)
+            account = self.db_conn.get_account(context.get_admin_context(), user_id)
         except Exception:
             LOG.warning('Fail to find the account: %s' % user_id)
             raise exception.DBError(reason='Fail to find the account')
@@ -89,7 +91,7 @@ class WorkerService(rpc_service.Service):
                               unit, subscription_id, remarks, user_id,
                               project_id)
         try:
-            self.db_conn.create_bill(None, bill)
+            self.db_conn.create_bill(context.get_admin_context(), bill)
         except Exception:
             LOG.exception('Fail to create bill: %s' % bill.as_dict())
             raise exception.DBError(reason='Fail to create bill')
@@ -99,7 +101,7 @@ class WorkerService(rpc_service.Service):
         subscription.cron_time = action_time + datetime.timedelta(hours=1)
         subscription.status = 'active'
         try:
-            self.db_conn.update_subscription(None, subscription)
+            self.db_conn.update_subscription(context.get_admin_context(), subscription)
         except Exception:
             LOG.warning('Fail to update the subscription: %s' % subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
@@ -108,7 +110,7 @@ class WorkerService(rpc_service.Service):
         account.balance -= fee
         account.consumption += fee
         try:
-            account = self.db_conn.update_account(None, account)
+            account = self.db_conn.update_account(context.get_admin_context(), account)
         except Exception:
             LOG.warning('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
@@ -116,7 +118,8 @@ class WorkerService(rpc_service.Service):
     def pre_deduct(self, ctxt, subscription_id):
         # Get subscription
         try:
-            subscription = self.db_conn.get_subscription(None, subscription_id)
+            subscription = self.db_conn.get_subscription(context.get_admin_context(),
+                                                         subscription_id)
         except Exception:
             LOG.exception('Fail to get subscription: %s' %
                           subscription_id)
@@ -124,7 +127,7 @@ class WorkerService(rpc_service.Service):
 
         user_id = subscription.user_id
         try:
-            product = self.db_conn.get_product(None,
+            product = self.db_conn.get_product(context.get_admin_context(),
                                                subscription.product_id)
         except Exception:
             LOG.error('Fail to find product: %s' % subscription.product_id)
@@ -134,7 +137,8 @@ class WorkerService(rpc_service.Service):
 
         # Confirm the user's balance is enough
         try:
-            account = self.db_conn.get_account(None, user_id)
+            account = self.db_conn.get_account(context.get_admin_context(),
+                                               user_id)
         except Exception:
             LOG.warning('Fail to find the account: %s' % user_id)
             raise exception.DBError(reason='Fail to find the account')
@@ -151,7 +155,8 @@ class WorkerService(rpc_service.Service):
 
         # Update the bill
         try:
-            bill = self.db_conn.get_latest_bill(None, subscription.subscription_id)
+            bill = self.db_conn.get_latest_bill(context.get_admin_context(),
+                                                subscription.subscription_id)
         except Exception:
             LOG.error('Fail to get latest bill belongs to subscription: %s'
                       % subscription.product_id)
@@ -164,7 +169,8 @@ class WorkerService(rpc_service.Service):
         bill.unit = product.unit
 
         try:
-            self.db_conn.update_bill(None, bill)
+            self.db_conn.update_bill(context.get_admin_context(),
+                                     bill)
         except Exception:
             LOG.exception('Fail to update bill: %s' % bill.as_dict())
             raise exception.DBError(reason='Fail to update bill')
@@ -173,7 +179,8 @@ class WorkerService(rpc_service.Service):
         subscription.current_fee += fee
         subscription.cron_time += datetime.timedelta(hours=1)
         try:
-            self.db_conn.update_subscription(None, subscription)
+            self.db_conn.update_subscription(context.get_admin_context(),
+                                             subscription)
         except Exception:
             LOG.warning('Fail to update the subscription: %s' % subscription.subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
@@ -184,7 +191,8 @@ class WorkerService(rpc_service.Service):
         account.balance -= fee
         account.consumption += fee
         try:
-            account = self.db_conn.update_account(None, account)
+            account = self.db_conn.update_account(context.get_admin_context(),
+                                                  account)
         except Exception:
             LOG.warning('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
@@ -198,7 +206,7 @@ class WorkerService(rpc_service.Service):
 
         # Get product
         try:
-            product = self.db_conn.get_product(None,
+            product = self.db_conn.get_product(context.get_admin_context(),
                                                subscription.product_id)
         except Exception:
             LOG.error('Fail to find product: %s' % subscription.product_id)
@@ -208,14 +216,20 @@ class WorkerService(rpc_service.Service):
 
         # Update the bill
         try:
-            bill = self.db_conn.get_latest_bill(None, subscription.subscription_id)
+            bill = self.db_conn.get_latest_bill(context.get_admin_context(),
+                                                subscription.subscription_id)
         except Exception:
             LOG.error('Fail to get latest bill belongs to subscription: %s'
                       % subscription.product_id)
             raise exception.LatestBillNotFound(subscription_id=
                                                subscription.subscription_id)
 
+        # FIXME(suo): We should ensure delta is greater than 0
         delta = (bill.end_time - action_time).seconds
+        if delta < 0:
+            LOG.error('Bill\'s end_time(%s) should not be less than action_time(%s)' %
+                      (bill.end_time, action_time))
+            delta = 0
         more_fee = round(((delta / 3600.0) * product.price * subscription.resource_volume), 4)
         bill.end_time = action_time
         bill.fee -= more_fee
@@ -223,7 +237,8 @@ class WorkerService(rpc_service.Service):
         bill.unit = product.unit
 
         try:
-            self.db_conn.update_bill(None, bill)
+            self.db_conn.update_bill(context.get_admin_context(),
+                                     bill)
         except Exception:
             LOG.exception('Fail to update bill: %s' % bill.as_dict())
             raise exception.DBError(reason='Fail to update bill')
@@ -233,7 +248,8 @@ class WorkerService(rpc_service.Service):
         subscription.cron_time = None
         subscription.status = 'inactive'
         try:
-            self.db_conn.update_subscription(None, subscription)
+            self.db_conn.update_subscription(context.get_admin_context(),
+                                             subscription)
         except Exception:
             LOG.warning('Fail to update the subscription: %s' % subscription.subscription_id)
             raise exception.DBError(reason='Fail to update the subscription')
@@ -241,10 +257,12 @@ class WorkerService(rpc_service.Service):
         # Update the account
         user_id = subscription.user_id
         try:
-            account = self.db_conn.get_account(None, user_id)
+            account = self.db_conn.get_account(context.get_admin_context(),
+                                               user_id)
             account.balance += more_fee
             account.consumption -= more_fee
-            account = self.db_conn.update_account(None, account)
+            account = self.db_conn.update_account(context.get_admin_context(),
+                                                  account)
         except Exception:
             LOG.warning('Fail to update the account: %s' % user_id)
             raise exception.DBError(reason='Fail to update the account')
