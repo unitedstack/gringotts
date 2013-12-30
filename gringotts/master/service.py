@@ -1,13 +1,18 @@
+import datetime
+
+from datetime import timedelta
+
 from oslo.config import cfg
 from eventlet.green.threading import Lock
 
 from apscheduler.scheduler import Scheduler as APScheduler
 from apscheduler.jobstores.shelve_store import ShelveJobStore
-from datetime import timedelta
 
+from gringotts import context
+from gringotts import db
+from gringotts.db import models as db_models
 from gringotts import worker
 
-from gringotts.openstack.common import context
 from gringotts.openstack.common import log
 from gringotts.openstack.common.rpc import service as rpc_service
 from gringotts.openstack.common import service as os_service
@@ -34,9 +39,9 @@ class MasterService(rpc_service.Service):
             host=cfg.CONF.host,
             topic=cfg.CONF.master.master_topic,
         )
+        self.db_conn = db.get_connection(cfg.CONF)
         self.worker_api = worker.API()
         self.apsched = APScheduler()
-        self.apsched.add_jobstore(ShelveJobStore('example.db'), 'shelve')
         self.jobs = {}
         self.lock = Lock()
         super(MasterService, self).__init__(*args, **kwargs)
@@ -47,58 +52,101 @@ class MasterService(rpc_service.Service):
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
-    def _pre_deduct(self, subscription_id):
+    def _pre_deduct(self, order_id):
         # NOTE(suo): Because account is shared among different cron job threads, we must
         # ensure thread synchronization here. Further more, because we use greenthread in
         # master service, we also should use green lock.
         with self.lock:
-            self.worker_api.pre_deduct(context.RequestContext(), subscription_id)
+            self.worker_api.pre_deduct(context.get_admin_context(),
+                                       order_id)
 
-    def _create_cron_job(self, subscription_id, action_time):
-        """For now, we only supprot hourly cron job
+    def _create_cron_job(self, order_id, action_time):
+        """For now, we only support hourly cron job
         """
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=TIMESTAMP_TIME_FORMAT)
         job = self.apsched.add_interval_job(self._pre_deduct,
-                                            #hours=1,
-                                            #start_date=action_time + timedelta(hours=1),
-                                            minutes=5,
-                                            start_date=action_time + timedelta(minutes=5),
-                                            args=[subscription_id])
-        self.jobs[subscription_id] = job
+                                            hours=1,
+                                            start_date=action_time + timedelta(hours=1),
+                                            #minutes=5,
+                                            #start_date=action_time + timedelta(minutes=5),
+                                            args=[order_id])
+        self.jobs[order_id] = job
 
-    def _delete_cron_job(self, subscription_id):
+    def _delete_cron_job(self, order_id):
         """Delete cron job related to this subscription
         """
         # FIXME(suo): Actually, we should store job to DB layer, not
         # in memory
-        job = self.jobs.get(subscription_id)
+        job = self.jobs.get(order_id)
         self.apsched.unschedule_job(job)
+        del self.jobs[order_id]
 
-    def resource_created(self, ctxt, subscriptions, action_time, remarks):
-        LOG.debug('Resource created')
-        for sub in subscriptions:
-            self.worker_api.create_bill(context.RequestContext(),
-                                        sub, action_time, remarks)
-            self._create_cron_job(sub.get('subscription_id'), action_time)
+    def _change_order(self, order_id, change_to):
+        # Get newest order
+        order = self.db_conn.get_order(context.get_admin_context(),
+                                       order_id)
 
-    def resource_deleted(self, ctxt, subscriptions, action_time):
-        LOG.debug('Instance deleted')
-        for sub in subscriptions:
-            self.worker_api.close_bill(context.RequestContext(),
-                                       sub, action_time)
-            self._delete_cron_job(sub.get('subscription_id'))
+        # Get new unit price and update subscriptions
+        subscriptions = self.db_conn.get_subscriptions_by_order_id(
+            context.get_admin_context(),
+            order.order_id,
+            type=change_to,
+            status='inactive')
 
-    def resource_changed(self, ctxt, subscriptions, action_time, remarks):
+        unit_price = 0
+        unit = None
+
         for sub in subscriptions:
-            if sub.get('status') == 'active':
-                self.worker_api.close_bill(context.RequestContext(),
-                                           sub, action_time)
-                self._delete_cron_job(sub.get('subscription_id'))
-            elif sub.get('status') == 'inactive':
-                self.worker_api.create_bill(context.RequestContext(),
-                                            sub, action_time, remarks)
-                self._create_cron_job(sub.get('subscription_id'), action_time)
+            sub.status = 'active'
+            sub.updated_at = datetime.datetime.utcnow()
+            try:
+                self.db_conn.update_subscription(context.get_admin_context(), sub)
+            except Exception:
+                LOG.error('Fail to update the subscription: %s' % sub.as_dict())
+                raise exception.DBError(reason='Fail to update the subscription')
+
+            unit_price += sub.unit_price * sub.resource_volume
+            unit = sub.unit
+
+        # Update the order
+        order.unit_price = unit_price
+        order.unit = unit
+        order.updated_at = datetime.datetime.utcnow()
+        try:
+            self.db_conn.update_order(context.get_admin_context(), order)
+        except Exception:
+            LOG.warning('Fail to update the order: %s' % order.order_id)
+            raise exception.DBError(reason='Fail to update the order')
+
+    def resource_created(self, ctxt, order_id, action_time, remarks):
+        with self.lock:
+            LOG.debug('Resource created')
+            self.worker_api.create_bill(context.get_admin_context(), order_id,
+                                        action_time, remarks)
+            self._create_cron_job(order_id, action_time)
+
+    def resource_deleted(self, ctxt, order_id, action_time):
+        with self.lock:
+            LOG.debug('Instance deleted')
+            self.worker_api.close_bill(context.get_admin_context(),
+                                       order_id, action_time)
+            self._delete_cron_job(order_id)
+
+    def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
+        with self.lock:
+            # close the old bill
+            self.worker_api.close_bill(context.get_admin_context(),
+                                       order_id, action_time)
+            self._delete_cron_job(order_id)
+
+            # change the order's unit price and its active subscriptions
+            self._change_order(order_id, change_to)
+
+            # create a new bill for the updated order
+            self.worker_api.create_bill(context.get_admin_context(),
+                                        order_id,  action_time, remarks)
+            self._create_cron_job(order_id, action_time)
 
 
 def master():

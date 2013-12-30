@@ -42,38 +42,32 @@ class WorkerService(rpc_service.Service):
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
-    def create_bill(self, ctxt, subscription, action_time, remarks):
+    def create_bill(self, ctxt, order_id, action_time, remarks):
+
+        # Get the order
+        order = self.db_conn.get_order(context.get_admin_context(), order_id)
 
         # Convert serialized dict/string to object
-        subscription = db_models.Subscription(**subscription)
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=TIMESTAMP_TIME_FORMAT)
 
-        # Get product
-        try:
-            product = self.db_conn.get_product(context.get_admin_context(),
-                                               subscription.product_id)
-        except Exception:
-            LOG.error('Fail to find the product: %s' % subscription.product_id)
-            raise exception.ProductIdNotFound(product_id=subscription.product_id)
-
-        user_id = subscription.user_id
-        fee = product.price * subscription.resource_volume
+        amount = order.unit_price
 
         # Confirm the user's balance is enough
         try:
-            account = self.db_conn.get_account(context.get_admin_context(), user_id)
+            account = self.db_conn.get_account(context.get_admin_context(),
+                                               order.user_id)
         except Exception:
-            LOG.warning('Fail to find the account: %s' % user_id)
+            LOG.warning('Fail to find the account: %s' % order.user_id)
             raise exception.DBError(reason='Fail to find the account')
 
-        if account.balance < fee:
+        if account.balance < amount:
             LOG.warning("The balance of the account(%s) is not enough to"
-                       "pay for the fee: %s" % (user_id, fee))
+                        "pay for the fee: %s" % (order.user_id, amount))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
             # exception.
-            raise exception.NotSufficientFund(user_id=user_id)
+            raise exception.NotSufficientFund(user_id=order.user_id)
 
         # Confirm the resource is health
 
@@ -81,92 +75,93 @@ class WorkerService(rpc_service.Service):
         bill_id = uuidutils.generate_uuid()
         start_time = action_time
         end_time = start_time + datetime.timedelta(hours=1)
-        price = product.price
-        unit = product.unit
-        subscription_id = subscription.subscription_id
+        unit_price = order.unit_price
+        unit = order.unit
+        order_id = order.order_id
         remarks = remarks
-        project_id = subscription.project_id
+        user_id = order.user_id
+        project_id = order.project_id
 
-        bill = db_models.Bill(bill_id, start_time, end_time, fee, price,
-                              unit, subscription_id, remarks, user_id,
-                              project_id)
+        bill = db_models.Bill(bill_id, start_time, end_time, amount, unit_price,
+                              unit, order_id, remarks, user_id, project_id)
         try:
             self.db_conn.create_bill(context.get_admin_context(), bill)
         except Exception:
             LOG.exception('Fail to create bill: %s' % bill.as_dict())
             raise exception.DBError(reason='Fail to create bill')
 
-        # Update the subscription
-        subscription.current_fee += fee
-        subscription.cron_time = action_time + datetime.timedelta(hours=1)
-        subscription.status = 'active'
+        # Update the order
+        order.amount += amount
+        order.cron_time = action_time + datetime.timedelta(hours=1)
+        order.updated_at = datetime.datetime.utcnow()
         try:
-            self.db_conn.update_subscription(context.get_admin_context(), subscription)
+            self.db_conn.update_order(context.get_admin_context(), order)
         except Exception:
-            LOG.warning('Fail to update the subscription: %s' % subscription_id)
-            raise exception.DBError(reason='Fail to update the subscription')
+            LOG.warning('Fail to update the order: %s' % order.order_id)
+            raise exception.DBError(reason='Fail to update the order')
+
+        # Update subscriptions
+        subscriptions = self.db_conn.get_subscriptions_by_order_id(
+            context.get_admin_context(),
+            order.order_id,
+            status='active')
+
+        for sub in subscriptions:
+            sub.amount += sub.unit_price * sub.resource_volume
+            sub.updated_at = datetime.datetime.utcnow()
+            try:
+                self.db_conn.update_subscription(context.get_admin_context(), sub)
+            except Exception:
+                LOG.error('Fail to update the subscription: %s' % sub.as_dict())
+                raise exception.DBError(reason='Fail to update the subscription')
 
         # Update the account
-        account.balance -= fee
-        account.consumption += fee
+        account.balance -= amount
+        account.consumption += amount
+        account.updated_at = datetime.datetime.utcnow()
         try:
             account = self.db_conn.update_account(context.get_admin_context(), account)
         except Exception:
-            LOG.warning('Fail to update the account: %s' % user_id)
+            LOG.warning('Fail to update the account: %s' % order.user_id)
             raise exception.DBError(reason='Fail to update the account')
 
-    def pre_deduct(self, ctxt, subscription_id):
-        # Get subscription
-        try:
-            subscription = self.db_conn.get_subscription(context.get_admin_context(),
-                                                         subscription_id)
-        except Exception:
-            LOG.exception('Fail to get subscription: %s' %
-                          subscription_id)
-            raise exception.DBError(reason='Fail to get subscription')
+    def pre_deduct(self, ctxt, order_id):
 
-        user_id = subscription.user_id
-        try:
-            product = self.db_conn.get_product(context.get_admin_context(),
-                                               subscription.product_id)
-        except Exception:
-            LOG.error('Fail to find product: %s' % subscription.product_id)
-            raise exception.ProductIdNotFound(product_id=subscription.product_id)
+        # Get the order
+        order = self.db_conn.get_order(context.get_admin_context(), order_id)
 
-        fee = product.price * subscription.resource_volume
+        amount = order.unit_price
 
         # Confirm the user's balance is enough
         try:
             account = self.db_conn.get_account(context.get_admin_context(),
-                                               user_id)
+                                               order.user_id)
         except Exception:
-            LOG.warning('Fail to find the account: %s' % user_id)
+            LOG.warning('Fail to find the account: %s' % order.user_id)
             raise exception.DBError(reason='Fail to find the account')
 
-        if account.balance < fee:
+        if account.balance < amount:
             LOG.warning("The balance of the account(%s) is not enough to"
-                       "pay for the fee: %s" % (user_id, fee))
+                        "pay for the fee: %s" % (order.user_id, amount))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
             # exception.
-            raise exception.NotSufficientFund(user_id=user_id)
+            raise exception.NotSufficientFund(user_id=order.user_id)
 
         # Confirm the resource is health
 
         # Update the bill
         try:
             bill = self.db_conn.get_latest_bill(context.get_admin_context(),
-                                                subscription.subscription_id)
+                                                order_id)
         except Exception:
-            LOG.error('Fail to get latest bill belongs to subscription: %s'
-                      % subscription.product_id)
-            raise exception.LatestBillNotFound(subscription_id=
-                                               subscription.subscription_id)
+            LOG.error('Fail to get latest bill belongs to order: %s'
+                      % order_id)
+            raise exception.LatestBillNotFound(order_id=order_id)
 
         bill.end_time += datetime.timedelta(hours=1)
-        bill.fee += fee
-        bill.price = product.price
-        bill.unit = product.unit
+        bill.amount += amount
+        bill.updated_at = datetime.datetime.utcnow()
 
         try:
             self.db_conn.update_bill(context.get_admin_context(),
@@ -175,54 +170,56 @@ class WorkerService(rpc_service.Service):
             LOG.exception('Fail to update bill: %s' % bill.as_dict())
             raise exception.DBError(reason='Fail to update bill')
 
-        # Update the subscription
-        subscription.current_fee += fee
-        subscription.cron_time += datetime.timedelta(hours=1)
+        # Update the order
+        order.amount += amount
+        order.cron_time += datetime.timedelta(hours=1)
+        order.updated_at = datetime.datetime.utcnow()
         try:
-            self.db_conn.update_subscription(context.get_admin_context(),
-                                             subscription)
+            self.db_conn.update_order(context.get_admin_context(), order)
         except Exception:
-            LOG.warning('Fail to update the subscription: %s' % subscription.subscription_id)
-            raise exception.DBError(reason='Fail to update the subscription')
+            LOG.warning('Fail to update the order: %s' % order.order_id)
+            raise exception.DBError(reason='Fail to update the order')
 
-        # Update the account.
-        # Note that the account is shared among different jobs, but every job has its
-        # own subcription and bill
-        account.balance -= fee
-        account.consumption += fee
+        # Update subscriptions
+        subscriptions = self.db_conn.get_subscriptions_by_order_id(
+            context.get_admin_context(),
+            order.order_id,
+            status='active')
+
+        for sub in subscriptions:
+            sub.amount += sub.unit_price * sub.resource_volume
+            sub.updated_at = datetime.datetime.utcnow()
+            try:
+                self.db_conn.update_subscription(context.get_admin_context(), sub)
+            except Exception:
+                LOG.error('Fail to update the subscription: %s' % sub.as_dict())
+                raise exception.DBError(reason='Fail to update the subscription')
+
+        # Update the account
+        account.balance -= amount
+        account.consumption += amount
+        account.updated_at = datetime.datetime.utcnow()
         try:
-            account = self.db_conn.update_account(context.get_admin_context(),
-                                                  account)
+            account = self.db_conn.update_account(context.get_admin_context(), account)
         except Exception:
-            LOG.warning('Fail to update the account: %s' % user_id)
+            LOG.warning('Fail to update the account: %s' % order.user_id)
             raise exception.DBError(reason='Fail to update the account')
 
-    def close_bill(self, ctxt, subscription, action_time):
+    def close_bill(self, ctxt, order_id, action_time):
+        # Get the order
+        order = self.db_conn.get_order(context.get_admin_context(), order_id)
 
-        # Convert serialized dict/string to object
-        subscription = db_models.Subscription(**subscription)
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=TIMESTAMP_TIME_FORMAT)
 
-        # Get product
-        try:
-            product = self.db_conn.get_product(context.get_admin_context(),
-                                               subscription.product_id)
-        except Exception:
-            LOG.error('Fail to find product: %s' % subscription.product_id)
-            raise exception.ProductIdNotFound(product_id=subscription.product_id)
-
-        # Confirm the resource is health
-
-        # Update the bill
+        # Update the latest bill
         try:
             bill = self.db_conn.get_latest_bill(context.get_admin_context(),
-                                                subscription.subscription_id)
+                                                order.order_id)
         except Exception:
-            LOG.error('Fail to get latest bill belongs to subscription: %s'
-                      % subscription.product_id)
-            raise exception.LatestBillNotFound(subscription_id=
-                                               subscription.subscription_id)
+            LOG.error('Fail to get latest bill belongs to order: %s'
+                      % order.order_id)
+            raise exception.LatestBillNotFound(order_id=order.order_id)
 
         # FIXME(suo): We should ensure delta is greater than 0
         delta = (bill.end_time - action_time).seconds
@@ -230,11 +227,11 @@ class WorkerService(rpc_service.Service):
             LOG.error('Bill\'s end_time(%s) should not be less than action_time(%s)' %
                       (bill.end_time, action_time))
             delta = 0
-        more_fee = round(((delta / 3600.0) * product.price * subscription.resource_volume), 4)
+
+        more_fee = round(((delta / 3600.0) * order.unit_price), 4)
         bill.end_time = action_time
-        bill.fee -= more_fee
-        bill.price = product.price
-        bill.unit = product.unit
+        bill.amount -= more_fee
+        bill.updated_at = datetime.datetime.utcnow()
 
         try:
             self.db_conn.update_bill(context.get_admin_context(),
@@ -243,19 +240,34 @@ class WorkerService(rpc_service.Service):
             LOG.exception('Fail to update bill: %s' % bill.as_dict())
             raise exception.DBError(reason='Fail to update bill')
 
-        # Update the subscription
-        subscription.current_fee -= more_fee
-        subscription.cron_time = None
-        subscription.status = 'inactive'
+        # Update the order
+        order.amount -= more_fee
+        order.cron_time = None
+        order.updated_at = datetime.datetime.utcnow()
         try:
-            self.db_conn.update_subscription(context.get_admin_context(),
-                                             subscription)
+            self.db_conn.update_order(context.get_admin_context(), order)
         except Exception:
-            LOG.warning('Fail to update the subscription: %s' % subscription.subscription_id)
-            raise exception.DBError(reason='Fail to update the subscription')
+            LOG.warning('Fail to update the order: %s' % order.order_id)
+            raise exception.DBError(reason='Fail to update the order')
+
+        # Update subscriptions
+        subscriptions = self.db_conn.get_subscriptions_by_order_id(
+            context.get_admin_context(),
+            order.order_id,
+            status='active')
+
+        for sub in subscriptions:
+            sub.amount -= round(((delta / 3600.0) * sub.unit_price * sub.resource_volume), 4)
+            sub.status = 'inactive'
+            sub.updated_at = datetime.datetime.utcnow()
+            try:
+                self.db_conn.update_subscription(context.get_admin_context(), sub)
+            except Exception:
+                LOG.error('Fail to update the subscription: %s' % sub.as_dict())
+                raise exception.DBError(reason='Fail to update the subscription')
 
         # Update the account
-        user_id = subscription.user_id
+        user_id = order.user_id
         try:
             account = self.db_conn.get_account(context.get_admin_context(),
                                                user_id)

@@ -81,8 +81,34 @@ class Product(Base):
 
     type = Column(String(64))
 
-    price = Column(Float)
+    unit_price = Column(Float)
     unit = Column(String(64))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime)
+
+
+class Order(Base):
+    """Order DB Model of SQLAlchemy"""
+
+    __tablename__ = 'order'
+
+    id = Column(Integer, primary_key=True)
+
+    order_id = Column(String(255))
+    resource_id = Column(String(255))
+    resource_name = Column(String(255))
+    resource_status = Column(String(255))
+
+    type = Column(String(255))
+    unit_price = Column(Float)
+    unit = Column(String(64))
+    amount = Column(Float)
+    cron_time = Column(DateTime)
+    status = Column(String(64))
+
+    user_id = Column(String(255))
+    project_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
@@ -96,17 +122,16 @@ class Subscription(Base):
     id = Column(Integer, primary_key=True)
 
     subscription_id = Column(String(255))
-
-    resource_id = Column(String(255))
-    resource_name = Column(String(255))
-    resource_type = Column(String(255))
-    resource_status = Column(String(255))
-    resource_volume = Column(Integer)
+    status = Column(String(64))
+    type = Column(String(64))
 
     product_id = Column(String(255))
-    current_fee = Column(Float)
-    cron_time = Column(DateTime)
-    status = Column(String(64))
+    unit_price = Column(Float)
+    unit = Column(String(64))
+    resource_volume = Column(Integer)
+    amount = Column(Float)
+
+    order_id = Column(String(255))
 
     user_id = Column(String(255))
     project_id = Column(String(255))
@@ -122,13 +147,15 @@ class Bill(Base):
     id = Column(Integer, primary_key=True)
 
     bill_id = Column(String(255))
+
     start_time = Column(DateTime)
     end_time = Column(DateTime)
 
-    fee = Column(Float)
-    price = Column(Float)
+    amount = Column(Float)
+    unit_price = Column(Float)
     unit = Column(String(64))
-    subscription_id = Column(String(255))
+    order_id = Column(String(255))
+
     remarks = Column(String(255))
 
     user_id = Column(String(255))
@@ -149,6 +176,9 @@ class Account(Base):
     consumption = Column(Float)
     currency = Column(String(64))
 
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime)
+
 
 class Charge(Base):
     
@@ -162,6 +192,9 @@ class Charge(Base):
     currency = Column(String(64))
     charge_time = Column(DateTime)
 
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime)
+
 
 class Region(Base):
 
@@ -171,3 +204,6 @@ class Region(Base):
     region_id = Column(String(255))
     name = Column(String(255))
     description = Column(String(255))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime)

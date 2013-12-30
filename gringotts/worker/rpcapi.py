@@ -24,20 +24,20 @@ class WorkerAPI(proxy.RpcProxy):
             topic=cfg.CONF.worker.worker_topic,
             default_version=self.BASE_RPC_VERSION)
 
-    def create_bill(self, ctxt, subscription, action_time, remarks):
-        return self.cast(ctxt,
+    def create_bill(self, ctxt, order_id, action_time, remarks):
+        return self.call(ctxt,
                          self.make_msg('create_bill',
-                                       subscription=subscription,
+                                       order_id=order_id,
                                        action_time=action_time,
                                        remarks=remarks))
 
-    def pre_deduct(self, ctxt, subscription_id):
-        return self.cast(ctxt,
+    def pre_deduct(self, ctxt, order_id):
+        return self.call(ctxt,
                          self.make_msg('pre_deduct',
-                                       subscription_id=subscription_id))
+                                       order_id=order_id))
 
-    def close_bill(self, ctxt, subscription, action_time):
-        return self.cast(ctxt,
+    def close_bill(self, ctxt, order_id, action_time):
+        return self.call(ctxt,
                          self.make_msg('close_bill',
-                                       subscription=subscription,
+                                       order_id=order_id,
                                        action_time=action_time))

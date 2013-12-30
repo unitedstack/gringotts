@@ -31,14 +31,15 @@ class LocalAPI(object):
     def __init__(self):
         self._service = service.MasterService()
 
-    def resource_created(self, ctxt, subscriptions, action_time, remarks):
-        self._service.resource_created(ctxt, subscriptions, action_time, remarks)
+    def resource_created(self, ctxt, order_id, action_time, remarks):
+        self._service.resource_created(ctxt, order_id, action_time, remarks)
 
-    def resource_deleted(self, ctxt, subscriptions, action_time):
-        self._service.resource_deleted(ctxt, subscriptions, action_time)
+    def resource_deleted(self, ctxt, order_id, action_time):
+        self._service.resource_deleted(ctxt, order_id, action_time)
 
-    def resource_changed(self, ctxt, subscriptions, action_time, remarks):
-        self._service.resource_changed(ctxt, subscriptions, action_time, remarks)
+    def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
+        self._service.resource_changed(ctxt, order_id, action_time,
+                                       change_to, remarks)
 
 
 class API(LocalAPI):

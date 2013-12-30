@@ -45,6 +45,8 @@ class RequestContext(object):
         self.auth_token = auth_token
         self.user_id = user_id
         self.project_id = project_id
+        self.user = user_id
+        self.tenant = project_id
         self.is_admin = is_admin
         if not request_id:
             request_id = generate_request_id()
@@ -53,15 +55,15 @@ class RequestContext(object):
     def to_dict(self):
         return {'user_id': self.user_id,
                 'project_id': self.project_id,
+                'user': self.user,
+                'tenant': self.tenant,
                 'is_admin': self.is_admin,
                 'auth_token': self.auth_token,
                 'request_id': self.request_id}
 
 
 def get_admin_context(show_deleted=False):
-    context = RequestContext(None,
-                             project_id=None,
-                             is_admin=True)
+    context = RequestContext(is_admin=True)
     return context
 
 

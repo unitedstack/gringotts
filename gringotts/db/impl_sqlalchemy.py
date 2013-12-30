@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 
 import functools
+import os
 from sqlalchemy import desc
 
 from gringotts import context as gring_context
@@ -14,9 +15,9 @@ from gringotts.db.sqlalchemy import migration
 from gringotts.db.sqlalchemy import models as sa_models
 from gringotts.db.sqlalchemy.models import Base
 
-from gringotts.openstack.common import log
 from gringotts.openstack.common.db.sqlalchemy import session as db_session
 from gringotts.openstack.common.db.sqlalchemy import utils as db_utils
+from gringotts.openstack.common import log
 
 
 LOG = log.getLogger(__name__)
@@ -102,7 +103,7 @@ class Connection(base.Connection):
         url = conf.database.connection
         if url == 'sqlite://':
             conf.database.connection = \
-                os.environ.get('CEILOMETER_TEST_SQL_URL', url)
+                os.environ.get('GRINGOTTS_TEST_SQL_URL', url)
 
     def upgrade(self):
         migration.db_sync()
@@ -121,23 +122,39 @@ class Connection(base.Connection):
                                  region_id=row.region_id,
                                  description=row.description,
                                  type=row.type,
-                                 price=row.price,
+                                 unit_price=row.unit_price,
                                  unit=row.unit,
                                  created_at=row.created_at,
                                  updated_at=row.updated_at)
 
     @staticmethod
+    def _row_to_db_order_model(row):
+        return db_models.Order(order_id=row.order_id,
+                               resource_id=row.resource_id,
+                               resource_name=row.resource_name,
+                               resource_status=row.resource_status,
+                               type=row.type,
+                               unit_price=row.unit_price,
+                               unit=row.unit,
+                               amount=row.amount,
+                               cron_time=row.cron_time,
+                               status=row.status,
+                               user_id=row.user_id,
+                               project_id=row.project_id,
+                               created_at=row.created_at,
+                               updated_at=row.updated_at)
+
+    @staticmethod
     def _row_to_db_subscription_model(row):
         return db_models.Subscription(subscription_id=row.subscription_id,
-                                      resource_id=row.resource_id,
-                                      resource_name=row.resource_name,
-                                      resource_type=row.resource_type,
-                                      resource_status=row.resource_status,
-                                      resource_volume=row.resource_volume,
-                                      product_id=row.product_id,
-                                      current_fee=row.current_fee,
-                                      cron_time=row.cron_time,
                                       status=row.status,
+                                      type=row.type,
+                                      product_id=row.product_id,
+                                      unit_price=row.unit_price,
+                                      unit=row.unit,
+                                      order_id=row.order_id,
+                                      resource_volume=row.resource_volume,
+                                      amount=row.amount,
                                       user_id=row.user_id,
                                       project_id=row.project_id,
                                       created_at=row.created_at,
@@ -148,10 +165,10 @@ class Connection(base.Connection):
         return db_models.Bill(bill_id=row.bill_id,
                               start_time=row.start_time,
                               end_time=row.end_time,
-                              fee=row.fee,
-                              price=row.price,
+                              amount=row.amount,
+                              unit_price=row.unit_price,
                               unit=row.unit,
-                              subscription_id=row.subscription_id,
+                              order_id=row.order_id,
                               remarks=row.remarks,
                               user_id=row.user_id,
                               project_id=row.project_id,
@@ -164,7 +181,9 @@ class Connection(base.Connection):
                                  project_id=row.project_id,
                                  balance=row.balance,
                                  consumption=row.consumption,
-                                 currency=row.currency)
+                                 currency=row.currency,
+                                 created_at=row.created_at,
+                                 updated_at=row.updated_at)
 
     @staticmethod
     def _row_to_db_charge_model(row):
@@ -173,7 +192,9 @@ class Connection(base.Connection):
                                 project_id=row.project_id,
                                 value=row.value,
                                 unit=row.unit,
-                                charge_time=row.charge_time)
+                                charge_time=row.charge_time,
+                                created_at=row.created_at,
+                                updated_at=row.updated_at)
 
     @require_admin_context
     def create_product(self, context, product):
@@ -194,16 +215,16 @@ class Connection(base.Connection):
             query = query.filter_by(service=filters['service'])
         if 'region_id' in filters:
             query = query.filter_by(region_id=filters['region_id'])
-        result =  _paginate_query(context, sa_models.Product,
-                                  limit=limit, marker=marker,
-                                  sort_key=sort_key, sort_dir=sort_dir,
-                                  query=query)
+        result = _paginate_query(context, sa_models.Product,
+                                 limit=limit, marker=marker,
+                                 sort_key=sort_key, sort_dir=sort_dir,
+                                 query=query)
         return (self._row_to_db_product_model(p) for p in result)
 
     @require_context
     def get_product(self, context, product_id):
         query = model_query(context, sa_models.Product).\
-                filter_by(product_id=product_id)
+            filter_by(product_id=product_id)
         ref = query.one()
         return self._row_to_db_product_model(ref)
 
@@ -226,6 +247,39 @@ class Connection(base.Connection):
         return self._row_to_db_product_model(ref)
 
     @require_admin_context
+    def create_order(self, context, order):
+        session = db_session.get_session()
+        with session.begin():
+            ref = sa_models.Order()
+            ref.update(order.as_dict())
+            session.add(ref)
+        return self._row_to_db_order_model(ref)
+
+    @require_admin_context
+    def update_order(self, context, order):
+        session = db_session.get_session()
+        with session.begin():
+            query = model_query(context, sa_models.Order)
+            query = query.filter_by(order_id=order.order_id)
+            query.update(order.as_dict(), synchronize_session='fetch')
+            ref = query.one()
+        return self._row_to_db_order_model(ref)
+
+    @require_context
+    def get_order_by_resource_id(self, context, resource_id):
+        query = model_query(context, sa_models.Order).\
+            filter_by(resource_id=resource_id)
+        ref = query.one()
+        return self._row_to_db_order_model(ref)
+
+    @require_context
+    def get_order(self, context, order_id):
+        query = model_query(context, sa_models.Order).\
+            filter_by(order_id=order_id)
+        ref = query.one()
+        return self._row_to_db_order_model(ref)
+
+    @require_admin_context
     def create_subscription(self, context, subscription):
         session = db_session.get_session()
         with session.begin():
@@ -245,12 +299,14 @@ class Connection(base.Connection):
         return self._row_to_db_subscription_model(ref)
 
     @require_context
-    def get_subscriptions_by_resource_id(self, context, resource_id,
-                                         status=None):
+    def get_subscriptions_by_order_id(self, context, order_id,
+                                      status=None, type=None):
         query = model_query(context, sa_models.Subscription).\
-                filter_by(resource_id=resource_id)
+            filter_by(order_id=order_id)
         if status:
             query = query.filter_by(status=status)
+        if type:
+            query = query.filter_by(type=type)
         ref = query.all()
         return (self._row_to_db_subscription_model(r) for r in ref)
 
@@ -269,40 +325,17 @@ class Connection(base.Connection):
                                         limit=None, marker=None, sort_key=None,
                                         sort_dir=None):
         query = model_query(context, sa_models.Subscription).\
-                filter_by(product_id=product_id)
+            filter_by(product_id=product_id)
 
         if start_time:
-            query = query.filter_by(created_at >= start_time)
+            query = query.filter(sa_models.Subscription.created_at >= start_time)
         if end_time:
-            query = query.filter_by(create_at <= end_time)
+            query = query.filter(sa_models.Subscription.created_at <= end_time)
 
-        ref =  _paginate_query(context, sa_models.Subscription,
-                               limit=limit, marker=marker,
-                               sort_key=sort_key, sort_dir=sort_dir,
-                               query=query)
-
-        return (self._row_to_db_subscription_model(r) for r in ref)
-
-    @require_context
-    def get_subscriptions_group_by_resource_id(self,
-        context, resource_type=None,
-        start_time=None, end_time=None,
-        limit=None, marker=None, sort_key=None, sort_dir=None):
-
-        query = model_query(context, sa_models.Subscription).\
-                group_by(sa_models.Subscription.resource_id)
-
-        if resource_type:
-            query = query.filter_by(resource_type=resource_type)
-        if start_time:
-            query = query.filter_by(created_at >= start_time)
-        if end_time:
-            query = query.filter_by(create_at <= end_time)
-
-        ref =  _paginate_query(context, sa_models.Subscription,
-                               limit=limit, marker=marker,
-                               sort_key=sort_key, sort_dir=sort_dir,
-                               query=query)
+        ref = _paginate_query(context, sa_models.Subscription,
+                              limit=limit, marker=marker,
+                              sort_key=sort_key, sort_dir=sort_dir,
+                              query=query)
 
         return (self._row_to_db_subscription_model(r) for r in ref)
 
@@ -326,18 +359,18 @@ class Connection(base.Connection):
         return self._row_to_db_bill_model(ref)
 
     @require_context
-    def get_latest_bill(self, context, subscription_id):
+    def get_latest_bill(self, context, order_id):
         session = db_session.get_session()
         with session.begin():
             query = model_query(context, sa_models.Bill)
-            query = query.filter_by(subscription_id=subscription_id)
+            query = query.filter_by(order_id=order_id)
             ref = query.order_by(desc(sa_models.Bill.id)).all()[0]
         return self._row_to_db_bill_model(ref)
 
     @require_admin_context
     def get_bills_by_subscription_id(self, context, subscription_id):
         query = model_query(context, sa_models.Bill).\
-                filter_by(subscription_id=subscription_id)
+            filter_by(subscription_id=subscription_id)
         ref = query.all()
         return (self._row_to_db_bill_model(r) for r in ref)
 
@@ -353,7 +386,7 @@ class Connection(base.Connection):
     @require_context
     def get_account(self, context, user_id):
         query = model_query(context, sa_models.Account).\
-                filter_by(user_id=user_id)
+            filter_by(user_id=user_id)
         ref = query.one()
         return self._row_to_db_account_model(ref)
 

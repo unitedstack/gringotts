@@ -24,22 +24,23 @@ class MasterAPI(proxy.RpcProxy):
             topic=cfg.CONF.master.master_topic,
             default_version=self.BASE_RPC_VERSION)
 
-    def resource_created(self, ctxt, subscriptions, action_time, remarks):
+    def resource_created(self, ctxt, order_id, action_time, remarks):
         return self.cast(ctxt,
                          self.make_msg('resource_created',
-                                       subscriptions=subscriptions,
+                                       order_id=order_id,
                                        action_time=action_time,
                                        remarks=remarks))
 
-    def resource_deleted(self, ctxt, subscriptions, action_time):
+    def resource_deleted(self, ctxt, order_id, action_time):
         return self.cast(ctxt,
                          self.make_msg('resource_deleted',
-                                       subscriptions=subscriptions,
+                                       order_id=order_id,
                                        action_time=action_time))
 
-    def resource_changed(self, ctxt, subscriptions, action_time, remarks):
+    def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
         return self.cast(ctxt,
                          self.make_msg('resource_changed',
-                                       subscriptions=subscriptions,
+                                       order_id=order_id,
                                        action_time=action_time,
+                                       change_to=change_to,
                                        remarks=remarks))

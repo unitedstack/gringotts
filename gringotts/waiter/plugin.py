@@ -18,31 +18,6 @@ db_conn = db.get_connection(cfg.CONF)
 LOG = log.getLogger(__name__)
 
 
-class ComputeNotificationBase(plugin.NotificationBase):
-    @staticmethod
-    def get_exchange_topics(conf):
-        """Return a sequence of ExchangeTopics defining the exchange and
-        topics to be connected for this plugin.
-        """
-        return [
-            plugin.ExchangeTopics(
-                exchange=conf.nova_control_exchange,
-                topics=set(topic + ".info"
-                           for topic in conf.notification_topics)),
-        ]
-
-    def get_subscriptions(self, resource_id, status=None):
-        try:
-            subs = db_conn.get_subscriptions_by_resource_id(
-                context.get_admin_context(), resource_id, status=status)
-
-            return [sub.as_dict() for sub in subs]
-        except Exception:
-            LOG.exception('Fail to get subscriptions of resoruce: %s' %
-                          resource_id)
-            raise exception.DBError(reason='Fail to get subscriptions')
-
-
 class Collection(object):
     """Some field collection that ProductItem will use to get product or
     to create/update/delete subscription
@@ -98,34 +73,30 @@ class ProductItem(plugin.PluginBase):
 
         return result[0]
 
-    def create_subscription(self, message, status='active'):
+    def create_subscription(self, message, order_id, type=None, status=None):
         """Subscribe to this product
         """
         collection = self.get_collection(message)
         product = self._get_product(collection)
 
-        # We don't bill the resource that can't find its products
+        # We don't bill the resource which can't find its products
         if not product:
             return None
 
         # Create subscription
         subscription_id = uuidutils.generate_uuid()
-        resource_id = collection.resource_id
-        resource_name = collection.resource_name
-        resource_type = collection.resource_type
-        resource_status = collection.resource_status
-        resource_volume = collection.resource_volume
         product_id = product.product_id
-        current_fee = 0
-        cron_time = None
-        status = status
+        # copy unit price of the product to subscription
+        unit_price = product.unit_price
+        unit = product.unit
+        resource_volume = collection.resource_volume
+        amount = 0
         user_id = collection.user_id
         project_id = collection.project_id
 
         subscription_in = db_models.Subscription(
-            subscription_id, resource_id,
-            resource_name, resource_type, resource_status, resource_volume,
-            product_id, current_fee, cron_time, status, user_id, project_id)
+            subscription_id, status, type, product_id, unit_price, unit,
+            resource_volume, amount, order_id, user_id, project_id)
 
         try:
             subscription = db_conn.create_subscription(context.get_admin_context(),

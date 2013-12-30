@@ -28,7 +28,7 @@ class VolumeNotificationBase(plugin.NotificationBase):
         """
         return [
             plugin.ExchangeTopics(
-                exchange=conf.nova_control_exchange,
+                exchange=conf.cinder_control_exchange,
                 topics=set(topic + ".info"
                            for topic in conf.notification_topics)),
         ]
