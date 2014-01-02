@@ -57,16 +57,16 @@ class ProductController(rest.RestController):
         total_volume = 0
         statistics = []
         for s in subs:
-            sub = models.ProductSubscription.transform(resource_id=s.resource_id,
-                                                       resource_name=s.resource_name,
-                                                       resource_volume=s.resource_volume,
+            sub = models.ProductSubscription.transform(volume=s.resource_volume,
+                                                       unit_price=s.unit_price,
+                                                       status=s.status,
                                                        user_id=s.user_id,
                                                        project_id=s.project_id,
-                                                       sales=s.current_fee,
+                                                       sales=s.amount,
                                                        created_time=s.created_at)
             statistics.append(sub)
 
-            total_sales += s.current_fee
+            total_sales += s.amount
             total_volume += s.resource_volume
 
         return models.ProductStatisticsDetail.transform(
@@ -91,11 +91,9 @@ class ProductsController(rest.RestController):
         return ProductController(product_id), remainder
 
     @wsexpose(models.ProductsStatistics, wtypes.text, wtypes.text, wtypes.text,
-              datetime.datetime, datetime.datetime,
-              int, wtypes.text, wtypes.text, wtypes.text)
+              datetime.datetime, datetime.datetime)
     def get_all(self, name=None, service=None, region_id=None,
-                start_time=None, end_time=None,
-                limit=None, marker=None, sort_key='id', sort_dir='asc'):
+                start_time=None, end_time=None):
         """Get all products's statistics
         """
         filters = {}
@@ -109,17 +107,13 @@ class ProductsController(rest.RestController):
         conn = pecan.request.db_conn
 
         # Get all products
-        result = conn.get_products(request.context,
-                                   filters=filters,
-                                   limit=limit,
-                                   marker=marker,
-                                   sort_key=sort_key,
-                                   sort_dir=sort_dir)
+        products = conn.get_products(request.context,
+                                     filters=filters)
 
         # Get all subscriptions of every product
         total_sales = 0
         statistics = []
-        for p in result:
+        for p in products:
             subs = conn.get_subscriptions_by_product_id(request.context,
                                                         p.product_id,
                                                         start_time=start_time,
@@ -128,7 +122,7 @@ class ProductsController(rest.RestController):
             volume = 0
 
             for s in subs:
-                sales += s.current_fee
+                sales += s.amount
                 volume += s.resource_volume
 
             statistics.append(models.ProductStatistics.transform(
@@ -181,19 +175,14 @@ class ResourcesController(rest.RestController):
         """
         conn = pecan.request.db_conn
 
-        # Get all resources from subscription table, filter by project_id,
-        # and group by resource_id
-        resources = conn.get_subscriptions_group_by_resource_id(request.context,
-                resource_type=resource_type, start_time=start_time,
-                end_time=end_time, limit=limit, marker=marker, sort_key=sort_key,
-                sort_dir=sort_dir)
+        orders = conn.get_orders(request.context, limit=limit, marker=marker,
+                                 sort_key=sort_key, sort_dir=sort_dir)
 
         resources_list = []
         resources_total_price = 0
         resource_amount = 0
 
-        # Caculate every resource's consumption
-        for resource in resources:
+        for order in orders:
             resource_amount += 1
             resource_total_price = 0
 
@@ -206,10 +195,10 @@ class ResourcesController(rest.RestController):
             resources_total_price += resource_total_price
 
             resources_list.append(models.ResourceStatistics(
-                resource_id=resource.resource_id,
-                resource_name=resource.resource_name,
-                resource_status=resource.resource_status,
-                resource_volume=resource.resource_volume,
+                resource_id=order.resource_id,
+                resource_name=order.resource_name,
+                resource_status=order.resource_status,
+                resource_volume=order.resource_volume,
                 total_price=resource_total_price,
                 created_time=resource.created_at))
 

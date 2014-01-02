@@ -118,14 +118,15 @@ class Purchase(APIBase):
     product_name = wtypes.text
     service = wtypes.text
     region_id = wtypes.text
-    amount = int
+    volume = int
 
 
 class Price(APIBase):
     """Price represents some products collection
     """
     unit_price = float
-    total_price = float
+    hourly_amount = float
+    monthly_amount = float
     unit = wtypes.text
     currency = wtypes.text
 
@@ -169,12 +170,12 @@ class ProductsStatistics(APIBase):
 class ProductSubscription(APIBase):
     """Represent model for a subscription to a product
     """
-    resource_id = wtypes.text
-    resource_name = wtypes.text
-    resource_volume = int
+    unit_price = float
+    volume = int
+    sales = float
+    status = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
-    sales = float
     created_time =  datetime.datetime
 
 

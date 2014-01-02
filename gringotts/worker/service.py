@@ -56,18 +56,18 @@ class WorkerService(rpc_service.Service):
         # Confirm the user's balance is enough
         try:
             account = self.db_conn.get_account(context.get_admin_context(),
-                                               order.user_id)
+                                               order.project_id)
         except Exception:
-            LOG.warning('Fail to find the account: %s' % order.user_id)
+            LOG.warning('Fail to find the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to find the account')
 
         if account.balance < amount:
             LOG.warning("The balance of the account(%s) is not enough to"
-                        "pay for the fee: %s" % (order.user_id, amount))
+                        "pay for the fee: %s" % (order.project_id, amount))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
             # exception.
-            raise exception.NotSufficientFund(user_id=order.user_id)
+            raise exception.NotSufficientFund(project_id=order.project_id)
 
         # Confirm the resource is health
 
@@ -122,7 +122,7 @@ class WorkerService(rpc_service.Service):
         try:
             account = self.db_conn.update_account(context.get_admin_context(), account)
         except Exception:
-            LOG.warning('Fail to update the account: %s' % order.user_id)
+            LOG.warning('Fail to update the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to update the account')
 
     def pre_deduct(self, ctxt, order_id):
@@ -135,18 +135,18 @@ class WorkerService(rpc_service.Service):
         # Confirm the user's balance is enough
         try:
             account = self.db_conn.get_account(context.get_admin_context(),
-                                               order.user_id)
+                                               order.project_id)
         except Exception:
-            LOG.warning('Fail to find the account: %s' % order.user_id)
+            LOG.warning('Fail to find the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to find the account')
 
         if account.balance < amount:
             LOG.warning("The balance of the account(%s) is not enough to"
-                        "pay for the fee: %s" % (order.user_id, amount))
+                        "pay for the fee: %s" % (order.project_id, amount))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
             # exception.
-            raise exception.NotSufficientFund(user_id=order.user_id)
+            raise exception.NotSufficientFund(project_id=order.project_id)
 
         # Confirm the resource is health
 
@@ -202,7 +202,7 @@ class WorkerService(rpc_service.Service):
         try:
             account = self.db_conn.update_account(context.get_admin_context(), account)
         except Exception:
-            LOG.warning('Fail to update the account: %s' % order.user_id)
+            LOG.warning('Fail to update the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to update the account')
 
     def close_bill(self, ctxt, order_id, action_time):
@@ -267,16 +267,15 @@ class WorkerService(rpc_service.Service):
                 raise exception.DBError(reason='Fail to update the subscription')
 
         # Update the account
-        user_id = order.user_id
         try:
             account = self.db_conn.get_account(context.get_admin_context(),
-                                               user_id)
+                                               order.project_id)
             account.balance += more_fee
             account.consumption -= more_fee
             account = self.db_conn.update_account(context.get_admin_context(),
                                                   account)
         except Exception:
-            LOG.warning('Fail to update the account: %s' % user_id)
+            LOG.warning('Fail to update the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to update the account')
 
 

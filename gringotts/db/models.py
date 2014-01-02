@@ -158,7 +158,8 @@ class Bill(Model):
     :param project_id: The project id this bill belongs to
     """
 
-    def __init__(self, bill_id, start_time, end_time, amount, unit_price,
+    def __init__(self,
+                 bill_id, start_time, end_time, amount, unit_price,
                  unit, order_id, remarks, user_id, project_id,
                  created_at=None, updated_at=None):
         Model.__init__(
@@ -186,7 +187,8 @@ class Account(Model):
     :param currency: The currency of the account
     """
 
-    def __init__(self, user_id, project_id, balance, consumption, currency,
+    def __init__(self,
+                 user_id, project_id, balance, consumption, currency,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,

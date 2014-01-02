@@ -38,14 +38,14 @@ class SizeItem(waiter_plugin.ProductItem):
     def get_collection(self, message):
         """Get collection from message
         """
-        product_name = 'volume.size'
+        product_name = 'snapshot.size'
         service = 'BlockStorage'
         region_id = 'default'
-        resource_id = message['payload']['volume_id']
+        resource_id = message['payload']['snapshot_id']
         resource_name = message['payload']['display_name']
-        resource_type = 'volume'
+        resource_type = 'snapshot'
         resource_status = message['payload']['status']
-        resource_volume = message['payload']['size']
+        resource_volume = message['payload']['volume_size']
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
 
@@ -62,12 +62,12 @@ class SizeItem(waiter_plugin.ProductItem):
 
 
 product_items = extension.ExtensionManager(
-    namespace='gringotts.volume.product_item',
+    namespace='gringotts.snapshot.product_item',
     invoke_on_load=True,
 )
 
 
-class VolumeNotificationBase(plugin.NotificationBase):
+class SnapshotNotificationBase(plugin.NotificationBase):
     @staticmethod
     def get_exchange_topics(conf):
         """Return a sequence of ExchangeTopics defining the exchange and
@@ -83,7 +83,7 @@ class VolumeNotificationBase(plugin.NotificationBase):
     def create_order(self, order_id, unit_price, unit, message):
         """Create an order for one instance
         """
-        resource_id = message['payload']['volume_id']
+        resource_id = message['payload']['snapshot_id']
         resource_name = message['payload']['display_name']
         resource_status = message['payload']['status']
         user_id = message['payload']['user_id']
@@ -93,7 +93,7 @@ class VolumeNotificationBase(plugin.NotificationBase):
                                    resource_id=resource_id,
                                    resource_name=resource_name,
                                    resource_status=resource_status,
-                                   type='volume',
+                                   type='snapshot',
                                    unit_price=unit_price,
                                    unit=unit,
                                    amount=0,
@@ -111,20 +111,20 @@ class VolumeNotificationBase(plugin.NotificationBase):
         return order
 
 
-class VolumeCreateEnd(VolumeNotificationBase):
-    """Handle the event that volume be created
+class SnapshotCreateEnd(SnapshotNotificationBase):
+    """Handle the event that snapshot be created
     """
-    event_types = ['volume.create.end']
+    event_types = ['snapshot.create.end']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
 
-        # We only care the instance created successfully
-        if message['payload']['status'] != 'available':
-            volume_id = message['payload']['volume_id']
-            LOG.warning('The state of volume %s is not available' % volume_id)
-            raise exception.VolumeStateError(volume_id=volume_id,
-                                             state=message['payload']['status'])
+        ## We only care the instance created successfully
+        #if message['payload']['status'] != 'available':
+        #    volume_id = message['payload']['volume_id']
+        #    LOG.warning('The state of volume %s is not available' % volume_id)
+        #    raise exception.VolumeStateError(volume_id=volume_id,
+        #                                     state=message['payload']['status'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -143,7 +143,7 @@ class VolumeCreateEnd(VolumeNotificationBase):
         # Create an order for this instance
         order = self.create_order(order_id, unit_price, unit, message)
 
-        remarks = 'Volume Has Been Created.'
+        remarks = 'Snapshot Has Been Created.'
         action_time = message['timestamp']
 
         # Notify master, just give master messages it needs
@@ -152,22 +152,14 @@ class VolumeCreateEnd(VolumeNotificationBase):
                                     action_time, remarks)
 
 
-class VolumeResizeEnd(VolumeNotificationBase):
-    """Handle the events that volume be changed
+class SnapshotDeleteEnd(SnapshotNotificationBase):
+    """Handle the event that snapthot be deleted
     """
-    event_types = ['volume.resize.end']
+    event_types = ['snapshot.delete.end']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
 
-
-class VolumeDeleteEnd(VolumeNotificationBase):
-    """Handle the event that volume be deleted
-    """
-    event_types = ['volume.delete.end']
-
-    def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
         # We only care the volume deleted successfully
         #if message['payload']['status'] != 'deleted':
         #    volume_id = message['payload']['volume_id']
@@ -176,7 +168,7 @@ class VolumeDeleteEnd(VolumeNotificationBase):
         #                                     state=message['payload']['status'])
 
         # Get the order of this resource
-        resource_id = message['payload']['volume_id']
+        resource_id = message['payload']['snapshot_id']
         order = db_conn.get_order_by_resource_id(context.get_admin_context(),
                                                  resource_id)
         action_time = message['timestamp']

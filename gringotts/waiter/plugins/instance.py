@@ -304,7 +304,7 @@ class InstanceDeleteEnd(ComputeNotificationBase):
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
 
-        # We only care the instance stopped successfully
+        # We only care the instance deleted successfully
         if message['payload']['state'] != 'deleted':
             instance_id = message['payload']['instance_id']
             LOG.warning('The state of instance %s is not stopped' % instance_id)

@@ -152,7 +152,8 @@ class ProductsController(rest.RestController):
     @wsexpose([models.Product], wtypes.text, wtypes.text, wtypes.text,
               int, wtypes.text, wtypes.text, wtypes.text)
     def get_all(self, name=None, service=None, region_id=None,
-                limit=None, marker=None, sort_key='id', sort_dir='asc'):
+                limit=None, marker=None,
+                sort_key='created_at', sort_dir='desc'):
         """Get all product
         """
         filters = {}

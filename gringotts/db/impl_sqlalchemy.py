@@ -7,6 +7,7 @@ import os
 from sqlalchemy import desc
 
 from gringotts import context as gring_context
+from gringotts import exception
 
 from gringotts.db import base
 from gringotts.db import models as db_models
@@ -215,6 +216,13 @@ class Connection(base.Connection):
             query = query.filter_by(service=filters['service'])
         if 'region_id' in filters:
             query = query.filter_by(region_id=filters['region_id'])
+
+        if marker is not None:
+            try:
+                marker = self.get_product(context, marker)
+            except exception.ProductIdNotFound:
+                raise exception.MarkerNotFount(marker)
+
         result = _paginate_query(context, sa_models.Product,
                                  limit=limit, marker=marker,
                                  sort_key=sort_key, sort_dir=sort_dir,
@@ -225,7 +233,10 @@ class Connection(base.Connection):
     def get_product(self, context, product_id):
         query = model_query(context, sa_models.Product).\
             filter_by(product_id=product_id)
-        ref = query.one()
+        try:
+            ref = query.one()
+        except Exception:
+            raise exception.ProductIdNotFound(product_id)
         return self._row_to_db_product_model(ref)
 
     @require_admin_context
@@ -278,6 +289,16 @@ class Connection(base.Connection):
             filter_by(order_id=order_id)
         ref = query.one()
         return self._row_to_db_order_model(ref)
+
+    @require_context
+    def get_orders(self, context, limit=None, marker=None,
+                   sort_key=None, sort_dir=None):
+        query = model_query(context, sa_models.Order)
+        result = _paginate_query(context, sa_models.Order,
+                                 limit=limit, marker=marker,
+                                 sort_key=sort_key, sort_dir=sort_dir,
+                                 query=query)
+        return (self._row_to_db_order_model(o) for o in result)
 
     @require_admin_context
     def create_subscription(self, context, subscription):
@@ -384,9 +405,9 @@ class Connection(base.Connection):
         return self._row_to_db_account_model(account_ref)
 
     @require_context
-    def get_account(self, context, user_id):
+    def get_account(self, context, project_id):
         query = model_query(context, sa_models.Account).\
-            filter_by(user_id=user_id)
+            filter_by(project_id=project_id)
         ref = query.one()
         return self._row_to_db_account_model(ref)
 
@@ -395,7 +416,7 @@ class Connection(base.Connection):
         session = db_session.get_session()
         with session.begin():
             query = model_query(context, sa_models.Account)
-            query = query.filter_by(user_id=account.user_id)
+            query = query.filter_by(project_id=account.project_id)
             query.update(account.as_dict(), synchronize_session='fetch')
             ref = query.one()
         return self._row_to_db_account_model(ref)

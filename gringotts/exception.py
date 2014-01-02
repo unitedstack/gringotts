@@ -97,7 +97,7 @@ class NotAuthorized(GringottsException):
 
 
 class NotSufficientFund(GringottsException):
-    message = _("The user %(user_id)s balance is not sufficient")
+    message = _("The user %(project_id)s balance is not sufficient")
     code = 400
 
 
@@ -147,6 +147,9 @@ class InstanceStateError(GringottsException):
     message = _("The state of the instance %(instance_id)s is %(state)s")
 
 
+class VolumeStateError(GringottsException):
+    message = _("The state of the volume %(volume_id)s is %(state)s")
+
 # Cannot be templated as the error syntax varies.
 # msg needs to be constructed when raised.
 class InvalidParameterValue(Invalid):
@@ -164,6 +167,10 @@ class ProductIdNotFound(NotFound):
 
 class ProductNameNotFound(NotFound):
     message = _("Product %(product_name)s could not be found")
+
+
+class MarkerNotFound(NotFound):
+    message = _("Marker %(marker)s could not be found")
 
 
 class LatestBillNotFound(NotFound):
