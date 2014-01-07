@@ -86,14 +86,14 @@ class Product(APIBase):
     """A product represents a rule applied to resources to be billed 
     """
     product_id = wtypes.text
-    name = wsme.wsattr(wtypes.text, mandatory=True)
-    service = wsme.wsattr(wtypes.text, mandatory=True)
-    region_id = wsme.wsattr(wtypes.text, default='default')
+    name = wtypes.text
+    service = wtypes.text
+    region_id = wtypes.text
     description = wtypes.text
 
-    type = wsme.wsattr(wtypes.text, default='regular')
-    unit_price = wsme.wsattr(float, mandatory=True)
-    unit = wsme.wsattr(wtypes.text, mandatory=True, default='hour')
+    type = wtypes.text
+    unit_price = float
+    unit = wtypes.text
 
     created_at = datetime.datetime
     updated_at = datetime.datetime
@@ -128,7 +128,6 @@ class Price(APIBase):
     hourly_amount = float
     monthly_amount = float
     unit = wtypes.text
-    currency = wtypes.text
 
 
 class ProductStatistics(APIBase):

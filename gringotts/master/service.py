@@ -106,7 +106,7 @@ class MasterService(rpc_service.Service):
                 LOG.error('Fail to update the subscription: %s' % sub.as_dict())
                 raise exception.DBError(reason='Fail to update the subscription')
 
-            unit_price += sub.unit_price * sub.resource_volume
+            unit_price += sub.unit_price * sub.quantity
             unit = sub.unit
 
         # Update the order

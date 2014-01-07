@@ -22,7 +22,7 @@ LOG = log.getLogger(__name__)
 
 OPTS = [
     cfg.StrOpt('cinder_control_exchange',
-               default='cinder',
+               default='openstack',
                help="Exchange name for Cinder notifications"),
 ]
 
@@ -96,7 +96,7 @@ class SnapshotNotificationBase(plugin.NotificationBase):
                                    type='snapshot',
                                    unit_price=unit_price,
                                    unit=unit,
-                                   amount=0,
+                                   total_price=0,
                                    cron_time=None,
                                    status=None,
                                    user_id=user_id,
@@ -137,7 +137,7 @@ class SnapshotCreateEnd(SnapshotNotificationBase):
             sub = ext.obj.create_subscription(message, order_id,
                                               type='started', status='active')
             if sub:
-                unit_price += sub.unit_price * sub.resource_volume
+                unit_price += sub.unit_price * sub.quantity
                 unit = sub.unit
 
         # Create an order for this instance

@@ -45,12 +45,13 @@ class PriceController(rest.RestController):
                     unit = product.unit
                 except Exception as e:
                     LOG.error('Product %s not found' % p.product_name)
-                    raise exception.ProductNameNotFound(product_name=p.product_name)
+                    # NOTE(suo): Even through fail to find the product, we should't
+                    # raise Exception, emit the price to zero.
+                    #raise exception.ProductNameNotFound(product_name=p.product_name)
             else:
                 raise exception.MissingRequiredParams()
 
         return models.Price.transform(unit_price=unit_price,
-                                      hourly_amount=hourly_amount,
-                                      monthly_amount=hourly_amount * 24 * 30,
-                                      unit=unit,
-                                      currency='CNY')
+                                      hourly_amount=round(hourly_amount, 4),
+                                      monthly_amount=round(hourly_amount * 24 * 30, 4),
+                                      unit=unit)

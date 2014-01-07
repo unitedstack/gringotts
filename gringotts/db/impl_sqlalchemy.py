@@ -123,10 +123,14 @@ class Connection(base.Connection):
                                  region_id=row.region_id,
                                  description=row.description,
                                  type=row.type,
+                                 deleted=row.deleted,
                                  unit_price=row.unit_price,
                                  unit=row.unit,
+                                 quantity=row.quantity,
+                                 total_price=row.total_price,
                                  created_at=row.created_at,
-                                 updated_at=row.updated_at)
+                                 updated_at=row.updated_at,
+                                 deleted_at=row.deleted_at)
 
     @staticmethod
     def _row_to_db_order_model(row):
@@ -137,7 +141,7 @@ class Connection(base.Connection):
                                type=row.type,
                                unit_price=row.unit_price,
                                unit=row.unit,
-                               amount=row.amount,
+                               total_price=row.total_price,
                                cron_time=row.cron_time,
                                status=row.status,
                                user_id=row.user_id,
@@ -153,9 +157,9 @@ class Connection(base.Connection):
                                       product_id=row.product_id,
                                       unit_price=row.unit_price,
                                       unit=row.unit,
+                                      quantity=row.quantity,
+                                      total_price=row.total_price,
                                       order_id=row.order_id,
-                                      resource_volume=row.resource_volume,
-                                      amount=row.amount,
                                       user_id=row.user_id,
                                       project_id=row.project_id,
                                       created_at=row.created_at,
@@ -166,9 +170,9 @@ class Connection(base.Connection):
         return db_models.Bill(bill_id=row.bill_id,
                               start_time=row.start_time,
                               end_time=row.end_time,
-                              amount=row.amount,
                               unit_price=row.unit_price,
                               unit=row.unit,
+                              total_price=row.total_price,
                               order_id=row.order_id,
                               remarks=row.remarks,
                               user_id=row.user_id,
@@ -192,8 +196,16 @@ class Connection(base.Connection):
                                 user_id=row.user_id,
                                 project_id=row.project_id,
                                 value=row.value,
-                                unit=row.unit,
+                                currency=row.currency,
                                 charge_time=row.charge_time,
+                                created_at=row.created_at,
+                                updated_at=row.updated_at)
+
+    @staticmethod
+    def _row_to_db_region_model(row):
+        return db_models.Region(region_id=row.region_id,
+                                name=row.name,
+                                description=row.description,
                                 created_at=row.created_at,
                                 updated_at=row.updated_at)
 
@@ -207,8 +219,9 @@ class Connection(base.Connection):
         return self._row_to_db_product_model(product_ref)
 
     @require_context
-    def get_products(self, context, filters=None, limit=None,
-                     marker=None, sort_key=None, sort_dir=None):
+    def get_products(self, context, filters=None, read_deleted=False,
+                     limit=None, marker=None, sort_key=None,
+                     sort_dir=None):
         query = model_query(context, sa_models.Product)
         if 'name' in filters:
             query = query.filter_by(name=filters['name'])
@@ -216,6 +229,8 @@ class Connection(base.Connection):
             query = query.filter_by(service=filters['service'])
         if 'region_id' in filters:
             query = query.filter_by(region_id=filters['region_id'])
+        if not read_deleted:
+            query = query.filter_by(deleted=False)
 
         if marker is not None:
             try:
@@ -232,7 +247,8 @@ class Connection(base.Connection):
     @require_context
     def get_product(self, context, product_id):
         query = model_query(context, sa_models.Product).\
-            filter_by(product_id=product_id)
+            filter_by(product_id=product_id).\
+            filter_by(deleted=False)
         try:
             ref = query.one()
         except Exception:
@@ -241,11 +257,16 @@ class Connection(base.Connection):
 
     @require_admin_context
     def delete_product(self, context, product_id):
+        product = self.get_product(context, product_id)
+        product.deleted = True
+
         session = db_session.get_session()
         with session.begin():
             query = model_query(context, sa_models.Product)
-            query = query.filter_by(product_id=product_id)
-            query.delete()
+            query = query.filter_by(product_id=product.product_id)
+            query.update(product.as_dict(), synchronize_session='fetch')
+            ref = query.one()
+        return self._row_to_db_product_model(ref)
 
     @require_admin_context
     def update_product(self, context, product):

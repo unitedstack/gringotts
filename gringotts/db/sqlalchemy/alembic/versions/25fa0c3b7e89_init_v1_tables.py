@@ -27,12 +27,16 @@ def upgrade():
         sa.Column('description', sa.String(255)),
 
         sa.Column('type', sa.String(64)),
+        sa.Column('deleted', sa.Boolean),
 
         sa.Column('unit_price', sa.Float),
         sa.Column('unit', sa.String(64)),
+        sa.Column('quantity', sa.Integer),
+        sa.Column('total_price', sa.Float),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
+        sa.Column('deleted_at', sa.DateTime),
     )
 
     op.create_table(
@@ -49,7 +53,7 @@ def upgrade():
 
         sa.Column('unit_price', sa.Float),
         sa.Column('unit', sa.String(64)),
-        sa.Column('amount', sa.Float),
+        sa.Column('total_price', sa.Float),
         sa.Column('cron_time', sa.DateTime),
         sa.Column('status', sa.String(64)),
 
@@ -72,8 +76,8 @@ def upgrade():
         sa.Column('product_id', sa.String(255)),
         sa.Column('unit_price', sa.Float),
         sa.Column('unit', sa.String(64)),
-        sa.Column('resource_volume', sa.Integer),
-        sa.Column('amount', sa.Float),
+        sa.Column('quantity', sa.Integer),
+        sa.Column('total_price', sa.Float),
 
         sa.Column('order_id', sa.String(255)),
 
@@ -96,7 +100,7 @@ def upgrade():
 
         sa.Column('unit_price', sa.Float),
         sa.Column('unit', sa.String(64)),
-        sa.Column('amount', sa.Float),
+        sa.Column('total_price', sa.Float),
         sa.Column('order_id', sa.String(255)),
 
         sa.Column('remarks', sa.String(255)),

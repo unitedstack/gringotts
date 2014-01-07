@@ -59,35 +59,31 @@ class ProductController(rest.RestController):
         """Modify this product. PUT method will override all the fields.
         """
         # Ensure this product exists
+        # NOTE(suo): we can't make product_in and product_old
+        # point to the same object
         product_in = self._product()
+        product_old = self._product()
 
-        data.product_id = self._id
-        data.updated_at = datetime.datetime.utcnow()
-        data.created_at = product_in.created_at
+        for k, v in data.as_dict().items():
+            product_in[k] = v
+
+        product_in.updated_at = datetime.datetime.utcnow()
 
         # Check if there are other same names in the same region
         # except itself
-        filters = {'name': data.name,
-                   'service': data.service,
-                   'region_id': data.region_id}
+        filters = {'name': product_in.name,
+                   'service': product_in.service,
+                   'region_id': product_in.region_id}
         products = list(self.conn.get_products(request.context, filters=filters))
 
-        if len(products) > 0 and (data.name != product_in.name or
-                                  data.service != product_in.service or
-                                  data.region_id != product_in.region_id):
+        if len(products) > 0 and (product_old.name != product_in.name or
+                                  product_old.service != product_in.service or
+                                  product_old.region_id != product_in.region_id):
             error = "Product with name(%s) within service(%s) already "\
                     "exists in region_id(%s)" % \
                     (data.name, data.service, data.region_id)
             LOG.warning(error)
             raise exception.DuplicatedProduct(reason=error)
-
-        # API model to DB model
-        try:
-            product_in = db_models.Product(**data.as_dict())
-        except Exception as e:
-            error = 'Error while turning product: %s' % data.as_dict()
-            LOG.exception(error)
-            raise exception.MissingRequiredParams(reason=error)
 
         # Update product model to DB
         try:
@@ -119,7 +115,10 @@ class ProductsController(rest.RestController):
 
         # API model to DB model
         try:
-            product_in = db_models.Product(**data.as_dict())
+            product_in = db_models.Product(quantity=0,
+                                           total_price=0,
+                                           deleted=False,
+                                           **data.as_dict())
         except Exception as e:
             error = 'Error while turning product: %s' % data.as_dict()
             LOG.exception(error)
@@ -129,6 +128,7 @@ class ProductsController(rest.RestController):
         filters = {'name': data.name,
                    'service': data.service,
                    'region_id': data.region_id}
+
         products = list(conn.get_products(request.context, filters=filters))
 
         if len(products) > 0:

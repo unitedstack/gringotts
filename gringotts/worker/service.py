@@ -43,7 +43,6 @@ class WorkerService(rpc_service.Service):
         self.tg.add_timer(604800, lambda: None)
 
     def create_bill(self, ctxt, order_id, action_time, remarks):
-
         # Get the order
         order = self.db_conn.get_order(context.get_admin_context(), order_id)
 
@@ -51,7 +50,7 @@ class WorkerService(rpc_service.Service):
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=TIMESTAMP_TIME_FORMAT)
 
-        amount = order.unit_price
+        total_price = order.unit_price
 
         # Confirm the user's balance is enough
         try:
@@ -61,9 +60,9 @@ class WorkerService(rpc_service.Service):
             LOG.warning('Fail to find the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to find the account')
 
-        if account.balance < amount:
+        if account.balance < total_price:
             LOG.warning("The balance of the account(%s) is not enough to"
-                        "pay for the fee: %s" % (order.project_id, amount))
+                        "pay for the fee: %s" % (order.project_id, total_price))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
             # exception.
@@ -82,8 +81,8 @@ class WorkerService(rpc_service.Service):
         user_id = order.user_id
         project_id = order.project_id
 
-        bill = db_models.Bill(bill_id, start_time, end_time, amount, unit_price,
-                              unit, order_id, remarks, user_id, project_id)
+        bill = db_models.Bill(bill_id, start_time, end_time, unit_price, unit,
+                              total_price, order_id, remarks, user_id, project_id)
         try:
             self.db_conn.create_bill(context.get_admin_context(), bill)
         except Exception:
@@ -91,7 +90,7 @@ class WorkerService(rpc_service.Service):
             raise exception.DBError(reason='Fail to create bill')
 
         # Update the order
-        order.amount += amount
+        order.total_price += total_price
         order.cron_time = action_time + datetime.timedelta(hours=1)
         order.updated_at = datetime.datetime.utcnow()
         try:
@@ -100,14 +99,15 @@ class WorkerService(rpc_service.Service):
             LOG.warning('Fail to update the order: %s' % order.order_id)
             raise exception.DBError(reason='Fail to update the order')
 
-        # Update subscriptions
+        # Update subscriptions and products' total_price
         subscriptions = self.db_conn.get_subscriptions_by_order_id(
             context.get_admin_context(),
             order.order_id,
             status='active')
 
         for sub in subscriptions:
-            sub.amount += sub.unit_price * sub.resource_volume
+            sub_single_price = sub.unit_price * sub.quantity
+            sub.total_price += sub_single_price
             sub.updated_at = datetime.datetime.utcnow()
             try:
                 self.db_conn.update_subscription(context.get_admin_context(), sub)
@@ -115,9 +115,20 @@ class WorkerService(rpc_service.Service):
                 LOG.error('Fail to update the subscription: %s' % sub.as_dict())
                 raise exception.DBError(reason='Fail to update the subscription')
 
+            try:
+                product = self.db_conn.get_product(context.get_admin_context(),
+                                                   sub.product_id)
+                product.total_price += sub_single_price
+                self.db_conn.update_product(context.get_admin_context(),
+                                            product)
+            except Exception:
+                LOG.error("Fail to update the product\'s total_price: %s"
+                          % sub.as_dict())
+                raise exception.DBError(reason='Fail to update the product')
+
         # Update the account
-        account.balance -= amount
-        account.consumption += amount
+        account.balance -= total_price
+        account.consumption += total_price
         account.updated_at = datetime.datetime.utcnow()
         try:
             account = self.db_conn.update_account(context.get_admin_context(), account)
@@ -130,7 +141,7 @@ class WorkerService(rpc_service.Service):
         # Get the order
         order = self.db_conn.get_order(context.get_admin_context(), order_id)
 
-        amount = order.unit_price
+        total_price = order.unit_price
 
         # Confirm the user's balance is enough
         try:
@@ -140,9 +151,9 @@ class WorkerService(rpc_service.Service):
             LOG.warning('Fail to find the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to find the account')
 
-        if account.balance < amount:
+        if account.balance < total_price:
             LOG.warning("The balance of the account(%s) is not enough to"
-                        "pay for the fee: %s" % (order.project_id, amount))
+                        "pay for the fee: %s" % (order.project_id, total_price))
             # NOTE(suo): If the balance is not enough, we should stop
             # the resource, but for now, just raise NotSufficientFund
             # exception.
@@ -160,7 +171,7 @@ class WorkerService(rpc_service.Service):
             raise exception.LatestBillNotFound(order_id=order_id)
 
         bill.end_time += datetime.timedelta(hours=1)
-        bill.amount += amount
+        bill.total_price += total_price
         bill.updated_at = datetime.datetime.utcnow()
 
         try:
@@ -171,7 +182,7 @@ class WorkerService(rpc_service.Service):
             raise exception.DBError(reason='Fail to update bill')
 
         # Update the order
-        order.amount += amount
+        order.total_price += total_price
         order.cron_time += datetime.timedelta(hours=1)
         order.updated_at = datetime.datetime.utcnow()
         try:
@@ -187,7 +198,8 @@ class WorkerService(rpc_service.Service):
             status='active')
 
         for sub in subscriptions:
-            sub.amount += sub.unit_price * sub.resource_volume
+            sub_single_price = sub.unit_price * sub.quantity
+            sub.total_price += sub_single_price
             sub.updated_at = datetime.datetime.utcnow()
             try:
                 self.db_conn.update_subscription(context.get_admin_context(), sub)
@@ -195,9 +207,20 @@ class WorkerService(rpc_service.Service):
                 LOG.error('Fail to update the subscription: %s' % sub.as_dict())
                 raise exception.DBError(reason='Fail to update the subscription')
 
+            try:
+                product = self.db_conn.get_product(context.get_admin_context(),
+                                                   sub.product_id)
+                product.total_price += sub_single_price
+                self.db_conn.update_product(context.get_admin_context(),
+                                            product)
+            except Exception:
+                LOG.error("Fail to update the product\'s total_price: %s"
+                          % sub.as_dict())
+                raise exception.DBError(reason='Fail to update the product')
+
         # Update the account
-        account.balance -= amount
-        account.consumption += amount
+        account.balance -= total_price
+        account.consumption += total_price
         account.updated_at = datetime.datetime.utcnow()
         try:
             account = self.db_conn.update_account(context.get_admin_context(), account)
@@ -230,7 +253,7 @@ class WorkerService(rpc_service.Service):
 
         more_fee = round(((delta / 3600.0) * order.unit_price), 4)
         bill.end_time = action_time
-        bill.amount -= more_fee
+        bill.total_price -= more_fee
         bill.updated_at = datetime.datetime.utcnow()
 
         try:
@@ -241,7 +264,7 @@ class WorkerService(rpc_service.Service):
             raise exception.DBError(reason='Fail to update bill')
 
         # Update the order
-        order.amount -= more_fee
+        order.total_price -= more_fee
         order.cron_time = None
         order.updated_at = datetime.datetime.utcnow()
         try:
@@ -257,7 +280,8 @@ class WorkerService(rpc_service.Service):
             status='active')
 
         for sub in subscriptions:
-            sub.amount -= round(((delta / 3600.0) * sub.unit_price * sub.resource_volume), 4)
+            sub_more_fee = round(((delta / 3600.0) * sub.unit_price * sub.quantity), 4)
+            sub.total_price -= sub_more_fee
             sub.status = 'inactive'
             sub.updated_at = datetime.datetime.utcnow()
             try:
@@ -265,6 +289,17 @@ class WorkerService(rpc_service.Service):
             except Exception:
                 LOG.error('Fail to update the subscription: %s' % sub.as_dict())
                 raise exception.DBError(reason='Fail to update the subscription')
+
+            try:
+                product = self.db_conn.get_product(context.get_admin_context(),
+                                                   sub.product_id)
+                product.total_price -= sub_more_fee
+                self.db_conn.update_product(context.get_admin_context(),
+                                            product)
+            except Exception:
+                LOG.error("Fail to update the product\'s total_price: %s"
+                          % sub.as_dict())
+                raise exception.DBError(reason='Fail to update the product')
 
         # Update the account
         try:

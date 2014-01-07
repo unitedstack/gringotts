@@ -80,12 +80,16 @@ class Product(Base):
     description = Column(String(255))
 
     type = Column(String(64))
+    deleted = Column(Boolean)
 
     unit_price = Column(Float)
     unit = Column(String(64))
+    quantity = Column(Integer)
+    total_price = Column(Float)
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
+    deleted_at = Column(DateTime)
 
 
 class Order(Base):
@@ -101,9 +105,10 @@ class Order(Base):
     resource_status = Column(String(255))
 
     type = Column(String(255))
+
     unit_price = Column(Float)
     unit = Column(String(64))
-    amount = Column(Float)
+    total_price = Column(Float)
     cron_time = Column(DateTime)
     status = Column(String(64))
 
@@ -128,8 +133,8 @@ class Subscription(Base):
     product_id = Column(String(255))
     unit_price = Column(Float)
     unit = Column(String(64))
-    resource_volume = Column(Integer)
-    amount = Column(Float)
+    quantity = Column(Integer)
+    total_price = Column(Float)
 
     order_id = Column(String(255))
 
@@ -151,9 +156,9 @@ class Bill(Base):
     start_time = Column(DateTime)
     end_time = Column(DateTime)
 
-    amount = Column(Float)
     unit_price = Column(Float)
     unit = Column(String(64))
+    total_price = Column(Float)
     order_id = Column(String(255))
 
     remarks = Column(String(255))

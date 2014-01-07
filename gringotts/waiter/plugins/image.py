@@ -97,7 +97,7 @@ class ImageNotificationBase(plugin.NotificationBase):
                                    type='image',
                                    unit_price=unit_price,
                                    unit=unit,
-                                   amount=0,
+                                   total_price=0,
                                    cron_time=None,
                                    status=None,
                                    user_id=user_id,
@@ -138,7 +138,7 @@ class ImageCreateEnd(ImageNotificationBase):
             sub = ext.obj.create_subscription(message, order_id,
                                               type='started', status='active')
             if sub:
-                unit_price += sub.unit_price * sub.resource_volume
+                unit_price += sub.unit_price * sub.quantity
                 unit = sub.unit
 
         # Create an order for this instance

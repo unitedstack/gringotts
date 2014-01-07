@@ -62,7 +62,7 @@ class FlavorItem(waiter_plugin.ProductItem):
                           project_id=project_id)
 
 
-class ImageItem(waiter_plugin.ProductItem):
+class LicenseItem(waiter_plugin.ProductItem):
 
     def get_collection(self, message):
         """Get collection from message
@@ -156,7 +156,7 @@ class ComputeNotificationBase(plugin.NotificationBase):
                                    type='instance',
                                    unit_price=unit_price,
                                    unit=unit,
-                                   amount=0,
+                                   total_price=0,
                                    cron_time=None,
                                    status=None,
                                    user_id=user_id,
@@ -203,7 +203,7 @@ class InstanceCreateEnd(ComputeNotificationBase):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type='started', status='active')
                 if sub:
-                    unit_price += sub.unit_price * sub.resource_volume
+                    unit_price += sub.unit_price * sub.quantity
                     unit = sub.unit
 
         # Create an order for this instance

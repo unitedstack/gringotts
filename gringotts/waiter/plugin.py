@@ -89,14 +89,14 @@ class ProductItem(plugin.PluginBase):
         # copy unit price of the product to subscription
         unit_price = product.unit_price
         unit = product.unit
-        resource_volume = collection.resource_volume
-        amount = 0
+        quantity = collection.resource_volume
+        total_price = 0
         user_id = collection.user_id
         project_id = collection.project_id
 
         subscription_in = db_models.Subscription(
             subscription_id, status, type, product_id, unit_price, unit,
-            resource_volume, amount, order_id, user_id, project_id)
+            quantity, total_price, order_id, user_id, project_id)
 
         try:
             subscription = db_conn.create_subscription(context.get_admin_context(),
@@ -105,4 +105,17 @@ class ProductItem(plugin.PluginBase):
             LOG.exception('Fail to create subscription: %s' %
                           subscription_in.as_dict())
             raise exception.DBError(reason='Fail to create subscription')
+
+        # Update product
+        try:
+            product = db_conn.get_product(context.get_admin_context(),
+                                               product_id)
+            product.quantity += quantity
+            db_conn.update_product(context.get_admin_context(),
+                                        product)
+        except Exception:
+            LOG.error("Fail to update the product\'s quantity: %s"
+                      % subscription.as_dict())
+            raise exception.DBError(reason='Fail to update the product')
+
         return subscription

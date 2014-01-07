@@ -43,17 +43,20 @@ class Product(Model):
     :param region_id: The region id the product belongs to
     :param description: Some description to this product
     :param type: The bill type of the product(regular/metered)
+    :param deleted: If the product has been deleted
     :param unit_price: The unit price of the product
     :param unit: The unit of the price, currently there are fllowing options:
                  hour, month, year, GB-hour, IOPS-hour. Note that the unit
                  here should be corresponding to the period field. Fox example,
                  if period is hourly, and the unit here should be hour or GB-hour,
                  not month or GB-month.
+    :param quantity: The total sales amount of this product.
+    :param total_price: The total sales price of this product.
     """
     def __init__(self,
                  product_id, name, service, region_id, description,
-                 type, unit_price, unit,
-                 created_at=None, updated_at=None):
+                 type, deleted, unit_price, unit, quantity, total_price,
+                 created_at=None, updated_at=None, deleted_at=None):
         Model.__init__(
             self,
             product_id=product_id,
@@ -62,10 +65,14 @@ class Product(Model):
             region_id=region_id,
             description=description,
             type=type,
+            deleted=deleted,
             unit_price=unit_price,
             unit=unit,
+            quantity=quantity,
+            total_price=total_price,
             created_at=created_at,
-            updated_at=updated_at)
+            updated_at=updated_at,
+            deleted_at=deleted_at)
 
 
 class Order(Model):
@@ -78,7 +85,7 @@ class Order(Model):
     :param type: The type of the order
     :param unit_price: The unit price of this order, add up active subs
     :param unit: The unit of this order
-    :param amount: The total fee this resource spent from creation to now
+    :param total_price: The total fee this resource spent from creation to now
     :param cron_time: The next bill time
     :param status: The status of this subscription, maybe active, delete
     :param user_id: The user id this subscription belongs to
@@ -86,7 +93,7 @@ class Order(Model):
     """
     def __init__(self,
                  order_id, resource_id, resource_name, resource_status,
-                 type, unit_price, unit, amount, cron_time, status,
+                 type, unit_price, unit, total_price, cron_time, status,
                  user_id, project_id,
                  created_at=None, updated_at=None):
         Model.__init__(
@@ -98,7 +105,7 @@ class Order(Model):
             type=type,
             unit_price=unit_price,
             unit=unit,
-            amount=amount,
+            total_price=total_price,
             cron_time=cron_time,
             status=status,
             user_id=user_id,
@@ -117,15 +124,15 @@ class Subscription(Model):
     :param product_id: The product this resource subscribes to
     :param unit_price: The unit price of the product
     :param unit: The unit of the product
-    :param resource_volume: The volue of the resource
-    :param amount: The total fee this resource spent from creation to now
+    :param quantity: The quantity of the resource
+    :param total_price: The total fee this resource spent from creation to now
     :param order_id: The order this subscription belongs to
     :param user_id: The user id this subscription belongs to
     :param project_id: The project id this subscription belongs to
     """
     def __init__(self,
                  subscription_id, status, type, product_id, unit_price, unit,
-                 resource_volume, amount, order_id, user_id, project_id,
+                 quantity, total_price, order_id, user_id, project_id,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,
@@ -135,8 +142,8 @@ class Subscription(Model):
             product_id=product_id,
             unit_price=unit_price,
             unit=unit,
-            resource_volume=resource_volume,
-            amount=amount,
+            quantity=quantity,
+            total_price=total_price,
             order_id=order_id,
             user_id=user_id,
             project_id=project_id,
@@ -149,9 +156,9 @@ class Bill(Model):
     :param bill_id: The UUID of the bill
     :param start_time: The start time of the bill
     :param end_time: The end time of the bill
-    :param amount: The fee between start_time and end_time
     :param unit_price: The unit price of the resource
     :param unit: The unit of the price
+    :param total_price: The fee between start_time and end_time
     :param order_id: The order id the bill belongs to
     :param remarks: The remarks of this bill
     :param user_id: The user id this bill belongs to
@@ -159,17 +166,17 @@ class Bill(Model):
     """
 
     def __init__(self,
-                 bill_id, start_time, end_time, amount, unit_price,
-                 unit, order_id, remarks, user_id, project_id,
+                 bill_id, start_time, end_time, unit_price, unit,
+                 total_price, order_id, remarks, user_id, project_id,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,
             bill_id=bill_id,
             start_time=start_time,
             end_time=end_time,
-            amount=amount,
             unit_price=unit_price,
             unit=unit,
+            total_price=total_price,
             order_id=order_id,
             remarks=remarks,
             user_id=user_id,
