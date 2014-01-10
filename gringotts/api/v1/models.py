@@ -261,3 +261,42 @@ class ResourceStatisticsDetail(APIBase):
                    bills=[ResourceBill.sample1(),
                           ResourceBill.sample2(),
                           ResourceBill.sample3()])
+
+
+class UserAccount(APIBase):
+    """Account for a tenant
+    """
+    balance = float
+    currency = wtypes.text
+
+    @classmethod
+    def sample(cls):
+        return cls(balance=1000.56,
+                   currency='CNY')
+
+
+class AdminAccount(APIBase):
+    """Account for a tenant
+    """
+    balance = float
+    consumption = float
+    currency = wtypes.text
+    user_id = wtypes.text
+    project_id = wtypes.text
+
+    @classmethod
+    def sample1(cls):
+        return cls(balance=1000.56,
+                   consumption=321.5,
+                   currency='CNY',
+                   user_id='user-id-xxx',
+                   project_id='project-id-xxx')
+
+    @classmethod
+    def sample2(cls):
+        return cls(balance=100.74,
+                   consumption=432.4,
+                   currency='CNY',
+                   user_id='user-id-yyy',
+                   project_id='project-id-yyy')
+

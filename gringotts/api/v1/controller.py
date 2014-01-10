@@ -1,6 +1,7 @@
 from gringotts.api.v1 import product
 from gringotts.api.v1 import statistics
 from gringotts.api.v1 import price
+from gringotts.api.v1 import account
 
 
 class V1Controller(object):
@@ -9,3 +10,4 @@ class V1Controller(object):
     products = product.ProductsController()
     statistics = statistics.StatisticsController()
     price = price.PriceController()
+    accounts = account.AccountsController()

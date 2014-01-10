@@ -161,6 +161,10 @@ class NotFound(GringottsException):
     code = 404
 
 
+class AccountNotFound(NotFound):
+    message = _("Account %(project_id)s could not be found")
+
+
 class ProductIdNotFound(NotFound):
     message = _("Product %(product_id)s could not be found")
 
