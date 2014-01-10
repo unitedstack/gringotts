@@ -130,7 +130,7 @@ class Price(APIBase):
     unit = wtypes.text
 
 
-class ProductStatistics(APIBase):
+class Sale(APIBase):
     """Statisttics Model for one single product
     """
     product_id = wtypes.text
@@ -138,90 +138,98 @@ class ProductStatistics(APIBase):
     service = wtypes.text
     region_id = wtypes.text
 
-    volume = float
+    quantity = float
     unit = wtypes.text
-    sales = float
-
+    total_price = float
 
     @classmethod
     def sample(cls):
         return cls(product_id='product-xxx',
-                   name='product-1',
+                   product_name='product-1',
                    service='Compute',
                    region_id='region-xxx',
-                   volume=1000,
-                   price=0.48,
+                   quantity=1000,
                    unit='hour',
-                   sales=1234.7996,
-                   start_time=datetime.datetime.utcnow(),
-                   end_time=datetime.datetime.utcnow())
+                   total_price=1234.7996)
 
 
-class ProductsStatistics(APIBase):
+class Sales(APIBase):
     """Statistics for all products
     """
-    total_sales = float
-    products = [ProductStatistics]
+    total_price = float
+    sales = [Sale]
     start_time = datetime.datetime
     end_time = datetime.datetime
 
 
-class ProductSubscription(APIBase):
+class Subscription(APIBase):
     """Represent model for a subscription to a product
     """
     unit_price = float
-    volume = int
-    sales = float
+    quantity = int
+    total_price = float
     status = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
     created_time =  datetime.datetime
 
 
-class ProductStatisticsDetail(APIBase):
-    """Statisttics Model for product
+class Order(APIBase):
+    """One single order
     """
-    product_id = wtypes.text
-    product_name = wtypes.text
-    service = wtypes.text
-    region_id = wtypes.text
-
-    total_sales = float
-    total_volume = int
-    subscriptions = [ProductSubscription]
-
-    start_time = datetime.datetime
-    end_time = datetime.datetime
-
-
-class ResourceStatistics(APIBase):
-    """One resource statistics
-    """
+    order_id = wtypes.text
     resource_id = wtypes.text
     resource_name = wtypes.text
     resource_status = wtypes.text
-    resource_volume = int
+    unit_price = float
     total_price = float
+    type = wtypes.text
     created_time = datetime.datetime
 
+    @classmethod
+    def sample1(cls):
+        return cls(order_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
+                   resource_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
+                   resource_name='vm1',
+                   resource_status='active',
+                   unit_price=0.48,
+                   total_price=12.55,
+                   type='instance',
+                   created_time=datetime.datetime(2013, 12, 29, 03, 00, 00))
 
-class ResourcesStatistics(APIBase):
-    """Statistics for all products
+    @classmethod
+    def sample2(cls):
+        return cls(order_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
+                   resource_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
+                   resource_name='vm2',
+                   resource_status='active',
+                   unit_price=0.48,
+                   total_price=1234.55,
+                   type='instance',
+                   created_time=datetime.datetime(2013, 12, 29, 04, 00, 00))
+
+
+class Orders(APIBase):
+    """Collection of orders
     """
     total_price = float
-    resource_amount = int
-    resources= [ResourceStatistics]
-    resource_type = wtypes.text
+    order_amount = int
+    orders = [Order]
 
+    @classmethod
+    def sample(cls):
+        return cls(total_price=1245.1,
+                   order_amount=2,
+                   orders=[Order.sample1(),
+                           Order.sample2()])
 
-class ResourceBill(APIBase):
-    """Detail bill records of one resource
+class Bill(APIBase):
+    """Detail of an order
     """
     start_time = datetime.datetime
     end_time = datetime.datetime
     total_price = float
     unit_price = float
-    unit = wtypes.text
     remarks = wtypes.text
 
     @classmethod
@@ -238,29 +246,7 @@ class ResourceBill(APIBase):
                    end_time=datetime.datetime(2013, 12, 29, 05, 00, 00),
                    total_price=12.34,
                    unit_price=0.48,
-                   remarks='Instance has been changed')
-
-    @classmethod
-    def sample3(cls):
-        return cls(start_time=datetime.datetime(2013, 12, 29, 05, 00, 00),
-                   end_time=datetime.datetime(2013, 12, 29, 06, 00, 00),
-                   total_price=12.34,
-                   unit_price=0.48,
                    remarks='Instance has been stopped')
-
-
-class ResourceStatisticsDetail(APIBase):
-    """Statistics for a resoruce
-    """
-    total_price = float
-    bills = [ResourceBill]
-
-    @classmethod
-    def sample(cls):
-        return cls(total_price=37.02,
-                   bills=[ResourceBill.sample1(),
-                          ResourceBill.sample2(),
-                          ResourceBill.sample3()])
 
 
 class UserAccount(APIBase):
@@ -299,4 +285,3 @@ class AdminAccount(APIBase):
                    currency='CNY',
                    user_id='user-id-yyy',
                    project_id='project-id-yyy')
-

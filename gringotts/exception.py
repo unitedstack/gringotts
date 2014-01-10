@@ -165,6 +165,10 @@ class AccountNotFound(NotFound):
     message = _("Account %(project_id)s could not be found")
 
 
+class OrderBillsNotFound(NotFound):
+    message = _("Order %(order_id)s bills could not be found")
+
+
 class ProductIdNotFound(NotFound):
     message = _("Product %(product_id)s could not be found")
 

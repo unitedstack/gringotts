@@ -312,9 +312,17 @@ class Connection(base.Connection):
         return self._row_to_db_order_model(ref)
 
     @require_context
-    def get_orders(self, context, limit=None, marker=None,
-                   sort_key=None, sort_dir=None):
+    def get_orders(self, context, start_time=None, end_time=None, type=None,
+                   limit=None, marker=None, sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.Order)
+
+        if start_time:
+            query = query.filter(sa_models.Order.created_at >= start_time)
+        if end_time:
+            query = query.filter(sa_models.Order.created_at <= end_time)
+        if type:
+            query = query.filter_by(type=type)
+
         result = _paginate_query(context, sa_models.Order,
                                  limit=limit, marker=marker,
                                  sort_key=sort_key, sort_dir=sort_dir,
@@ -409,10 +417,10 @@ class Connection(base.Connection):
             ref = query.order_by(desc(sa_models.Bill.id)).all()[0]
         return self._row_to_db_bill_model(ref)
 
-    @require_admin_context
-    def get_bills_by_subscription_id(self, context, subscription_id):
+    @require_context
+    def get_bills_by_order_id(self, context, order_id):
         query = model_query(context, sa_models.Bill).\
-            filter_by(subscription_id=subscription_id)
+            filter_by(order_id=order_id)
         ref = query.all()
         return (self._row_to_db_bill_model(r) for r in ref)
 
