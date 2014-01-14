@@ -425,6 +425,24 @@ class Connection(base.Connection):
         return (self._row_to_db_bill_model(r) for r in ref)
 
     @require_context
+    def get_bills(self, context, start_time=None, end_time=None, type=None,
+                  limit=None, marker=None, sort_key=None, sort_dir=None):
+        query = model_query(context, sa_models.Bill)
+
+        if start_time:
+            query = query.filter(sa_models.Bill.start_time > start_time)
+        if end_time:
+            query = query.filter(sa_models.Bill.end_time <= end_time)
+        if type:
+            query = query.filter_by(type=type)
+
+        result = _paginate_query(context, sa_models.Bill,
+                                 limit=limit, marker=marker,
+                                 sort_key=sort_key, sort_dir=sort_dir,
+                                 query=query)
+        return (self._row_to_db_bill_model(o) for o in result)
+
+    @require_context
     def create_account(self, context, account):
         session = db_session.get_session()
         with session.begin():

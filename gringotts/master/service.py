@@ -120,20 +120,24 @@ class MasterService(rpc_service.Service):
             raise exception.DBError(reason='Fail to update the order')
 
     def resource_created(self, ctxt, order_id, action_time, remarks):
+        LOG.debug('Resource created, its order_id: %s, action_time: %s' %
+                  order_id, action_time)
         with self.lock:
-            LOG.debug('Resource created')
             self.worker_api.create_bill(context.get_admin_context(), order_id,
                                         action_time, remarks)
             self._create_cron_job(order_id, action_time)
 
     def resource_deleted(self, ctxt, order_id, action_time):
+        LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
+                  (order_id, action_time))
         with self.lock:
-            LOG.debug('Instance deleted')
             self.worker_api.close_bill(context.get_admin_context(),
                                        order_id, action_time)
             self._delete_cron_job(order_id)
 
     def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
+        LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to',
+                  % (order_id, action_time, change_to))
         with self.lock:
             # close the old bill
             self.worker_api.close_bill(context.get_admin_context(),

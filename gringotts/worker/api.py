@@ -9,7 +9,7 @@ from gringotts.openstack.common import log as logging
 
 worker_opts = [
     cfg.BoolOpt('use_local',
-                default=False,
+                default=True,
                 help='Perform gring-worker operations locally'),
 ]
 

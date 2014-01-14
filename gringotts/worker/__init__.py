@@ -4,7 +4,7 @@ from gringotts.worker import api as worker_api
 
 
 def API(*args, **kwargs):
-    use_local = kwargs.pop('use_local', False)
+    use_local = kwargs.pop('use_local', True)
     if cfg.CONF.worker.use_local or use_local:
         api = worker_api.LocalAPI
     else:

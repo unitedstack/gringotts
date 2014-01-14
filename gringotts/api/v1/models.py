@@ -138,7 +138,7 @@ class Sale(APIBase):
     service = wtypes.text
     region_id = wtypes.text
 
-    quantity = float
+    quantity = int
     unit = wtypes.text
     total_price = float
 
@@ -212,14 +212,12 @@ class Order(APIBase):
 class Orders(APIBase):
     """Collection of orders
     """
-    total_price = float
     order_amount = int
     orders = [Order]
 
     @classmethod
     def sample(cls):
-        return cls(total_price=1245.1,
-                   order_amount=2,
+        return cls(order_amount=2,
                    orders=[Order.sample1(),
                            Order.sample2()])
 
@@ -285,3 +283,19 @@ class AdminAccount(APIBase):
                    currency='CNY',
                    user_id='user-id-yyy',
                    project_id='project-id-yyy')
+
+
+
+class Summary(APIBase):
+    """Summary of one single kind of order
+    """
+    quantity = int
+    order_type = wtypes.text
+    total_price = float
+
+
+class Summaries(APIBase):
+    """Summary of all kind of orders
+    """
+    total_price = float
+    summaries = [Summary]

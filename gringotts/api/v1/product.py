@@ -99,7 +99,7 @@ class ProductController(rest.RestController):
         # DB model to API model
         return models.Product.from_db_model(product)
 
-    @wsexpose([models.Subscription], wtypes.text
+    @wsexpose([models.Subscription], wtypes.text,
               datetime.datetime, datetime.datetime)
     def sales(self, start_time=None, end_time=None):
         """Return this product's subscriptions"""
@@ -130,7 +130,7 @@ class SalesController(rest.RestController):
     """
     @wsexpose(models.Sales, wtypes.text, wtypes.text, wtypes.text,
               datetime.datetime, datetime.datetime)
-    def get_all(self, name=None, service=None, region_id=None,
+    def get(self, name=None, service=None, region_id=None,
                 start_time=None, end_time=None):
         """Get all products's statistics
         """
@@ -176,9 +176,11 @@ class ProductsController(rest.RestController):
 
     @pecan.expose()
     def _lookup(self, product_id, *remainder):
+        # drop last path if empty
         if remainder and not remainder[-1]:
             remainder = remainder[:-1]
-        return ProductController(product_id), remainder
+        if uuidutils.is_uuid_like(product_id):
+            return ProductController(product_id), remainder
 
     @wsexpose(models.Product, body=models.Product)
     def post(self, data):

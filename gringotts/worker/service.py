@@ -45,6 +45,7 @@ class WorkerService(rpc_service.Service):
     def create_bill(self, ctxt, order_id, action_time, remarks):
         # Get the order
         order = self.db_conn.get_order(context.get_admin_context(), order_id)
+        LOG.debug('Get the order: %s' % order.as_dict())
 
         # Convert serialized dict/string to object
         action_time = timeutils.parse_strtime(action_time,
@@ -68,7 +69,10 @@ class WorkerService(rpc_service.Service):
             # exception.
             raise exception.NotSufficientFund(project_id=order.project_id)
 
+        LOG.debug('The project(%s)\'s account balance is enough' % order.project_id)
+
         # Confirm the resource is health
+        LOG.debug('Confirm the resource(%s) is health' % order.resource_id)
 
         # Create a bill
         bill_id = uuidutils.generate_uuid()
@@ -88,6 +92,7 @@ class WorkerService(rpc_service.Service):
         except Exception:
             LOG.exception('Fail to create bill: %s' % bill.as_dict())
             raise exception.DBError(reason='Fail to create bill')
+        LOG.debug('Created a bill(%s) for the order(%s)' % (bill.as_dict(), order_id))
 
         # Update the order
         order.total_price += total_price
@@ -98,6 +103,7 @@ class WorkerService(rpc_service.Service):
         except Exception:
             LOG.warning('Fail to update the order: %s' % order.order_id)
             raise exception.DBError(reason='Fail to update the order')
+        LOG.debug('Update the order(%s)' % order_id)
 
         # Update subscriptions and products' total_price
         subscriptions = self.db_conn.get_subscriptions_by_order_id(
@@ -125,6 +131,7 @@ class WorkerService(rpc_service.Service):
                 LOG.error("Fail to update the product\'s total_price: %s"
                           % sub.as_dict())
                 raise exception.DBError(reason='Fail to update the product')
+        LOG.debug('Update the subscriptions and products total_price')
 
         # Update the account
         account.balance -= total_price
@@ -135,11 +142,13 @@ class WorkerService(rpc_service.Service):
         except Exception:
             LOG.warning('Fail to update the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to update the account')
+        LOG.debug('Update the account(%s)' % account.as_dict())
 
     def pre_deduct(self, ctxt, order_id):
 
         # Get the order
         order = self.db_conn.get_order(context.get_admin_context(), order_id)
+        LOG.debug('Get the order: %s' % order.as_dict())
 
         total_price = order.unit_price
 
@@ -159,7 +168,10 @@ class WorkerService(rpc_service.Service):
             # exception.
             raise exception.NotSufficientFund(project_id=order.project_id)
 
+        LOG.debug('The project(%s)\'s account balance is enough' % order.project_id)
+
         # Confirm the resource is health
+        LOG.debug('Confirm the resource(%s) is health' % order.resource_id)
 
         # Update the bill
         try:
@@ -180,6 +192,7 @@ class WorkerService(rpc_service.Service):
         except Exception:
             LOG.exception('Fail to update bill: %s' % bill.as_dict())
             raise exception.DBError(reason='Fail to update bill')
+        LOG.debug('Update the bill(%s)' % bill.as_dict())
 
         # Update the order
         order.total_price += total_price
@@ -190,6 +203,7 @@ class WorkerService(rpc_service.Service):
         except Exception:
             LOG.warning('Fail to update the order: %s' % order.order_id)
             raise exception.DBError(reason='Fail to update the order')
+        LOG.debug('Update the order(%s)' % order_id)
 
         # Update subscriptions
         subscriptions = self.db_conn.get_subscriptions_by_order_id(
@@ -217,6 +231,7 @@ class WorkerService(rpc_service.Service):
                 LOG.error("Fail to update the product\'s total_price: %s"
                           % sub.as_dict())
                 raise exception.DBError(reason='Fail to update the product')
+        LOG.debug('Update the subscriptions and products total_price')
 
         # Update the account
         account.balance -= total_price
@@ -227,10 +242,12 @@ class WorkerService(rpc_service.Service):
         except Exception:
             LOG.warning('Fail to update the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to update the account')
+        LOG.debug('Update the account(%s)' % account.as_dict())
 
     def close_bill(self, ctxt, order_id, action_time):
         # Get the order
         order = self.db_conn.get_order(context.get_admin_context(), order_id)
+        LOG.debug('Get the order: %s' % order.as_dict())
 
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=TIMESTAMP_TIME_FORMAT)
@@ -245,7 +262,7 @@ class WorkerService(rpc_service.Service):
             raise exception.LatestBillNotFound(order_id=order.order_id)
 
         # FIXME(suo): We should ensure delta is greater than 0
-        delta = (bill.end_time - action_time).seconds
+        delta = (bill.end_time - action_time).total_seconds()
         if delta < 0:
             LOG.error('Bill\'s end_time(%s) should not be less than action_time(%s)' %
                       (bill.end_time, action_time))
@@ -257,11 +274,11 @@ class WorkerService(rpc_service.Service):
         bill.updated_at = datetime.datetime.utcnow()
 
         try:
-            self.db_conn.update_bill(context.get_admin_context(),
-                                     bill)
+            self.db_conn.update_bill(context.get_admin_context(), bill)
         except Exception:
             LOG.exception('Fail to update bill: %s' % bill.as_dict())
             raise exception.DBError(reason='Fail to update bill')
+        LOG.debug('Update the latest bill')
 
         # Update the order
         order.total_price -= more_fee
@@ -272,6 +289,7 @@ class WorkerService(rpc_service.Service):
         except Exception:
             LOG.warning('Fail to update the order: %s' % order.order_id)
             raise exception.DBError(reason='Fail to update the order')
+        LOG.debug('Update the order')
 
         # Update subscriptions
         subscriptions = self.db_conn.get_subscriptions_by_order_id(
@@ -300,6 +318,7 @@ class WorkerService(rpc_service.Service):
                 LOG.error("Fail to update the product\'s total_price: %s"
                           % sub.as_dict())
                 raise exception.DBError(reason='Fail to update the product')
+        LOG.debug('Update the subscriptions and products total_price')
 
         # Update the account
         try:
@@ -312,6 +331,7 @@ class WorkerService(rpc_service.Service):
         except Exception:
             LOG.warning('Fail to update the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to update the account')
+        LOG.debug('Update the account(%s)' % account.as_dict())
 
 
 def worker():
