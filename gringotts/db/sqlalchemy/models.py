@@ -7,7 +7,7 @@ import urlparse
 from oslo.config import cfg
 
 from sqlalchemy import Column, Integer, String, Table, ForeignKey
-from sqlalchemy import DateTime, Index, Float, Boolean, Text
+from sqlalchemy import DateTime, Index, DECIMAL, Boolean, Text
 from sqlalchemy.types import TypeDecorator, DATETIME
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -82,10 +82,10 @@ class Product(Base):
     type = Column(String(64))
     deleted = Column(Boolean)
 
-    unit_price = Column(Float)
+    unit_price = Column(DECIMAL(20,4))
     unit = Column(String(64))
     quantity = Column(Integer)
-    total_price = Column(Float)
+    total_price = Column(DECIMAL(20,4))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
@@ -106,9 +106,9 @@ class Order(Base):
 
     type = Column(String(255))
 
-    unit_price = Column(Float)
+    unit_price = Column(DECIMAL(20,4))
     unit = Column(String(64))
-    total_price = Column(Float)
+    total_price = Column(DECIMAL(20,4))
     cron_time = Column(DateTime)
     status = Column(String(64))
 
@@ -131,10 +131,10 @@ class Subscription(Base):
     type = Column(String(64))
 
     product_id = Column(String(255))
-    unit_price = Column(Float)
+    unit_price = Column(DECIMAL(20,4))
     unit = Column(String(64))
     quantity = Column(Integer)
-    total_price = Column(Float)
+    total_price = Column(DECIMAL(20,4))
 
     order_id = Column(String(255))
 
@@ -156,10 +156,13 @@ class Bill(Base):
     start_time = Column(DateTime)
     end_time = Column(DateTime)
 
-    unit_price = Column(Float)
+    type = Column(String(255))
+
+    unit_price = Column(DECIMAL(20,4))
     unit = Column(String(64))
-    total_price = Column(Float)
+    total_price = Column(DECIMAL(20,4))
     order_id = Column(String(255))
+    resource_id = Column(String(255))
 
     remarks = Column(String(255))
 
@@ -177,8 +180,8 @@ class Account(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(String(255))
     project_id = Column(String(255))
-    balance = Column(Float)
-    consumption = Column(Float)
+    balance = Column(DECIMAL(20,4))
+    consumption = Column(DECIMAL(20,4))
     currency = Column(String(64))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
@@ -193,7 +196,7 @@ class Charge(Base):
     charge_id = Column(String(255))
     user_id = Column(String(255))
     project_id = Column(String(255))
-    value = Column(Float)
+    value = Column(DECIMAL(20,4))
     currency = Column(String(64))
     charge_time = Column(DateTime)
 

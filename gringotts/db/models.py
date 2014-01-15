@@ -156,28 +156,32 @@ class Bill(Model):
     :param bill_id: The UUID of the bill
     :param start_time: The start time of the bill
     :param end_time: The end time of the bill
+    :param type: The type of the bill, equal to the order type
     :param unit_price: The unit price of the resource
     :param unit: The unit of the price
     :param total_price: The fee between start_time and end_time
     :param order_id: The order id the bill belongs to
+    :param resource_id: UUID of the resource
     :param remarks: The remarks of this bill
     :param user_id: The user id this bill belongs to
     :param project_id: The project id this bill belongs to
     """
 
     def __init__(self,
-                 bill_id, start_time, end_time, unit_price, unit,
-                 total_price, order_id, remarks, user_id, project_id,
-                 created_at=None, updated_at=None):
+                 bill_id, start_time, end_time, type, unit_price, unit,
+                 total_price, order_id, resource_id, remarks, user_id,
+                 project_id, created_at=None, updated_at=None):
         Model.__init__(
             self,
             bill_id=bill_id,
             start_time=start_time,
             end_time=end_time,
+            type=type,
             unit_price=unit_price,
             unit=unit,
             total_price=total_price,
             order_id=order_id,
+            resource_id=resource_id,
             remarks=remarks,
             user_id=user_id,
             project_id=project_id,

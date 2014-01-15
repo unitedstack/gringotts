@@ -3,8 +3,6 @@ import pecan
 import wsme
 import datetime
 
-from dateutil.relativedelta import relativedelta
-
 from pecan import rest
 from pecan import request
 from wsmeext.pecan import wsexpose
@@ -88,34 +86,10 @@ class SummaryController(rest.RestController):
                                           summaries=summaries)
 
 
-class TrendsController(rest.RestController):
-    """Summary every order type's consumption
-    """
-    @wsexpose(models.Summaries)
-    def get(self):
-        """Get summary of all kinds of orders in the last year
-        """
-        conn = pecan.request.db_conn
-        orders_db = conn.get_orders(request.context)
-
-        # The last 12 months from now
-        now = datetime.datetime.utcnow()
-        first_day = datetime.datetime(now.year, now.month, 1)
-
-        12_months = [(first_day, now)]
-
-        for i in range(12):
-            start_month = first_day - relativedelta(months=i+1)
-            month_day = calendar.monthrange(start_month.year, start_month.month)[1]
-            end_month = start_month + datetime.timedelta(days=month_day-1)
-            12_months.append((start_month, end_month))
-
-
 class OrdersController(rest.RestController):
     """The controller of resources
     """
     summary = SummaryController()
-    trends = TrendsController()
 
     @pecan.expose()
     def _lookup(self, order_id, *remainder):
@@ -124,22 +98,22 @@ class OrdersController(rest.RestController):
         if uuidutils.is_uuid_like(order_id):
             return OrderController(order_id), remainder
 
-    @wsexpose(models.Orders, wtypes.text, wtypes.text, wtypes.text)
-    def get_all(self, start_time=None, end_time=None, type=None):
-        """Get all orders, filter by start_time, end_time, type
+    @wsexpose(models.Orders, wtypes.text)
+    def get_all(self, type=None):
+        """Get all orders, filter by type
         """
         conn = pecan.request.db_conn
 
-        orders_db = list(conn.get_orders(request.context,
-                                         start_time=start_time,
-                                         end_time=end_time,
-                                         type=type))
+        orders_db = list(conn.get_orders(request.context, type=type))
 
         orders = []
         order_amount = len(orders_db)
+        total_price = 0
 
         for order in orders_db:
+            total_price += order.total_price
             orders.append(models.Order.from_db_model(order))
 
         return models.Orders.transform(order_amount=order_amount,
+                                       total_price=total_price,
                                        orders=orders)

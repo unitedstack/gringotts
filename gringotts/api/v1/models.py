@@ -1,4 +1,5 @@
 import datetime
+import decimal
 import wsme
 from wsme import types as wtypes
 from gringotts.openstack.common import log
@@ -92,7 +93,7 @@ class Product(APIBase):
     description = wtypes.text
 
     type = wtypes.text
-    unit_price = float
+    unit_price = decimal.Decimal
     unit = wtypes.text
 
     created_at = datetime.datetime
@@ -124,9 +125,9 @@ class Purchase(APIBase):
 class Price(APIBase):
     """Price represents some products collection
     """
-    unit_price = float
-    hourly_amount = float
-    monthly_amount = float
+    unit_price = decimal.Decimal
+    hourly_amount = decimal.Decimal
+    monthly_amount = decimal.Decimal
     unit = wtypes.text
 
 
@@ -140,7 +141,7 @@ class Sale(APIBase):
 
     quantity = int
     unit = wtypes.text
-    total_price = float
+    total_price = decimal.Decimal
 
     @classmethod
     def sample(cls):
@@ -156,7 +157,7 @@ class Sale(APIBase):
 class Sales(APIBase):
     """Statistics for all products
     """
-    total_price = float
+    total_price = decimal.Decimal
     sales = [Sale]
     start_time = datetime.datetime
     end_time = datetime.datetime
@@ -165,9 +166,9 @@ class Sales(APIBase):
 class Subscription(APIBase):
     """Represent model for a subscription to a product
     """
-    unit_price = float
+    unit_price = decimal.Decimal
     quantity = int
-    total_price = float
+    total_price = decimal.Decimal
     status = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
@@ -181,8 +182,8 @@ class Order(APIBase):
     resource_id = wtypes.text
     resource_name = wtypes.text
     resource_status = wtypes.text
-    unit_price = float
-    total_price = float
+    unit_price = decimal.Decimal
+    total_price = decimal.Decimal
     type = wtypes.text
     created_time = datetime.datetime
 
@@ -213,26 +214,31 @@ class Orders(APIBase):
     """Collection of orders
     """
     order_amount = int
+    total_price = decimal.Decimal
     orders = [Order]
 
     @classmethod
     def sample(cls):
         return cls(order_amount=2,
+                   total_price=12.34,
                    orders=[Order.sample1(),
                            Order.sample2()])
+
 
 class Bill(APIBase):
     """Detail of an order
     """
+    resource_id = wtypes.text
     start_time = datetime.datetime
     end_time = datetime.datetime
-    total_price = float
-    unit_price = float
+    total_price = decimal.Decimal
+    unit_price = decimal.Decimal
     remarks = wtypes.text
 
     @classmethod
     def sample1(cls):
-        return cls(start_time=datetime.datetime(2013, 12, 29, 03, 00, 00),
+        return cls(resource_id='resource-id-xxx',
+                   start_time=datetime.datetime(2013, 12, 29, 03, 00, 00),
                    end_time=datetime.datetime(2013, 12, 29, 04, 00, 00),
                    total_price=12.34,
                    unit_price=0.48,
@@ -240,17 +246,25 @@ class Bill(APIBase):
 
     @classmethod
     def sample2(cls):
-        return cls(start_time=datetime.datetime(2013, 12, 29, 04, 00, 00),
+        return cls(resource_id='resource-id-yyy',
+                   start_time=datetime.datetime(2013, 12, 29, 04, 00, 00),
                    end_time=datetime.datetime(2013, 12, 29, 05, 00, 00),
                    total_price=12.34,
                    unit_price=0.48,
                    remarks='Instance has been stopped')
 
 
+class Bills(APIBase):
+    """Collection of bills
+    """
+    total_price = decimal.Decimal
+    bills = [Bill]
+
+
 class UserAccount(APIBase):
     """Account for a tenant
     """
-    balance = float
+    balance = decimal.Decimal
     currency = wtypes.text
 
     @classmethod
@@ -262,8 +276,8 @@ class UserAccount(APIBase):
 class AdminAccount(APIBase):
     """Account for a tenant
     """
-    balance = float
-    consumption = float
+    balance = decimal.Decimal
+    consumption = decimal.Decimal
     currency = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
@@ -291,11 +305,19 @@ class Summary(APIBase):
     """
     quantity = int
     order_type = wtypes.text
-    total_price = float
+    total_price = decimal.Decimal
 
 
 class Summaries(APIBase):
     """Summary of all kind of orders
     """
-    total_price = float
+    total_price = decimal.Decimal
     summaries = [Summary]
+
+
+class Trend(APIBase):
+    """Total sunsumption in one month
+    """
+    start_time = datetime.date
+    end_time = datetime.date
+    consumption = decimal.Decimal

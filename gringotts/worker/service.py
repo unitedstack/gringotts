@@ -1,5 +1,6 @@
 import datetime
 from oslo.config import cfg
+from decimal import Decimal, ROUND_HALF_UP
 
 from gringotts import context
 from gringotts import db
@@ -48,8 +49,9 @@ class WorkerService(rpc_service.Service):
         LOG.debug('Get the order: %s' % order.as_dict())
 
         # Convert serialized dict/string to object
-        action_time = timeutils.parse_strtime(action_time,
-                                              fmt=TIMESTAMP_TIME_FORMAT)
+        if isinstance(action_time, basestring):
+            action_time = timeutils.parse_strtime(action_time,
+                                                  fmt=TIMESTAMP_TIME_FORMAT)
 
         total_price = order.unit_price
 
@@ -78,15 +80,18 @@ class WorkerService(rpc_service.Service):
         bill_id = uuidutils.generate_uuid()
         start_time = action_time
         end_time = start_time + datetime.timedelta(hours=1)
+        type=order.type
         unit_price = order.unit_price
         unit = order.unit
         order_id = order.order_id
+        resource_id = order.resource_id
         remarks = remarks
         user_id = order.user_id
         project_id = order.project_id
 
-        bill = db_models.Bill(bill_id, start_time, end_time, unit_price, unit,
-                              total_price, order_id, remarks, user_id, project_id)
+        bill = db_models.Bill(bill_id, start_time, end_time, type, unit_price, unit,
+                              total_price, order_id, resource_id, remarks, user_id,
+                              project_id)
         try:
             self.db_conn.create_bill(context.get_admin_context(), bill)
         except Exception:
@@ -145,6 +150,21 @@ class WorkerService(rpc_service.Service):
         LOG.debug('Update the account(%s)' % account.as_dict())
 
     def pre_deduct(self, ctxt, order_id):
+        # Get the latest bill
+        try:
+            bill = self.db_conn.get_latest_bill(context.get_admin_context(),
+                                                order_id)
+        except Exception:
+            LOG.error('Fail to get latest bill belongs to order: %s'
+                      % order_id)
+            raise exception.LatestBillNotFound(order_id=order_id)
+
+        # If the bill accross a day, we will create a new bill for the order
+        if bill.end_time.hour is 0:
+            action_time = bill.end_time
+            remarks = 'daily billing'
+            self.create_bill(ctxt, order_id, action_time, remarks)
+            return
 
         # Get the order
         order = self.db_conn.get_order(context.get_admin_context(), order_id)
@@ -174,14 +194,6 @@ class WorkerService(rpc_service.Service):
         LOG.debug('Confirm the resource(%s) is health' % order.resource_id)
 
         # Update the bill
-        try:
-            bill = self.db_conn.get_latest_bill(context.get_admin_context(),
-                                                order_id)
-        except Exception:
-            LOG.error('Fail to get latest bill belongs to order: %s'
-                      % order_id)
-            raise exception.LatestBillNotFound(order_id=order_id)
-
         bill.end_time += datetime.timedelta(hours=1)
         bill.total_price += total_price
         bill.updated_at = datetime.datetime.utcnow()
@@ -262,13 +274,10 @@ class WorkerService(rpc_service.Service):
             raise exception.LatestBillNotFound(order_id=order.order_id)
 
         # FIXME(suo): We should ensure delta is greater than 0
-        delta = (bill.end_time - action_time).total_seconds()
-        if delta < 0:
-            LOG.error('Bill\'s end_time(%s) should not be less than action_time(%s)' %
-                      (bill.end_time, action_time))
-            delta = 0
+        delta = timeutils.delta_seconds(action_time, bill.end_time) / 3600.0
+        delta = self._quantize_decimal(delta)
 
-        more_fee = round(((delta / 3600.0) * order.unit_price), 4)
+        more_fee = self._quantize_decimal(delta  * order.unit_price)
         bill.end_time = action_time
         bill.total_price -= more_fee
         bill.updated_at = datetime.datetime.utcnow()
@@ -298,7 +307,7 @@ class WorkerService(rpc_service.Service):
             status='active')
 
         for sub in subscriptions:
-            sub_more_fee = round(((delta / 3600.0) * sub.unit_price * sub.quantity), 4)
+            sub_more_fee = self._quantize_decimal(delta * sub.unit_price * sub.quantity)
             sub.total_price -= sub_more_fee
             sub.status = 'inactive'
             sub.updated_at = datetime.datetime.utcnow()
@@ -332,6 +341,11 @@ class WorkerService(rpc_service.Service):
             LOG.warning('Fail to update the account: %s' % order.project_id)
             raise exception.DBError(reason='Fail to update the account')
         LOG.debug('Update the account(%s)' % account.as_dict())
+
+    def _quantize_decimal(self, value):
+        if isinstance(value, Decimal):
+           return  value.quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
+        return Decimal(value).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
 
 
 def worker():

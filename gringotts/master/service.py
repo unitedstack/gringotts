@@ -68,8 +68,8 @@ class MasterService(rpc_service.Service):
         job = self.apsched.add_interval_job(self._pre_deduct,
                                             hours=1,
                                             start_date=action_time + timedelta(hours=1),
-                                            #minutes=5,
-                                            #start_date=action_time + timedelta(minutes=5),
+                                            #seconds=10,
+                                            #start_date=action_time + timedelta(seconds=10),
                                             args=[order_id])
         self.jobs[order_id] = job
 
@@ -121,7 +121,7 @@ class MasterService(rpc_service.Service):
 
     def resource_created(self, ctxt, order_id, action_time, remarks):
         LOG.debug('Resource created, its order_id: %s, action_time: %s' %
-                  order_id, action_time)
+                  (order_id, action_time))
         with self.lock:
             self.worker_api.create_bill(context.get_admin_context(), order_id,
                                         action_time, remarks)
@@ -136,7 +136,7 @@ class MasterService(rpc_service.Service):
             self._delete_cron_job(order_id)
 
     def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
-        LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to',
+        LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to: %s'
                   % (order_id, action_time, change_to))
         with self.lock:
             # close the old bill

@@ -5,6 +5,7 @@ from __future__ import absolute_import
 import functools
 import os
 from sqlalchemy import desc
+from sqlalchemy import func
 
 from gringotts import context as gring_context
 from gringotts import exception
@@ -170,10 +171,12 @@ class Connection(base.Connection):
         return db_models.Bill(bill_id=row.bill_id,
                               start_time=row.start_time,
                               end_time=row.end_time,
+                              type=row.type,
                               unit_price=row.unit_price,
                               unit=row.unit,
                               total_price=row.total_price,
                               order_id=row.order_id,
+                              resource_id=row.resource_id,
                               remarks=row.remarks,
                               user_id=row.user_id,
                               project_id=row.project_id,
@@ -380,7 +383,7 @@ class Connection(base.Connection):
         if start_time:
             query = query.filter(sa_models.Subscription.created_at >= start_time)
         if end_time:
-            query = query.filter(sa_models.Subscription.created_at <= end_time)
+            query = query.filter(sa_models.Subscription.created_at < end_time)
 
         ref = _paginate_query(context, sa_models.Subscription,
                               limit=limit, marker=marker,
@@ -430,9 +433,9 @@ class Connection(base.Connection):
         query = model_query(context, sa_models.Bill)
 
         if start_time:
-            query = query.filter(sa_models.Bill.start_time > start_time)
+            query = query.filter(sa_models.Bill.start_time >= start_time)
         if end_time:
-            query = query.filter(sa_models.Bill.end_time <= end_time)
+            query = query.filter(sa_models.Bill.end_time < end_time)
         if type:
             query = query.filter_by(type=type)
 
@@ -440,7 +443,20 @@ class Connection(base.Connection):
                                  limit=limit, marker=marker,
                                  sort_key=sort_key, sort_dir=sort_dir,
                                  query=query)
-        return (self._row_to_db_bill_model(o) for o in result)
+        return (self._row_to_db_bill_model(b) for b in result)
+
+    @require_context
+    def get_bills_sum(self, context, start_time=None, end_time=None):
+        query = model_query(context, sa_models.Bill,
+                            func.sum(sa_models.Bill.total_price).label('sum'))
+
+        if start_time:
+            query = query.filter(sa_models.Bill.start_time >= start_time)
+        if end_time:
+            query = query.filter(sa_models.Bill.end_time < end_time)
+
+        return query.one().sum or 0
+
 
     @require_context
     def create_account(self, context, account):
