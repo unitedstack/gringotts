@@ -316,7 +316,8 @@ class Connection(base.Connection):
 
     @require_context
     def get_orders(self, context, start_time=None, end_time=None, type=None,
-                   limit=None, marker=None, sort_key=None, sort_dir=None):
+                   status=None, limit=None, marker=None, sort_key=None,
+                   sort_dir=None):
         query = model_query(context, sa_models.Order)
 
         if start_time:
@@ -325,6 +326,8 @@ class Connection(base.Connection):
             query = query.filter(sa_models.Order.created_at <= end_time)
         if type:
             query = query.filter_by(type=type)
+        if status:
+            query = query.filter_by(status=status)
 
         result = _paginate_query(context, sa_models.Order,
                                  limit=limit, marker=marker,

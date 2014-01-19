@@ -1,6 +1,7 @@
 import datetime
 
 from datetime import timedelta
+from dateutil import tz
 
 from oslo.config import cfg
 from eventlet.green.threading import Lock
@@ -47,10 +48,29 @@ class MasterService(rpc_service.Service):
         super(MasterService, self).__init__(*args, **kwargs)
 
     def start(self):
-        super(MasterService, self).start()
         self.apsched.start()
+        self.load_jobs()
+        super(MasterService, self).start()
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
+
+    def load_jobs(self):
+        LOG.debug('Loading jobs before master started')
+        orders = self.db_conn.get_orders(context.get_admin_context(),
+                                         status='active')
+        for order in orders:
+            danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
+            if order.cron_time > danger_time:
+                self._create_cron_job(order.order_id,
+                                      start_date=order.cron_time)
+            else:
+                LOG.warning('The order(%s) is in danger time after master started'
+                            % order.order_id)
+                while order.cron_time <= danger_time:
+                    self._pre_deduct(order.order_id)
+                    order.cron_time += datetime.timedelta(hours=1)
+                self._create_cron_job(order.order_id,
+                                      start_date=order.cron_time)
 
     def _pre_deduct(self, order_id):
         # NOTE(suo): Because account is shared among different cron job threads, we must
@@ -60,16 +80,27 @@ class MasterService(rpc_service.Service):
             self.worker_api.pre_deduct(context.get_admin_context(),
                                        order_id)
 
-    def _create_cron_job(self, order_id, action_time):
+    def _utc_to_local(self, utc_dt):
+        from_zone = tz.tzutc()
+        to_zone = tz.tzlocal()
+        return utc_dt.replace(tzinfo=from_zone).astimezone(to_zone).replace(tzinfo=None)
+
+    def _create_cron_job(self, order_id, action_time=None, start_date=None):
         """For now, we only support hourly cron job
         """
-        action_time = timeutils.parse_strtime(action_time,
-                                              fmt=TIMESTAMP_TIME_FORMAT)
+        if action_time:
+            action_time = timeutils.parse_strtime(action_time,
+                                                  fmt=TIMESTAMP_TIME_FORMAT)
+            start_date = action_time + timedelta(hours=1)
+
+        start_date = self._utc_to_local(start_date)
+
         job = self.apsched.add_interval_job(self._pre_deduct,
                                             hours=1,
-                                            start_date=action_time + timedelta(hours=1),
-                                            #seconds=10,
-                                            #start_date=action_time + timedelta(seconds=10),
+                                            start_date=start_date,
+                                            name=order_id,
+                                            #seconds=300,
+                                            #start_date=action_time + timedelta(seconds=300),
                                             args=[order_id])
         self.jobs[order_id] = job
 
@@ -125,7 +156,7 @@ class MasterService(rpc_service.Service):
         with self.lock:
             self.worker_api.create_bill(context.get_admin_context(), order_id,
                                         action_time, remarks)
-            self._create_cron_job(order_id, action_time)
+            self._create_cron_job(order_id, action_time=action_time)
 
     def resource_deleted(self, ctxt, order_id, action_time):
         LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
@@ -150,7 +181,7 @@ class MasterService(rpc_service.Service):
             # create a new bill for the updated order
             self.worker_api.create_bill(context.get_admin_context(),
                                         order_id,  action_time, remarks)
-            self._create_cron_job(order_id, action_time)
+            self._create_cron_job(order_id, action_time=action_time)
 
 
 def master():

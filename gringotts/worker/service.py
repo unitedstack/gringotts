@@ -102,6 +102,7 @@ class WorkerService(rpc_service.Service):
         # Update the order
         order.total_price += total_price
         order.cron_time = action_time + datetime.timedelta(hours=1)
+        order.status = 'active'
         order.updated_at = datetime.datetime.utcnow()
         try:
             self.db_conn.update_order(context.get_admin_context(), order)
@@ -292,6 +293,7 @@ class WorkerService(rpc_service.Service):
         # Update the order
         order.total_price -= more_fee
         order.cron_time = None
+        order.status = 'inactive'
         order.updated_at = datetime.datetime.utcnow()
         try:
             self.db_conn.update_order(context.get_admin_context(), order)
