@@ -278,7 +278,7 @@ class WorkerService(rpc_service.Service):
         delta = timeutils.delta_seconds(action_time, bill.end_time) / 3600.0
         delta = self._quantize_decimal(delta)
 
-        more_fee = self._quantize_decimal(delta  * order.unit_price)
+        more_fee = self._quantize_decimal(delta * order.unit_price)
         bill.end_time = action_time
         bill.total_price -= more_fee
         bill.updated_at = datetime.datetime.utcnow()

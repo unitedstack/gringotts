@@ -26,6 +26,6 @@ develop-eggs
 .*.sw[po]
 .coverage
 cover/
-AUTORS
+AUTHORS
 ChangeLog
 doc/build/

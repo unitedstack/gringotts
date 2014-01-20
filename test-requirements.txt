@@ -5,7 +5,6 @@ hacking
 coverage
 discover
 fixtures
-mox
 mock
 python-subunit
 testrepository
