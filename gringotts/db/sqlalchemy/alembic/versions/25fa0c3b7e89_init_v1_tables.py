@@ -47,15 +47,15 @@ def upgrade():
         sa.Column('order_id', sa.String(255)),
         sa.Column('resource_id', sa.String(255)),
         sa.Column('resource_name', sa.String(255)),
-        sa.Column('resource_status', sa.String(255)),
 
         sa.Column('type', sa.String(255)),
+        sa.Column('status', sa.String(64)),
 
         sa.Column('unit_price', sa.DECIMAL(20,4)),
         sa.Column('unit', sa.String(64)),
         sa.Column('total_price', sa.DECIMAL(20,4)),
         sa.Column('cron_time', sa.DateTime),
-        sa.Column('status', sa.String(64)),
+        sa.Column('date_time', sa.DateTime),
 
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255)),
@@ -70,7 +70,6 @@ def upgrade():
         sa.Column('id', sa.Integer, primary_key=True),
 
         sa.Column('subscription_id', sa.String(255)),
-        sa.Column('status', sa.String(64)),
         sa.Column('type', sa.String(64)),
 
         sa.Column('product_id', sa.String(255)),
@@ -99,6 +98,7 @@ def upgrade():
         sa.Column('end_time', sa.DateTime),
 
         sa.Column('type', sa.String(255)),
+        sa.Column('status', sa.String(64)),
 
         sa.Column('unit_price', sa.DECIMAL(20,4)),
         sa.Column('unit', sa.String(64)),

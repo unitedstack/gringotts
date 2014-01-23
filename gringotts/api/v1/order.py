@@ -11,6 +11,8 @@ from wsme import types as wtypes
 from oslo.config import cfg
 
 from gringotts import exception
+from gringotts import utils as gringutils
+
 from gringotts.api.v1 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
@@ -60,14 +62,15 @@ class SummaryController(rest.RestController):
         # Get all orders of this particular context one time
         orders_db = list(conn.get_orders(request.context))
 
-        total_price = 0
+        total_price = gringutils._quantize_decimal(0)
+        total_count = 0
         summaries = []
 
         # loop all order types
         for order_type in ORDER_TYPE:
 
-            order_total_price = 0
-            quantity = 0
+            order_total_price = gringutils._quantize_decimal(0)
+            order_total_count = 0
 
             # One user's order records will not be very large, so we can
             # traverse them directly
@@ -75,14 +78,16 @@ class SummaryController(rest.RestController):
                 if order.type != order_type:
                     continue
                 order_total_price += order.total_price
-                quantity += 1
+                order_total_count += 1
 
-            summaries.append(models.Summary.transform(quantity=quantity,
+            summaries.append(models.Summary.transform(total_count=order_total_count,
                                                       order_type=order_type,
                                                       total_price=order_total_price))
             total_price += order_total_price
+            total_count += order_total_count
 
         return models.Summaries.transform(total_price=total_price,
+                                          total_count=total_count,
                                           summaries=summaries)
 
 
@@ -107,13 +112,13 @@ class OrdersController(rest.RestController):
         orders_db = list(conn.get_orders(request.context, type=type))
 
         orders = []
-        order_amount = len(orders_db)
-        total_price = 0
+        total_count = len(orders_db)
+        total_price = gringutils._quantize_decimal(0)
 
         for order in orders_db:
             total_price += order.total_price
             orders.append(models.Order.from_db_model(order))
 
-        return models.Orders.transform(order_amount=order_amount,
+        return models.Orders.transform(total_count=total_count,
                                        total_price=total_price,
                                        orders=orders)

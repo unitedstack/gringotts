@@ -23,15 +23,14 @@ class Collection(object):
     to create/update/delete subscription
     """
     def __init__(self, product_name, service, region_id, resource_id,
-                 resource_name, resource_type, resource_status,
-                 resource_volume, user_id, project_id):
+                 resource_name, resource_type, resource_volume,
+                 user_id, project_id):
         self.product_name = product_name
         self.service = service
         self.region_id = region_id
         self.resource_id = resource_id
         self.resource_name = resource_name
         self.resource_type = resource_type
-        self.resource_status = resource_status
         self.resource_volume = resource_volume
         self.user_id = user_id
         self.project_id = project_id
@@ -73,7 +72,7 @@ class ProductItem(plugin.PluginBase):
 
         return result[0]
 
-    def create_subscription(self, message, order_id, type=None, status=None):
+    def create_subscription(self, message, order_id, type=None):
         """Subscribe to this product
         """
         collection = self.get_collection(message)
@@ -95,7 +94,7 @@ class ProductItem(plugin.PluginBase):
         project_id = collection.project_id
 
         subscription_in = db_models.Subscription(
-            subscription_id, status, type, product_id, unit_price, unit,
+            subscription_id, type, product_id, unit_price, unit,
             quantity, total_price, order_id, user_id, project_id)
 
         try:
@@ -109,10 +108,9 @@ class ProductItem(plugin.PluginBase):
         # Update product
         try:
             product = db_conn.get_product(context.get_admin_context(),
-                                               product_id)
+                                          product_id)
             product.quantity += quantity
-            db_conn.update_product(context.get_admin_context(),
-                                        product)
+            db_conn.update_product(context.get_admin_context(), product)
         except Exception:
             LOG.error("Fail to update the product\'s quantity: %s"
                       % subscription.as_dict())

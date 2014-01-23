@@ -13,6 +13,8 @@ from wsme import types as wtypes
 from oslo.config import cfg
 
 from gringotts import exception
+from gringotts import utils as gringutils
+
 from gringotts.api.v1 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
@@ -53,6 +55,9 @@ class TrendsController(rest.RestController):
             bills_sum = conn.get_bills_sum(request.context,
                                            start_time=start_time,
                                            end_time=end_time)
+
+            bills_sum = gringutils._quantize_decimal(bills_sum)
+
             trends.append(models.Trend.transform(
                 start_time=start_time.date(),
                 end_time=(end_time-datetime.timedelta(hours=25)).date(),
@@ -86,7 +91,7 @@ class BillsController(rest.RestController):
                                        type=type))
 
         bills = []
-        total_price = 0
+        total_price = gringutils._quantize_decimal(0)
 
         for bill in bills_db:
             total_price += bill.total_price

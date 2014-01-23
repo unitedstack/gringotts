@@ -102,15 +102,15 @@ class Order(Base):
     order_id = Column(String(255))
     resource_id = Column(String(255))
     resource_name = Column(String(255))
-    resource_status = Column(String(255))
 
     type = Column(String(255))
+    status = Column(String(64))
 
     unit_price = Column(DECIMAL(20,4))
     unit = Column(String(64))
     total_price = Column(DECIMAL(20,4))
     cron_time = Column(DateTime)
-    status = Column(String(64))
+    date_time = Column(DateTime)
 
     user_id = Column(String(255))
     project_id = Column(String(255))
@@ -127,7 +127,6 @@ class Subscription(Base):
     id = Column(Integer, primary_key=True)
 
     subscription_id = Column(String(255))
-    status = Column(String(64))
     type = Column(String(64))
 
     product_id = Column(String(255))
@@ -157,6 +156,7 @@ class Bill(Base):
     end_time = Column(DateTime)
 
     type = Column(String(255))
+    status = Column(String(64))
 
     unit_price = Column(DECIMAL(20,4))
     unit = Column(String(64))

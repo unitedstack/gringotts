@@ -185,6 +185,10 @@ class LatestBillNotFound(NotFound):
     message = _("Can't find latest bill for order: %s(order_id)s")
 
 
+class OwedBillsNotFound(NotFound):
+    message = _("Can't find owed bills for order: %s(order_id)s")
+
+
 class DiskNotFound(NotFound):
     message = _("No disk at %(location)s")
 

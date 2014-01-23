@@ -40,6 +40,9 @@ class LocalAPI(object):
     def close_bill(self, ctxt, order_id, action_time):
         self._service.close_bill(ctxt, order_id, action_time)
 
+    def destory_resource(self, ctxt, order_id):
+        self._service.destory_resource(ctxt, order_id)
+
 
 class API(LocalAPI):
     """Master API that handles requests via RPC to the MasterService

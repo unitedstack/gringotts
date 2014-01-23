@@ -10,6 +10,8 @@ from wsme import types as wtypes
 from oslo.config import cfg
 
 from gringotts import exception
+from gringotts import utils as gringutils
+
 from gringotts.api.v1 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
@@ -116,7 +118,6 @@ class ProductController(rest.RestController):
             sub = models.Subscription.transform(unit_price=s.unit_price,
                                                 quantity=s.quantity,
                                                 total_price=s.total_price,
-                                                status=s.status,
                                                 user_id=s.user_id,
                                                 project_id=s.project_id,
                                                 created_time=s.created_at)
@@ -148,11 +149,9 @@ class SalesController(rest.RestController):
         products = conn.get_products(request.context,
                                      filters=filters)
 
-        total_price = 0
+        total_price = gringutils._quantize_decimal(0)
         sales = []
 
-        import pdb
-        pdb.set_trace()
         for p in products:
             total_price += p.total_price
             sales.append(models.Sale.transform(
@@ -180,18 +179,18 @@ class PriceController(rest.RestController):
         conn = pecan.request.db_conn
 
         unit_price = 0
-        hourly_amount = 0
+        hourly_price = 0
         unit = None
 
         for p in purchases:
-            if p.product_name and p.service and p.region_id and p.volume:
+            if p.product_name and p.service and p.region_id and p.quantity:
                 filters = dict(name=p.product_name,
-                              service=p.service,
-                              region_id=p.region_id)
+                               service=p.service,
+                               region_id=p.region_id)
                 try:
                     product = list(conn.get_products(request.context,
                                                      filters=filters))[0]
-                    hourly_amount += product.unit_price * p.volume
+                    hourly_price += product.unit_price * p.quantity
                     unit_price += product.unit_price
                     unit = product.unit
                 except Exception as e:
@@ -202,9 +201,13 @@ class PriceController(rest.RestController):
             else:
                 raise exception.MissingRequiredParams()
 
+        unit_price = gringutils._quantize_decimal(unit_price)
+        hourly_price = gringutils._quantize_decimal(hourly_price)
+        monthly_price = gringutils._quantize_decimal(hourly_price * 24 * 30)
+
         return models.Price.transform(unit_price=unit_price,
-                                      hourly_amount=round(hourly_amount, 4),
-                                      monthly_amount=round(hourly_amount * 24 * 30, 4),
+                                      hourly_price=hourly_price,
+                                      monthly_price=monthly_price,
                                       unit=unit)
 
 
@@ -261,6 +264,8 @@ class ProductsController(rest.RestController):
             error = 'Error while creating product: %s' % data.as_dict()
             LOG.exception(error)
             raise exception.DBError(reason=error)
+
+        product.unit_price = gringutils._quantize_decimal(product.unit_price)
 
         # DB model to API model
         return models.Product.from_db_model(product)

@@ -4,6 +4,7 @@
 from oslo.config import cfg
 from stevedore import extension
 
+from gringotts import constants as const
 from gringotts import context
 from gringotts import db
 from gringotts.db import models as db_models
@@ -39,13 +40,13 @@ class FlavorItem(waiter_plugin.ProductItem):
         """
         instance_type = message['payload']['instance_type']
 
-        product_name = 'instance:%s' % instance_type
-        service = 'Compute'
+        product_name = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
+                                  instance_type)
+        service = const.SERVICE_COMPUTE
         region_id = 'default'
         resource_id = message['payload']['instance_id']
         resource_name = message['payload']['hostname']
-        resource_type = 'instance'
-        resource_status = message['payload']['state']
+        resource_type = const.RESOURCE_INSTANCE
         resource_volume = 1
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
@@ -56,7 +57,6 @@ class FlavorItem(waiter_plugin.ProductItem):
                           resource_id=resource_id,
                           resource_name=resource_name,
                           resource_type=resource_type,
-                          resource_status=resource_status,
                           resource_volume=resource_volume,
                           user_id=user_id,
                           project_id=project_id)
@@ -70,13 +70,12 @@ class LicenseItem(waiter_plugin.ProductItem):
         image_name = message['payload']['image_name']
         image_id = message['payload']['image_meta']['base_image_ref']
 
-        product_name = '%s-%s' % (image_name, image_id)
-        service = 'Compute'
+        product_name = '%s:%s' % (image_name, image_id)
+        service = const.SERVICE_COMPUTE
         region_id = 'default'
         resource_id = message['payload']['instance_id']
         resource_name = message['payload']['hostname']
-        resource_type = 'instance'
-        resource_status = message['payload']['state']
+        resource_type = const.RESOURCE_INSTANCE
         resource_volume = 1
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
@@ -87,7 +86,6 @@ class LicenseItem(waiter_plugin.ProductItem):
                           resource_id=resource_id,
                           resource_name=resource_name,
                           resource_type=resource_type,
-                          resource_status=resource_status,
                           resource_volume=resource_volume,
                           user_id=user_id,
                           project_id=project_id)
@@ -98,13 +96,12 @@ class DiskItem(waiter_plugin.ProductItem):
     def get_collection(self, message):
         """Get collection from message
         """
-        product_name = 'volume.size'
-        service = 'BlockStorage'
+        product_name = const.PRODUCT_VOLUME_SIZE
+        service = const.SERVICE_BLOCKSTORAGE
         region_id = 'default'
         resource_id = message['payload']['instance_id']
         resource_name = message['payload']['hostname']
-        resource_type = 'instance'
-        resource_status = message['payload']['state']
+        resource_type = const.RESOURCE_INSTANCE
         resource_volume = message['payload']['disk_gb']
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
@@ -115,7 +112,6 @@ class DiskItem(waiter_plugin.ProductItem):
                           resource_id=resource_id,
                           resource_name=resource_name,
                           resource_type=resource_type,
-                          resource_status=resource_status,
                           resource_volume=resource_volume,
                           user_id=user_id,
                           project_id=project_id)
@@ -128,6 +124,7 @@ product_items = extension.ExtensionManager(
 
 
 class ComputeNotificationBase(plugin.NotificationBase):
+
     @staticmethod
     def get_exchange_topics(conf):
         """Return a sequence of ExchangeTopics defining the exchange and
@@ -145,25 +142,25 @@ class ComputeNotificationBase(plugin.NotificationBase):
         """
         resource_id = message['payload']['instance_id']
         resource_name = message['payload']['hostname']
-        resource_status = message['payload']['state']
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
 
         order_in = db_models.Order(order_id=order_id,
                                    resource_id=resource_id,
                                    resource_name=resource_name,
-                                   resource_status=resource_status,
-                                   type='instance',
+                                   type=const.RESOURCE_INSTANCE,
                                    unit_price=unit_price,
                                    unit=unit,
                                    total_price=0,
                                    cron_time=None,
-                                   status=None,
+                                   date_time=None,
+                                   status=const.STATE_RUNNING,
                                    user_id=user_id,
                                    project_id=project_id)
 
         try:
-            order = db_conn.create_order(context.get_admin_context(), order_in)
+            order = db_conn.create_order(context.get_admin_context(),
+                                         order_in)
         except Exception:
             LOG.exception('Fail to create order: %s' %
                           order_in.as_dict())
@@ -173,7 +170,7 @@ class ComputeNotificationBase(plugin.NotificationBase):
 
 class InstanceCreateEnd(ComputeNotificationBase):
     """Handle the event that instance be created, for now, it
-       will handle three products: flavor, image and disk
+    will handle three products: flavor, image and disk
     """
     event_types = ['compute.instance.create.end']
 
@@ -195,13 +192,16 @@ class InstanceCreateEnd(ComputeNotificationBase):
 
         # Create subscriptions for this order
         for ext in product_items.extensions:
-            # disk extension is used when instance been stopped
-            if ext.name == 'disk':
+            # disk extension is used when instance been stopped and been suspend
+            if ext.name.startswith('stopped'):
                 ext.obj.create_subscription(message, order_id,
-                                            type='stopped', status='inactive')
-            else:
+                                            type=const.STATE_STOPPED)
+            elif ext.name.startswith('suspend'):
+                ext.obj.create_subscription(message, order_id,
+                                            type=const.STATE_SUSPEND)
+            elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
-                                                  type='started', status='active')
+                                                  type=const.STATE_RUNNING)
                 if sub:
                     unit_price += sub.unit_price * sub.quantity
                     unit = sub.unit
@@ -220,7 +220,7 @@ class InstanceCreateEnd(ComputeNotificationBase):
 
 class InstanceStopEnd(ComputeNotificationBase):
     """Handle the events that instances be stopped, for now,
-       it will only handle one product: volume.size.
+    it will only handle one product: volume.size.
     """
     event_types = ['compute.instance.power_off.end']
 
@@ -240,7 +240,7 @@ class InstanceStopEnd(ComputeNotificationBase):
                                                  resource_id)
 
         action_time = message['timestamp']
-        change_to = 'stopped'
+        change_to = const.STATE_STOPPED
         remarks = 'Instance Has Been Stopped.'
 
         # Notify master, just give master messages it needs
@@ -271,7 +271,7 @@ class InstanceStartEnd(ComputeNotificationBase):
                                                  resource_id)
 
         action_time = message['timestamp']
-        change_to = 'started'
+        change_to = const.STATE_RUNNING
         remarks = 'Instance Has Been Started.'
 
         # Notify master, just give master messages it needs
@@ -287,13 +287,6 @@ class InstanceResizeEnd(ComputeNotificationBase):
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
-
-        # Get the order of this instance
-
-        # Create a new subscription for this new flavor,
-        # its initial status=='inactive', and type=='resized'
-
-        # Notify master
 
 
 class InstanceDeleteEnd(ComputeNotificationBase):
@@ -317,6 +310,52 @@ class InstanceDeleteEnd(ComputeNotificationBase):
                                                  resource_id)
         action_time = message['timestamp']
 
-        # Notify master, just give master messages it needs
         master_api.resource_deleted(context.get_admin_context(),
                                     order.order_id, action_time)
+
+
+class InstanceSuspendEnd(ComputeNotificationBase):
+    """Handle the events that instances be suspend, for now,
+    it will only handle one product: volume.size
+    """
+    event_types = ['compute.instance.suspend']
+
+    def process_notification(self, message):
+        LOG.debug('Do action for event: %s', message['event_type'])
+
+        # Get the order of this resource
+        resource_id = message['payload']['instance_id']
+        order = db_conn.get_order_by_resource_id(context.get_admin_context(),
+                                                 resource_id)
+
+        action_time = message['timestamp']
+        change_to = const.STATE_SUSPEND
+        remarks = 'Instance Has Been Suppend.'
+
+        # Notify master, just give master messages it needs
+        master_api.resource_changed(context.get_admin_context(),
+                                    order.order_id,
+                                    action_time, change_to, remarks)
+
+
+class InstanceResumeEnd(ComputeNotificationBase):
+    """Handle the events that instances be resumed
+    """
+    event_types = ['compute.instance.resume']
+
+    def process_notification(self, message):
+        LOG.debug('Do action for event: %s', message['event_type'])
+
+        # Get the order of this resource
+        resource_id = message['payload']['instance_id']
+        order = db_conn.get_order_by_resource_id(context.get_admin_context(),
+                                                 resource_id)
+
+        action_time = message['timestamp']
+        change_to = const.STATE_RUNNING
+        remarks = 'Instance Has Been Resumed.'
+
+        # Notify master, just give master messages it needs
+        master_api.resource_changed(context.get_admin_context(),
+                                    order.order_id,
+                                    action_time, change_to, remarks)

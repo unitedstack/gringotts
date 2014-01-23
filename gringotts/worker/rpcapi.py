@@ -41,3 +41,8 @@ class WorkerAPI(proxy.RpcProxy):
                          self.make_msg('close_bill',
                                        order_id=order_id,
                                        action_time=action_time))
+
+    def destory_resource(self, ctxt, order_id):
+        return self.call(ctxt,
+                         self.make_msg('destory_resource',
+                                       order_id=order_id))

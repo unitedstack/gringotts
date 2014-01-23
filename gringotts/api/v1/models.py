@@ -119,15 +119,15 @@ class Purchase(APIBase):
     product_name = wtypes.text
     service = wtypes.text
     region_id = wtypes.text
-    volume = int
+    quantity = int
 
 
 class Price(APIBase):
     """Price represents some products collection
     """
     unit_price = decimal.Decimal
-    hourly_amount = decimal.Decimal
-    monthly_amount = decimal.Decimal
+    hourly_price = decimal.Decimal
+    monthly_price = decimal.Decimal
     unit = wtypes.text
 
 
@@ -169,7 +169,6 @@ class Subscription(APIBase):
     unit_price = decimal.Decimal
     quantity = int
     total_price = decimal.Decimal
-    status = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
     created_time =  datetime.datetime
@@ -213,7 +212,7 @@ class Order(APIBase):
 class Orders(APIBase):
     """Collection of orders
     """
-    order_amount = int
+    total_count = int
     total_price = decimal.Decimal
     orders = [Order]
 
@@ -303,15 +302,16 @@ class AdminAccount(APIBase):
 class Summary(APIBase):
     """Summary of one single kind of order
     """
-    quantity = int
-    order_type = wtypes.text
     total_price = decimal.Decimal
+    total_count = int
+    order_type = wtypes.text
 
 
 class Summaries(APIBase):
     """Summary of all kind of orders
     """
     total_price = decimal.Decimal
+    total_count = int
     summaries = [Summary]
 
 

@@ -4,6 +4,7 @@
 from oslo.config import cfg
 from stevedore import extension
 
+from gringotts import constants as const
 from gringotts import context
 from gringotts import db
 from gringotts.db import models as db_models
@@ -38,13 +39,12 @@ class SizeItem(waiter_plugin.ProductItem):
     def get_collection(self, message):
         """Get collection from message
         """
-        product_name = 'snapshot.size'
-        service = 'BlockStorage'
+        product_name = const.PRODUCT_SNAPSHOT_SIZE
+        service = const.SERVICE_BLOCKSTORAGE
         region_id = 'default'
         resource_id = message['payload']['snapshot_id']
         resource_name = message['payload']['display_name']
-        resource_type = 'snapshot'
-        resource_status = message['payload']['status']
+        resource_type = const.RESOURCE_SNAPSHOT
         resource_volume = message['payload']['volume_size']
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
@@ -55,7 +55,6 @@ class SizeItem(waiter_plugin.ProductItem):
                           resource_id=resource_id,
                           resource_name=resource_name,
                           resource_type=resource_type,
-                          resource_status=resource_status,
                           resource_volume=resource_volume,
                           user_id=user_id,
                           project_id=project_id)
@@ -85,20 +84,19 @@ class SnapshotNotificationBase(plugin.NotificationBase):
         """
         resource_id = message['payload']['snapshot_id']
         resource_name = message['payload']['display_name']
-        resource_status = message['payload']['status']
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
 
         order_in = db_models.Order(order_id=order_id,
                                    resource_id=resource_id,
                                    resource_name=resource_name,
-                                   resource_status=resource_status,
-                                   type='snapshot',
+                                   type=const.RESOURCE_SNAPSHOT,
                                    unit_price=unit_price,
                                    unit=unit,
                                    total_price=0,
                                    cron_time=None,
-                                   status=None,
+                                   date_time=None,
+                                   status=const.STATE_RUNNING,
                                    user_id=user_id,
                                    project_id=project_id)
 
@@ -119,13 +117,6 @@ class SnapshotCreateEnd(SnapshotNotificationBase):
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
 
-        ## We only care the instance created successfully
-        #if message['payload']['status'] != 'available':
-        #    volume_id = message['payload']['volume_id']
-        #    LOG.warning('The state of volume %s is not available' % volume_id)
-        #    raise exception.VolumeStateError(volume_id=volume_id,
-        #                                     state=message['payload']['status'])
-
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
 
@@ -134,11 +125,15 @@ class SnapshotCreateEnd(SnapshotNotificationBase):
 
         # Create subscriptions for this order
         for ext in product_items.extensions:
-            sub = ext.obj.create_subscription(message, order_id,
-                                              type='started', status='active')
-            if sub:
-                unit_price += sub.unit_price * sub.quantity
-                unit = sub.unit
+            if ext.name.startswith('suspend'):
+                ext.obj.create_subscription(message, order_id,
+                                            type=const.STATE_SUSPEND)
+            elif ext.name.startswith('running'):
+                sub = ext.obj.create_subscription(message, order_id,
+                                                  type=const.STATE_RUNNING)
+                if sub:
+                    unit_price += sub.unit_price * sub.quantity
+                    unit = sub.unit
 
         # Create an order for this instance
         order = self.create_order(order_id, unit_price, unit, message)
@@ -160,19 +155,11 @@ class SnapshotDeleteEnd(SnapshotNotificationBase):
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
 
-        # We only care the volume deleted successfully
-        #if message['payload']['status'] != 'deleted':
-        #    volume_id = message['payload']['volume_id']
-        #    LOG.warning('The state of volume %s is not available' % volume_id)
-        #    raise exception.VolumeStateError(volume_id=volume_id,
-        #                                     state=message['payload']['status'])
-
         # Get the order of this resource
         resource_id = message['payload']['snapshot_id']
         order = db_conn.get_order_by_resource_id(context.get_admin_context(),
                                                  resource_id)
         action_time = message['timestamp']
 
-        # Notify master, just give master messages it needs
         master_api.resource_deleted(context.get_admin_context(),
                                     order.order_id, action_time)

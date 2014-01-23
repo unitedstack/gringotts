@@ -7,6 +7,7 @@ import os
 from sqlalchemy import desc
 from sqlalchemy import func
 
+from gringotts import constants as const
 from gringotts import context as gring_context
 from gringotts import exception
 
@@ -138,13 +139,13 @@ class Connection(base.Connection):
         return db_models.Order(order_id=row.order_id,
                                resource_id=row.resource_id,
                                resource_name=row.resource_name,
-                               resource_status=row.resource_status,
                                type=row.type,
+                               status=row.status,
                                unit_price=row.unit_price,
                                unit=row.unit,
                                total_price=row.total_price,
                                cron_time=row.cron_time,
-                               status=row.status,
+                               date_time=row.date_time,
                                user_id=row.user_id,
                                project_id=row.project_id,
                                created_at=row.created_at,
@@ -153,7 +154,6 @@ class Connection(base.Connection):
     @staticmethod
     def _row_to_db_subscription_model(row):
         return db_models.Subscription(subscription_id=row.subscription_id,
-                                      status=row.status,
                                       type=row.type,
                                       product_id=row.product_id,
                                       unit_price=row.unit_price,
@@ -172,6 +172,7 @@ class Connection(base.Connection):
                               start_time=row.start_time,
                               end_time=row.end_time,
                               type=row.type,
+                              status=row.status,
                               unit_price=row.unit_price,
                               unit=row.unit,
                               total_price=row.total_price,
@@ -355,12 +356,9 @@ class Connection(base.Connection):
         return self._row_to_db_subscription_model(ref)
 
     @require_context
-    def get_subscriptions_by_order_id(self, context, order_id,
-                                      status=None, type=None):
+    def get_subscriptions_by_order_id(self, context, order_id, type=None):
         query = model_query(context, sa_models.Subscription).\
             filter_by(order_id=order_id)
-        if status:
-            query = query.filter_by(status=status)
         if type:
             query = query.filter_by(type=type)
         ref = query.all()
@@ -424,6 +422,16 @@ class Connection(base.Connection):
         return self._row_to_db_bill_model(ref)
 
     @require_context
+    def get_owed_bills(self, context, order_id):
+        session = db_session.get_session()
+        with session.begin():
+            query = model_query(context, sa_models.Bill)
+            query = query.filter_by(order_id=order_id)
+            query = query.filter_by(status=const.BILL_OWED)
+            ref = query.order_by(desc(sa_models.Bill.id)).all()
+        return (self._row_to_db_bill_model(r) for r in ref)
+
+    @require_context
     def get_bills_by_order_id(self, context, order_id):
         query = model_query(context, sa_models.Bill).\
             filter_by(order_id=order_id)
@@ -431,8 +439,9 @@ class Connection(base.Connection):
         return (self._row_to_db_bill_model(r) for r in ref)
 
     @require_context
-    def get_bills(self, context, start_time=None, end_time=None, type=None,
-                  limit=None, marker=None, sort_key=None, sort_dir=None):
+    def get_bills(self, context, start_time=None, end_time=None,
+                  type=None, limit=None, marker=None, sort_key=None,
+                  sort_dir=None):
         query = model_query(context, sa_models.Bill)
 
         if start_time:
@@ -441,6 +450,8 @@ class Connection(base.Connection):
             query = query.filter(sa_models.Bill.end_time < end_time)
         if type:
             query = query.filter_by(type=type)
+
+        query = query.filter_by(status=const.BILL_PAYED)
 
         result = _paginate_query(context, sa_models.Bill,
                                  limit=limit, marker=marker,
@@ -458,8 +469,9 @@ class Connection(base.Connection):
         if end_time:
             query = query.filter(sa_models.Bill.end_time < end_time)
 
-        return query.one().sum or 0
+        query = query.filter_by(status=const.BILL_PAYED)
 
+        return query.one().sum or 0
 
     @require_context
     def create_account(self, context, account):

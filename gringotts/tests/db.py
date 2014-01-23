@@ -20,7 +20,6 @@
 
 """Base classes for API tests."""
 import os
-import six
 
 from gringotts.openstack.common.fixture import config
 from gringotts import db 

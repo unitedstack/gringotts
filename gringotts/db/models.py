@@ -81,33 +81,32 @@ class Order(Model):
     :param order_id: UUID of the order
     :param resource_id: UUID of the resource
     :param resource_name: The name of the resource
-    :param resource_status: The status of the resource
     :param type: The type of the order
+    :param status: The status of this subscription, maybe active, delete
     :param unit_price: The unit price of this order, add up active subs
     :param unit: The unit of this order
     :param total_price: The total fee this resource spent from creation to now
     :param cron_time: The next bill time
-    :param status: The status of this subscription, maybe active, delete
+    :param date_time: The date time when the resource be deleted
     :param user_id: The user id this subscription belongs to
     :param project_id: The project id this subscription belongs to
     """
     def __init__(self,
-                 order_id, resource_id, resource_name, resource_status,
-                 type, unit_price, unit, total_price, cron_time, status,
-                 user_id, project_id,
-                 created_at=None, updated_at=None):
+                 order_id, resource_id, resource_name, type, status,
+                 unit_price, unit, total_price, cron_time, date_time,
+                 user_id, project_id, created_at=None, updated_at=None):
         Model.__init__(
             self,
             order_id=order_id,
             resource_id=resource_id,
             resource_name=resource_name,
-            resource_status=resource_status,
             type=type,
+            status=status,
             unit_price=unit_price,
             unit=unit,
             total_price=total_price,
             cron_time=cron_time,
-            status=status,
+            date_time=date_time,
             user_id=user_id,
             project_id=project_id,
             created_at=created_at,
@@ -118,7 +117,6 @@ class Subscription(Model):
     """The DB Model for Subscription
 
     :param subscription_id: UUID of the subscription
-    :param status: The status of the subscription: inactive/active
     :param type: The type of the subscription, corresponding to resource
                  status.
     :param product_id: The product this resource subscribes to
@@ -131,13 +129,12 @@ class Subscription(Model):
     :param project_id: The project id this subscription belongs to
     """
     def __init__(self,
-                 subscription_id, status, type, product_id, unit_price, unit,
+                 subscription_id, type, product_id, unit_price, unit,
                  quantity, total_price, order_id, user_id, project_id,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,
             subscription_id=subscription_id,
-            status=status,
             type=type,
             product_id=product_id,
             unit_price=unit_price,
@@ -157,6 +154,7 @@ class Bill(Model):
     :param start_time: The start time of the bill
     :param end_time: The end time of the bill
     :param type: The type of the bill, equal to the order type
+    :param status: The status of the bill, payed or owed
     :param unit_price: The unit price of the resource
     :param unit: The unit of the price
     :param total_price: The fee between start_time and end_time
@@ -168,7 +166,7 @@ class Bill(Model):
     """
 
     def __init__(self,
-                 bill_id, start_time, end_time, type, unit_price, unit,
+                 bill_id, start_time, end_time, type, status, unit_price, unit,
                  total_price, order_id, resource_id, remarks, user_id,
                  project_id, created_at=None, updated_at=None):
         Model.__init__(
@@ -177,6 +175,7 @@ class Bill(Model):
             start_time=start_time,
             end_time=end_time,
             type=type,
+            status=status,
             unit_price=unit_price,
             unit=unit,
             total_price=total_price,
