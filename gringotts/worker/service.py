@@ -284,7 +284,7 @@ class WorkerService(rpc_service.Service):
     def _quantize_decimal(self, value):
         if isinstance(value, Decimal):
            return  value.quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
-        return Decimal(value).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
+        return Decimal(str(value)).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
 
     def destory_resource(self, ctxt, order_id):
         LOG.debug('Destroy the resource because of owed')

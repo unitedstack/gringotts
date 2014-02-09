@@ -17,7 +17,7 @@ class APIBase(wtypes.Base):
     @classmethod
     def from_db_model(cls, m):
         return cls(**(m.as_dict()))
-    
+
     @classmethod
     def transform(cls, **kwargs):
         return cls(**kwargs)

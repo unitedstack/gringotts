@@ -62,9 +62,13 @@ class RequestContext(object):
                 'request_id': self.request_id}
 
 
-def get_admin_context(show_deleted=False):
-    context = RequestContext(is_admin=True)
-    return context
+admin_context = None
+
+def get_admin_context():
+    global admin_context
+    if not admin_context:
+        admin_context = RequestContext(is_admin=True)
+    return admin_context
 
 
 def get_context_from_function_and_args(function, args, kwargs):

@@ -6,6 +6,7 @@ import functools
 import os
 from sqlalchemy import desc
 from sqlalchemy import func
+from sqlalchemy.orm.exc import NoResultFound
 
 from gringotts import constants as const
 from gringotts import context as gring_context
@@ -255,7 +256,7 @@ class Connection(base.Connection):
             filter_by(deleted=False)
         try:
             ref = query.one()
-        except Exception:
+        except NoResultFound:
             raise exception.ProductIdNotFound(product_id)
         return self._row_to_db_product_model(ref)
 
@@ -305,14 +306,24 @@ class Connection(base.Connection):
     def get_order_by_resource_id(self, context, resource_id):
         query = model_query(context, sa_models.Order).\
             filter_by(resource_id=resource_id)
-        ref = query.one()
+        try:
+            ref = query.one()
+        except NoResultFound:
+            LOG.warning('The order %s not found' % resource_id)
+            raise exception.OrderNotFound(order_id=resource_id)
+
         return self._row_to_db_order_model(ref)
 
     @require_context
     def get_order(self, context, order_id):
         query = model_query(context, sa_models.Order).\
             filter_by(order_id=order_id)
-        ref = query.one()
+        try:
+            ref = query.one()
+        except NoResultFound:
+            LOG.warning('The order %s not found' % resource_id)
+            raise exception.OrderNotFound(order_id=resource_id)
+
         return self._row_to_db_order_model(ref)
 
     @require_context

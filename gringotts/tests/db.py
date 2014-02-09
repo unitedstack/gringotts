@@ -1,44 +1,58 @@
-# -*- encoding: utf-8 -*-
-#
-# Copyright © 2012 New Dream Network, LLC (DreamHost)
-# Copyright © 2013 eNovance
-#
-# Author: Doug Hellmann <doug.hellmann@dreamhost.com>
-#         Julien Danjou <julien@danjou.info>
-#
-# Licensed under the Apache License, Version 2.0 (the "License"); you may
-# not use this file except in compliance with the License. You may obtain
-# a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and limitations
-# under the License.
+"""Base class for database"""
 
-"""Base classes for API tests."""
-import os
+import fixtures
 
-from gringotts.openstack.common.fixture import config
-from gringotts import db 
+from gringotts import context
+from gringotts import db
+from gringotts.db import models as db_models
+
 from gringotts.tests import base as test_base
+from gringotts.tests import fake_data
+from gringotts.openstack.common.fixture import config
 
 
-class TestBase(test_base.BaseTestCase):
+class DatabaseInit(fixtures.Fixture):
+    def __init__(self, conn):
+        self.conn = conn
+
     def setUp(self):
-        super(TestBase, self).setUp()
+        super(DatabaseInit, self).setUp()
+        self.prepare_data()
+
+    def prepare_data(self):
+        product_flavor_tiny = db_models.Product(**fake_data.PRODUCT_FLAVOR_TINY)
+        product_volume_size = db_models.Product(**fake_data.PRODUCT_VOLUME_SIZE)
+        product_snapshot_size = db_models.Product(**fake_data.PRODUCT_SNAPSHOT_SIZE)
+        product_image_license = db_models.Product(**fake_data.PRODUCT_IMAGE_LICENSE)
+
+        fake_account = db_models.Account(**fake_data.FAKE_ACCOUNT)
+
+        self.conn.create_product(context.get_admin_context(),
+                                 product_flavor_tiny)
+        self.conn.create_product(context.get_admin_context(),
+                                 product_volume_size)
+        self.conn.create_product(context.get_admin_context(),
+                                 product_snapshot_size)
+        self.conn.create_product(context.get_admin_context(),
+                                 product_image_license)
+        self.conn.create_account(context.get_admin_context(),
+                                 fake_account)
+
+class DBTestBase(test_base.TestBase):
+
+    def setUp(self):
+        super(DBTestBase, self).setUp()
+
         self.CONF = self.useFixture(config.Config()).conf
-        self.CONF.set_override('connection', str(self.database_connection),
-                               group='database')
+        #url = 'mysql://root:rachel@localhost/test'
+        url = 'sqlite://'
+        self.CONF.set_override('connection', url, group='database')
+
         self.conn = db.get_connection(self.CONF)
         self.conn.upgrade()
 
-        self.CONF([], project='gringotts')
-        )
-
     def tearDown(self):
+        super(DBTestBase, self).tearDown()
+
         self.conn.clear()
         self.conn = None
-        super(TestBase, self).tearDown()
