@@ -268,7 +268,7 @@ class UserAccount(APIBase):
 
     @classmethod
     def sample(cls):
-        return cls(balance=1000.56,
+        return cls(balance=decimal.Decimal('1000.56'),
                    currency='CNY')
 
 
@@ -283,16 +283,16 @@ class AdminAccount(APIBase):
 
     @classmethod
     def sample1(cls):
-        return cls(balance=1000.56,
-                   consumption=321.5,
+        return cls(balance=decimal.Decimal('1000.56'),
+                   consumption=decimal.Decimal('321.5'),
                    currency='CNY',
                    user_id='user-id-xxx',
                    project_id='project-id-xxx')
 
     @classmethod
     def sample2(cls):
-        return cls(balance=100.74,
-                   consumption=432.4,
+        return cls(balance=decimal.Decimal('100.74'),
+                   consumption=decimal.Decimal('432.4'),
                    currency='CNY',
                    user_id='user-id-yyy',
                    project_id='project-id-yyy')

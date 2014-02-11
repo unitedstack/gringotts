@@ -23,7 +23,7 @@ LOG = log.getLogger(__name__)
 
 OPTS = [
     cfg.StrOpt('cinder_control_exchange',
-               default='openstack',
+               default='cinder',
                help="Exchange name for Cinder notifications"),
 ]
 
