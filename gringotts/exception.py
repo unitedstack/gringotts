@@ -169,6 +169,10 @@ class OrderBillsNotFound(NotFound):
     message = _("Order %(order_id)s bills could not be found")
 
 
+class ResourceOrderNotFound(NotFound):
+    message = _("The order of the resource %(resource_id)s not found")
+
+
 class OrderNotFound(NotFound):
     message = _("Order %(order_id)s bills not found")
 

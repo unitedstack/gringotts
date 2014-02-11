@@ -309,8 +309,8 @@ class Connection(base.Connection):
         try:
             ref = query.one()
         except NoResultFound:
-            LOG.warning('The order %s not found' % resource_id)
-            raise exception.OrderNotFound(order_id=resource_id)
+            LOG.warning('The order of the resource(%s) not found' % resource_id)
+            raise exception.ResourceOrderNotFound(resource_id=resource_id)
 
         return self._row_to_db_order_model(ref)
 
@@ -321,8 +321,8 @@ class Connection(base.Connection):
         try:
             ref = query.one()
         except NoResultFound:
-            LOG.warning('The order %s not found' % resource_id)
-            raise exception.OrderNotFound(order_id=resource_id)
+            LOG.warning('The order %s not found' % order_id)
+            raise exception.OrderNotFound(order_id=order_id)
 
         return self._row_to_db_order_model(ref)
 
