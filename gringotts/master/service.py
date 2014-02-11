@@ -63,9 +63,9 @@ class MasterService(rpc_service.Service):
         self.tg.add_timer(604800, lambda: None)
 
     def load_jobs(self):
-        LOG.debug('Loading jobs before master started')
         states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
         for s in states:
+            LOG.debug('Loading jobs in %s state' % s)
             orders = self.db_conn.get_orders(self.ctxt, status=s)
             for order in orders:
                 danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)

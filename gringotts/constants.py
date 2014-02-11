@@ -16,12 +16,16 @@ RESOURCE_INSTANCE = 'instance'
 RESOURCE_IMAGE = 'image'
 RESOURCE_SNAPSHOT = 'snapshot'
 RESOURCE_VOLUME = 'volume'
+RESOURCE_FLOATINGIP = 'floatingip'
+RESOURCE_ROUTER = 'router'
 
 
 # Product Name
 PRODUCT_INSTANCE_TYPE_PREFIX = 'instance'
 PRODUCT_VOLUME_SIZE = 'volume.size'
 PRODUCT_SNAPSHOT_SIZE = 'snapshot.size'
+PRODUCT_FLOATINGIP = 'ip.floating'
+PRODUCT_ROUTER = 'router'
 
 
 # Bill status
