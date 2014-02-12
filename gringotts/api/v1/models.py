@@ -273,7 +273,7 @@ class UserAccount(APIBase):
 
 
 class AdminAccount(APIBase):
-    """Account for a tenant
+    """Account Detail for a tenant
     """
     balance = decimal.Decimal
     consumption = decimal.Decimal

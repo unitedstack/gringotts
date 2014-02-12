@@ -56,5 +56,13 @@ class AccountsController(rest.RestController):
     def get_all(self):
         """Get all product
         """
-        return [models.AdminAccount.sample1(),
-                models.AdminAccount.sample2()]
+        self.conn = pecan.request.db_conn
+
+        try:
+            accounts = self.conn.get_accounts(request.context)
+        except Exception as e:
+            LOG.exception('Fail to get all accounts')
+            raise exception.DBError(reason=e)
+
+        return [models.AdminAccount.from_db_model(account)
+                for account in accounts]

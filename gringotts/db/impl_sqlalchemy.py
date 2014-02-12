@@ -500,6 +500,12 @@ class Connection(base.Connection):
         ref = query.one()
         return self._row_to_db_account_model(ref)
 
+    @require_admin_context
+    def get_accounts(self, context):
+        query = model_query(context, sa_models.Account)
+        ref = query.all()
+        return (self._row_to_db_account_model(r) for r in ref)
+
     @require_context
     def update_account(self, context, account):
         session = db_session.get_session()
