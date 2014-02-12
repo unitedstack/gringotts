@@ -150,10 +150,33 @@ class FloatingIpCreateEnd(FloatingIpNotificationBase):
 class FloatingIpResizeEnd(FloatingIpNotificationBase):
     """Handle the events that floating ip be changed
     """
-    event_types = ['floatingip.resize.end']
+    event_types = ['floatingip.update_ratelimit.end']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
+
+        rate_limit = message['payload']['floatingip']['rate_limit']
+
+        # Get the order of this resource
+        resource_id = message['payload']['floatingip']['id']
+        order = db_conn.get_order_by_resource_id(context.get_admin_context(),
+                                                 resource_id)
+        subs = db_conn.get_subscriptions_by_order_id(context.get_admin_context(),
+                                                     order.order_id,
+                                                     type=const.STATE_RUNNING)
+        if subs:
+            sub = list(subs)[0]
+            sub.quantity = rate_limit / 1024
+            db_conn.update_subscription(context.get_admin_context(), sub)
+
+        action_time = message['timestamp']
+        remarks = 'Floating IP Has Been Resized'
+        change_to = const.STATE_RUNNING
+
+        # Notify master, just give master messages it needs
+        master_api.resource_changed(context.get_admin_context(),
+                                    order.order_id,
+                                    action_time, change_to, remarks)
 
 
 class FloatingIpDeleteEnd(FloatingIpNotificationBase):
