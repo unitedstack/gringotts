@@ -41,6 +41,11 @@ class LocalAPI(object):
         self._service.resource_changed(ctxt, order_id, action_time,
                                        change_to, remarks)
 
+    def resource_resized(self, ctxt, order_id, action_time, quantity, remarks):
+        self._service.resource_resized(ctxt, order_id, action_time,
+                                       quantity, remarks)
+
+
 
 class API(LocalAPI):
     """Master API that handles requests via RPC to the MasterService

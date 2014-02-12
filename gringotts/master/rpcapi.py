@@ -44,3 +44,11 @@ class MasterAPI(proxy.RpcProxy):
                                        action_time=action_time,
                                        change_to=change_to,
                                        remarks=remarks))
+
+    def resource_resized(self, ctxt, order_id, action_time, quantity, remarks):
+        return self.cast(ctxt,
+                         self.make_msg('resource_resized',
+                                       order_id=order_id,
+                                       action_time=action_time,
+                                       quantity=quantity,
+                                       remarks=remarks))

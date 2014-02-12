@@ -162,6 +162,20 @@ class VolumeResizeEnd(VolumeNotificationBase):
     def process_notification(self, message):
         LOG.debug('Do action for event: %s', message['event_type'])
 
+        # Get the order of this resource
+        resource_id = message['payload']['volume_id']
+        order = db_conn.get_order_by_resource_id(context.get_admin_context(),
+                                                 resource_id)
+        quantity = message['payload']['size']
+
+        action_time = message['timestamp']
+        remarks = 'Volume Has Been Resized'
+
+        # Notify master, just give master messages it needs
+        master_api.resource_resized(context.get_admin_context(),
+                                    order.order_id,
+                                    action_time, quantity, remarks)
+
 
 class VolumeDeleteEnd(VolumeNotificationBase):
     """Handle the event that volume be deleted

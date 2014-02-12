@@ -169,6 +169,14 @@ class MasterService(rpc_service.Service):
         self.apsched.unschedule_job(job)
         del self.date_jobs[order_id]
 
+    def _change_subscription(self, order_id, quantity):
+        subs = self.db_conn.get_subscriptions_by_order_id(
+                self.ctxt, order_id, type=const.STATE_RUNNING)
+        if subs:
+            sub = list(subs)[0]
+            sub.quantity = quantity
+            self.db_conn.update_subscription(self.ctxt, sub)
+
     def _change_order(self, order_id, change_to):
         # Get newest order
         order = self.db_conn.get_order(self.ctxt, order_id)
@@ -225,6 +233,27 @@ class MasterService(rpc_service.Service):
 
             # change the order's unit price and its active subscriptions
             self._change_order(order_id, change_to)
+
+            if self.check_if_owe(order_id):
+                LOG.warning('The order: %s is owed' % order_id)
+
+            # create a new bill for the updated order
+            self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
+            self._create_cron_job(order_id, action_time=action_time)
+
+    def resource_resized(self, ctxt, order_id, action_time, quantity, remarks):
+        LOG.debug('Resource resized, its order_id: %s, action_time: %s, will resize to: %s'
+                  % (order_id, action_time, quantity))
+        with self.lock:
+            # close the old bill
+            self.worker_api.close_bill(self.ctxt, order_id, action_time)
+            self._delete_cron_job(order_id)
+
+            # change subscirption's quantity
+            self._change_subscription(order_id, quantity)
+
+            # change the order's unit price and its active subscriptions
+            self._change_order(order_id, const.STATE_RUNNING)
 
             if self.check_if_owe(order_id):
                 LOG.warning('The order: %s is owed' % order_id)
