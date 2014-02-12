@@ -165,6 +165,10 @@ class AccountNotFound(NotFound):
     message = _("Account %(project_id)s could not be found")
 
 
+class AccountCreateFailed(GringottsException):
+    message = _("Fail to create account for the project %(project_id)s")
+
+
 class OrderBillsNotFound(NotFound):
     message = _("Order %(order_id)s bills could not be found")
 

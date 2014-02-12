@@ -16,7 +16,10 @@ OPTS = [
                 help='Acknowledge message when event persistence fails'),
     cfg.StrOpt('queue_name',
                default='gringotts.notification',
-               help='The queue to listen on exchange for waiter')
+               help='The queue to listen on exchange for waiter'),
+    cfg.StrOpt('initial_balance',
+               default='10',
+               help='initial balance when an user registered')
 ]
 
 cfg.CONF.register_opts(OPTS, group="waiter")
