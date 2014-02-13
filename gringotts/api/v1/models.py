@@ -180,7 +180,7 @@ class Order(APIBase):
     order_id = wtypes.text
     resource_id = wtypes.text
     resource_name = wtypes.text
-    resource_status = wtypes.text
+    status = wtypes.text
     unit_price = decimal.Decimal
     total_price = decimal.Decimal
     type = wtypes.text
@@ -191,7 +191,7 @@ class Order(APIBase):
         return cls(order_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
                    resource_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
                    resource_name='vm1',
-                   resource_status='active',
+                   status='running',
                    unit_price=0.48,
                    total_price=12.55,
                    type='instance',
@@ -202,7 +202,7 @@ class Order(APIBase):
         return cls(order_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
                    resource_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
                    resource_name='vm2',
-                   resource_status='active',
+                   status='running',
                    unit_price=0.48,
                    total_price=1234.55,
                    type='instance',

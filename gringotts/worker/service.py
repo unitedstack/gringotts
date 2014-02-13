@@ -190,13 +190,6 @@ class WorkerService(rpc_service.Service):
         # Get the latest bill
         bill = self._get_latest_bill(order_id)
 
-        # If the bill accross a day, we will create a new bill for the order
-        if bill.end_time.hour is 0:
-            action_time = bill.end_time
-            remarks = 'Daily Billing'
-            self.create_bill(ctxt, order_id, action_time, remarks)
-            return
-
         # Get the order
         order = self._get_order(order_id)
 
