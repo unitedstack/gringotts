@@ -68,6 +68,8 @@ class MasterService(rpc_service.Service):
             LOG.debug('Loading jobs in %s state' % s)
             orders = self.db_conn.get_orders(self.ctxt, status=s)
             for order in orders:
+                if not order.cron_time:
+                    continue
                 danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
                 if order.cron_time > danger_time:
                     self._create_cron_job(order.order_id,

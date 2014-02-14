@@ -37,6 +37,9 @@ def upgrade():
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
         sa.Column('deleted_at', sa.DateTime),
+
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
     )
 
     op.create_table(
@@ -62,6 +65,9 @@ def upgrade():
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
+
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
     )
 
     op.create_table(
@@ -85,6 +91,9 @@ def upgrade():
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
+
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
     )
 
     op.create_table(
@@ -113,6 +122,9 @@ def upgrade():
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
+
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
     )
 
     op.create_table(
@@ -127,6 +139,9 @@ def upgrade():
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
+
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
     )
 
     op.create_table(
@@ -142,6 +157,9 @@ def upgrade():
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
+
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
     )
 
     op.create_table(
@@ -154,6 +172,9 @@ def upgrade():
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
+
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
     )
 
 def downgrade():

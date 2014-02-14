@@ -52,8 +52,9 @@ class WorkerService(rpc_service.Service):
         try:
             account = self.db_conn.get_account(self.ctxt, project_id)
         except Exception:
-            LOG.warning('Fail to find the account: %s' % project_id)
-            raise exception.DBError(reason='Fail to find the account')
+            error = 'Fail to find the account: %s' % project_id
+            LOG.warning(error)
+            raise exception.DBError(reason=error)
 
         # Update the account
         account.balance -= total_price
@@ -62,8 +63,9 @@ class WorkerService(rpc_service.Service):
         try:
             account = self.db_conn.update_account(self.ctxt, account)
         except Exception:
-            LOG.warning('Fail to update the account: %s' % order.project_id)
-            raise exception.DBError(reason='Fail to update the account')
+            error = 'Fail to update the account: %s' % project_id
+            LOG.warning(error)
+            raise exception.DBError(reason=error)
         LOG.debug('Update the account(%s)' % account.as_dict())
 
     def _update_subscriptions(self, order, duration):

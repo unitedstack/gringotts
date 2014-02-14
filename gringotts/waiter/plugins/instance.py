@@ -45,7 +45,7 @@ class FlavorItem(waiter_plugin.ProductItem):
         service = const.SERVICE_COMPUTE
         region_id = 'default'
         resource_id = message['payload']['instance_id']
-        resource_name = message['payload']['hostname']
+        resource_name = message['payload']['display_name']
         resource_type = const.RESOURCE_INSTANCE
         resource_volume = 1
         user_id = message['payload']['user_id']
@@ -74,7 +74,7 @@ class LicenseItem(waiter_plugin.ProductItem):
         service = const.SERVICE_COMPUTE
         region_id = 'default'
         resource_id = message['payload']['instance_id']
-        resource_name = message['payload']['hostname']
+        resource_name = message['payload']['display_name']
         resource_type = const.RESOURCE_INSTANCE
         resource_volume = 1
         user_id = message['payload']['user_id']
@@ -100,7 +100,7 @@ class DiskItem(waiter_plugin.ProductItem):
         service = const.SERVICE_BLOCKSTORAGE
         region_id = 'default'
         resource_id = message['payload']['instance_id']
-        resource_name = message['payload']['hostname']
+        resource_name = message['payload']['display_name']
         resource_type = const.RESOURCE_INSTANCE
         resource_volume = message['payload']['disk_gb']
         user_id = message['payload']['user_id']
@@ -141,7 +141,7 @@ class ComputeNotificationBase(plugin.NotificationBase):
         """Create an order for one instance
         """
         resource_id = message['payload']['instance_id']
-        resource_name = message['payload']['hostname']
+        resource_name = message['payload']['display_name']
         user_id = message['payload']['user_id']
         project_id = message['payload']['tenant_id']
 
