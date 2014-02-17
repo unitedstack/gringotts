@@ -330,21 +330,28 @@ class Connection(base.Connection):
     def get_orders(self, context, start_time=None, end_time=None, type=None,
                    status=None, limit=None, marker=None, sort_key=None,
                    sort_dir=None):
+        """Get orders that have bills during start_time and end_time.
+        If start_time is None or end_time is None, will ignore the datetime
+        range, and return all orders
+        """
         query = model_query(context, sa_models.Order)
 
-        if start_time:
-            query = query.filter(sa_models.Order.created_at >= start_time)
-        if end_time:
-            query = query.filter(sa_models.Order.created_at <= end_time)
         if type:
             query = query.filter_by(type=type)
         if status:
             query = query.filter_by(status=status)
 
+        if all([start_time, end_time]):
+            query = query.join(sa_models.Bill,
+                               sa_models.Order.order_id==sa_models.Bill.order_id)
+            query = query.filter(sa_models.Bill.start_time >= start_time)
+            query = query.filter(sa_models.Bill.end_time < end_time)
+
         result = _paginate_query(context, sa_models.Order,
                                  limit=limit, marker=marker,
                                  sort_key=sort_key, sort_dir=sort_dir,
                                  query=query)
+
         return (self._row_to_db_order_model(o) for o in result)
 
     @require_admin_context
@@ -443,9 +450,15 @@ class Connection(base.Connection):
         return (self._row_to_db_bill_model(r) for r in ref)
 
     @require_context
-    def get_bills_by_order_id(self, context, order_id):
+    def get_bills_by_order_id(self, context, order_id,
+                              start_time=None, end_time=None):
         query = model_query(context, sa_models.Bill).\
             filter_by(order_id=order_id)
+
+        if all([start_time, end_time]):
+            query = query.filter(sa_models.Bill.start_time >= start_time)
+            query = query.filter(sa_models.Bill.end_time < end_time)
+
         ref = query.all()
         return (self._row_to_db_bill_model(r) for r in ref)
 
@@ -471,7 +484,8 @@ class Connection(base.Connection):
         return (self._row_to_db_bill_model(b) for b in result)
 
     @require_context
-    def get_bills_sum(self, context, start_time=None, end_time=None):
+    def get_bills_sum(self, context, start_time=None, end_time=None,
+                      order_id=None):
         query = model_query(context, sa_models.Bill,
                             func.sum(sa_models.Bill.total_price).label('sum'))
 
@@ -479,6 +493,8 @@ class Connection(base.Connection):
             query = query.filter(sa_models.Bill.start_time >= start_time)
         if end_time:
             query = query.filter(sa_models.Bill.end_time < end_time)
+        if order_id:
+            query = query.filter_by(order_id=order_id)
 
         query = query.filter_by(status=const.BILL_PAYED)
 

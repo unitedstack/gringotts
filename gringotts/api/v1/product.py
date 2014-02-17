@@ -146,8 +146,7 @@ class SalesController(rest.RestController):
         conn = pecan.request.db_conn
 
         # Get all products
-        products = conn.get_products(request.context,
-                                     filters=filters)
+        products = conn.get_products(request.context, filters=filters)
 
         total_price = gringutils._quantize_decimal(0)
         sales = []

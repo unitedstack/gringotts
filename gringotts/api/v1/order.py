@@ -32,29 +32,31 @@ class OrderController(rest.RestController):
     def __init__(self, order_id):
         self._id = order_id
 
-    def _order(self):
+    def _order(self, start_time=None, end_time=None):
         self.conn = pecan.request.db_conn
         try:
             order = self.conn.get_bills_by_order_id(request.context,
-                                                    order_id=self._id)
+                                                    order_id=self._id,
+                                                    start_time=start_time,
+                                                    end_time=end_time)
         except Exception as e:
             LOG.error('Order(%s)\'s bills not found' % self._id)
             raise exception.OrderBillsNotFound(order_id=self._id)
         return order
 
-    @wsexpose([models.Bill], wtypes.text)
-    def get(self):
+    @wsexpose([models.Bill], wtypes.text, datetime.datetime, datetime.datetime)
+    def get(self, start_time=None, end_time=None):
         """Return this order's detail
         """
-        bills = self._order()
+        bills = self._order(start_time=start_time, end_time=end_time)
         return [models.Bill.from_db_model(bill) for bill in bills]
 
 
 class SummaryController(rest.RestController):
     """Summary every order type's consumption
     """
-    @wsexpose(models.Summaries)
-    def get(self):
+    @wsexpose(models.Summaries, datetime.datetime, datetime.datetime)
+    def get(self, start_time=None, end_time=None):
         """Get summary of all kinds of orders
         """
         conn = pecan.request.db_conn
@@ -77,8 +79,11 @@ class SummaryController(rest.RestController):
             for order in orders_db:
                 if order.type != order_type:
                     continue
-                order_total_price += order.total_price
-                order_total_count += 1
+                price, count = self._get_order_price_and_count(order,
+                                                               start_time=start_time,
+                                                               end_time=end_time)
+                order_total_price += price
+                order_total_count += count
 
             summaries.append(models.Summary.transform(total_count=order_total_count,
                                                       order_type=order_type,
@@ -89,6 +94,22 @@ class SummaryController(rest.RestController):
         return models.Summaries.transform(total_price=total_price,
                                           total_count=total_count,
                                           summaries=summaries)
+
+    def _get_order_price_and_count(self, order,
+                                   start_time=None, end_time=None):
+
+        if not all([start_time, end_time]):
+            return (order.total_price, 1)
+
+        conn = pecan.request.db_conn
+        total_price = conn.get_bills_sum(request.context,
+                                         start_time=start_time,
+                                         end_time=end_time,
+                                         order_id=order.order_id)
+        if total_price:
+            return (total_price, 1)
+        else:
+            return (total_price, 0)
 
 
 class OrdersController(rest.RestController):
@@ -103,22 +124,41 @@ class OrdersController(rest.RestController):
         if uuidutils.is_uuid_like(order_id):
             return OrderController(order_id), remainder
 
-    @wsexpose(models.Orders, wtypes.text)
-    def get_all(self, type=None):
-        """Get all orders, filter by type
+    @wsexpose(models.Orders, wtypes.text, datetime.datetime, datetime.datetime)
+    def get_all(self, type=None, start_time=None, end_time=None):
+        """Get queried orders
+        If start_time and end_time is not None, will get orders that have bills
+        during start_time and end_time, or return all orders directly.
         """
         conn = pecan.request.db_conn
 
-        orders_db = list(conn.get_orders(request.context, type=type))
+        orders_db = list(conn.get_orders(request.context, type=type,
+                                         start_time=start_time,
+                                         end_time=end_time))
 
         orders = []
         total_count = len(orders_db)
         total_price = gringutils._quantize_decimal(0)
 
         for order in orders_db:
-            total_price += order.total_price
+            price = self._get_order_price(order,
+                                          start_time=start_time,
+                                          end_time=end_time)
+            total_price += price
+            order.total_price = price
             orders.append(models.Order.from_db_model(order))
 
         return models.Orders.transform(total_count=total_count,
                                        total_price=total_price,
                                        orders=orders)
+
+    def _get_order_price(self, order, start_time=None, end_time=None):
+        if not all([start_time, end_time]):
+            return order.total_price
+
+        conn = pecan.request.db_conn
+        total_price = conn.get_bills_sum(request.context,
+                                         start_time=start_time,
+                                         end_time=end_time,
+                                         order_id=order.order_id)
+        return total_price

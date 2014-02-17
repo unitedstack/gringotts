@@ -191,21 +191,8 @@ class WorkerService(rpc_service.Service):
     def pre_deduct(self, ctxt, order_id):
         # Get the latest bill
         bill = self._get_latest_bill(order_id)
-
-        # Get the order
-        order = self._get_order(order_id)
-
-        # Update the bill
-        bill.end_time += datetime.timedelta(hours=1)
-        bill.total_price += order.unit_price
-        bill.updated_at = datetime.datetime.utcnow()
-        self._update_bill(bill)
-
-        cron_time = order.cron_time + datetime.timedelta(hours=1)
-        self._update_order(order, order.unit_price, cron_time)
-
-        self._update_subscriptions(order, 1)
-        self._update_account(order.project_id, order.unit_price)
+        remarks = "Hourly Billing"
+        self.create_bill(ctxt, order_id, bill.end_time, remarks)
 
     def close_bill(self, ctxt, order_id, action_time):
         # Get the order

@@ -151,8 +151,6 @@ class MasterService(rpc_service.Service):
     def _delete_cron_job(self, order_id):
         """Delete cron job related to this subscription
         """
-        # FIXME(suo): Actually, we should store job to DB layer, not
-        # in memory
         job = self.cron_jobs.get(order_id)
         self.apsched.unschedule_job(job)
         del self.cron_jobs[order_id]
