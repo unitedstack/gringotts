@@ -62,7 +62,9 @@ class SummaryController(rest.RestController):
         conn = pecan.request.db_conn
 
         # Get all orders of this particular context one time
-        orders_db = list(conn.get_orders(request.context))
+        orders_db = list(conn.get_orders(request.context,
+                                         start_time=start_time,
+                                         end_time=end_time))
 
         total_price = gringutils._quantize_decimal(0)
         total_count = 0
