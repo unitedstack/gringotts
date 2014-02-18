@@ -38,6 +38,13 @@ class DatabaseInit(fixtures.Fixture):
         self.conn.create_account(context.get_admin_context(),
                                  fake_account)
 
+        self.addCleanup(self.reset)
+
+    def reset(self):
+        self.conn.clear()
+        self.conn = None
+
+
 class DBTestBase(test_base.TestBase):
 
     def setUp(self):

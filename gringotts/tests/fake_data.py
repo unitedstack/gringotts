@@ -1,5 +1,10 @@
 """Fake data for all tests"""
 
+INSTANCE_CREATED_TIME = '2014-01-08 03:38:36.129954'
+INSTANCE_STOPPED_TIME = '2014-01-08 03:48:36.958286'
+INSTANCE_STARTED_TIME = '2014-01-08 03:58:36.234079'
+INSTANCE_DELETED_TIME = '2014-01-08 04:08:36.102937'
+
 # notifications
 NOTICE_INSTANCE_CREATE_END = {
     u'_context_auth_token': u'3117c58084b54ab496ecbe331bd79e84',
@@ -76,7 +81,7 @@ NOTICE_INSTANCE_CREATE_END = {
                  u'vcpus': 1},
     u'priority': u'INFO',
     u'publisher_id': u'compute.ustack',
-    u'timestamp': u'2014-01-08 03:38:36.129954'
+    u'timestamp': INSTANCE_CREATED_TIME
 }
 
 NOTICE_INSTANCE_STOP_END = {
@@ -146,7 +151,7 @@ NOTICE_INSTANCE_STOP_END = {
                  u'vcpus': 1},
     u'priority': u'INFO',
     u'publisher_id': u'compute.ustack',
-    u'timestamp': u'2014-01-08 03:48:36.958286'
+    u'timestamp': INSTANCE_STOPPED_TIME
 }
 
 NOTICE_INSTANCE_START_END = {
@@ -170,8 +175,8 @@ NOTICE_INSTANCE_START_END = {
                                    u'type': u'volume'}],
     u'_context_tenant': u'b9bc0301f3d44d3985aefa00574333ab',
     u'_context_timestamp': u'2013-12-20T09:46:53.968670',
-    u'_context_user': u'0dd79b1621434cac94cb0c1822943730',
-    u'_context_user_id': u'0dd79b1621434cac94cb0c1822943730',
+    u'_context_user': u'2675d4da10b54c5b8f79c69dba7cfb93',
+    u'_context_user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
     u'_context_user_name': u'admin',
     u'_unique_id': u'e002c74244344a70a49ba97177e29b69',
     u'event_type': u'compute.instance.power_on.end',
@@ -208,7 +213,7 @@ NOTICE_INSTANCE_START_END = {
                  u'vcpus': 1},
     u'priority': u'INFO',
     u'publisher_id': u'compute.master',
-    u'timestamp': u'2014-01-08 03:58:36.234079'
+    u'timestamp': INSTANCE_STARTED_TIME
 }
 
 NOTICE_INSTANCE_DELETE_END = {
@@ -278,7 +283,94 @@ NOTICE_INSTANCE_DELETE_END = {
                  u'vcpus': 1},
     u'priority': u'INFO',
     u'publisher_id': u'compute.ustack',
-    u'timestamp': u'2014-01-08 04:08:36.102937'
+    u'timestamp': INSTANCE_DELETED_TIME
+}
+
+
+VOLUME_CREATED_TIME = '2014-01-08 03:18:36.612835'
+VOLUME_RESIZED_TIME = '2014-01-08 03:28:36.237170'
+
+NOTICE_VOLUME_CREATE_END = {
+    u'_context_auth_token': u'3a51da63cfa54234beb1a0aa545ff5c3',
+    u'_context_is_admin': True,
+    u'_context_project_id': u'26dfd7a12ec247b9a3426acc114418a8',
+    u'_context_project_name': u'admin',
+    u'_context_quota_class': None,
+    u'_context_read_deleted': u'no',
+    u'_context_remote_address': u'10.96.24.95',
+    u'_context_request_id': u'req-fea48640-65bd-44e3-a62d-385e65679468',
+    u'_context_roles': [u'admin'],
+    u'_context_service_catalog': [{u'endpoints': [{u'adminURL': u'http://10.96.24.95:8774/v2/26dfd7a12ec247b9a3426acc114418a8',
+                                                   u'id': u'7256f097b55e45469168872087847024',
+                                                   u'internalURL': u'http://10.96.24.95:8774/v2/26dfd7a12ec247b9a3426acc114418a8',
+                                                   u'publicURL': u'http://10.96.24.95:8774/v2/26dfd7a12ec247b9a3426acc114418a8',
+                                                   u'region': u'RegionOne'}],
+                                   u'endpoints_links': [],
+                                   u'name': u'nova',
+                                   u'type': u'compute'}],
+    u'_context_tenant': u'26dfd7a12ec247b9a3426acc114418a8',
+    u'_context_timestamp': u'2014-01-08T03:43:34.424578',
+    u'_context_user': u'2675d4da10b54c5b8f79c69dba7cfb93',
+    u'_context_user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
+    u'_unique_id': u'1c2d805eb29e4973b6a207b9dfc04036',
+    u'event_type': u'volume.create.end',
+    u'message_id': u'd58e048d-1e2d-45fb-98b6-d268a6c2c711',
+    u'payload': {u'availability_zone': u'nova',
+                 u'created_at': u'2014-01-08 03:43:34',
+                 u'display_name': u'vol-1',
+                 u'launched_at': u'2014-01-08 03:43:37.546625',
+                 u'size': 2,
+                 u'snapshot_id': None,
+                 u'status': u'available',
+                 u'tenant_id': u'26dfd7a12ec247b9a3426acc114418a8',
+                 u'user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
+                 u'volume_id': u'7d0e2a0f-15dc-47f1-bb63-27513c6ab431',
+                 u'volume_type': None},
+    u'priority': u'INFO',
+    u'publisher_id': u'volume.ustack',
+    u'timestamp': VOLUME_CREATED_TIME
+}
+
+
+NOTICE_VOLUME_RESIZE_END = {
+    u'_context_auth_token': u'abefab05e8284876b3dd46fdaaccc23f',
+    u'_context_is_admin': True,
+    u'_context_project_id': u'26dfd7a12ec247b9a3426acc114418a8',
+    u'_context_project_name': u'admin',
+    u'_context_quota_class': None,
+    u'_context_read_deleted': u'no',
+    u'_context_remote_address': u'10.1.0.12',
+    u'_context_request_id': u'req-a12cdb9e-be7d-484e-9cc9-c4b51cc4e58c',
+    u'_context_roles': [u'admin'],
+    u'_context_service_catalog': [{u'endpoints': [{u'adminURL': u'http://10.1.0.12:8774/v2/6be1ae9da5964fbc855525fe6ae57331',
+                                                   u'id': u'0b4d14aaaa8b4e118054b5da76c98d43',
+                                                   u'internalURL': u'http://10.1.0.12:8774/v2/6be1ae9da5964fbc855525fe6ae57331',
+                                                   u'publicURL': u'http://10.1.0.12:8774/v2/6be1ae9da5964fbc855525fe6ae57331',
+                                                   u'region': u'RegionOne'}],
+                                   u'endpoints_links': [],
+                                   u'name': u'nova',
+                                   u'type': u'compute'}],
+    u'_context_tenant': u'26dfd7a12ec247b9a3426acc114418a8',
+    u'_context_timestamp': u'2014-02-12T06:05:28.956241',
+    u'_context_user': u'2675d4da10b54c5b8f79c69dba7cfb93',
+    u'_context_user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
+    u'_unique_id': u'640be213a3ea4cb3bb289714166aecdd',
+    u'event_type': u'volume.resize.end',
+    u'message_id': u'df812e73-84ea-46e2-be29-be0a91d81a9a',
+    u'payload': {u'availability_zone': u'nova',
+                 u'created_at': u'2014-02-11 10:31:23',
+                 u'display_name': u'fds',
+                 u'launched_at': u'2014-02-11 10:31:24',
+                 u'size': 4,
+                 u'snapshot_id': None,
+                 u'status': u'extending',
+                 u'tenant_id': u'26dfd7a12ec247b9a3426acc114418a8',
+                 u'user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
+                 u'volume_id': u'7d0e2a0f-15dc-47f1-bb63-27513c6ab431',
+                 u'volume_type': None},
+    u'priority': u'INFO',
+    u'publisher_id': u'volume.lg-0-12',
+    u'timestamp': VOLUME_RESIZED_TIME
 }
 
 # products
@@ -340,8 +432,8 @@ PRODUCT_IMAGE_LICENSE = {
 
 # account
 FAKE_ACCOUNT = {
-    "user_id": "b20623efd00d409799ad333c998a996b",
-    "project_id": "6be1ae9da5964fbc855525fe6ae57331",
+    "user_id": "2675d4da10b54c5b8f79c69dba7cfb93",
+    "project_id": "26dfd7a12ec247b9a3426acc114418a8",
     "balance": 100,
     "consumption": 0,
     "currency": "CNY"
