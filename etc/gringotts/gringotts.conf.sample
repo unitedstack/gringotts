@@ -4,6 +4,7 @@ rabbit_port=5672
 rabbit_userid=guest
 rabbit_password=rachel
 
+auth_strategy=keystone
 debug=True
 
 [waiter]

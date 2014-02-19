@@ -53,8 +53,8 @@ def setup_app(config, extra_hooks=None):
 
     pecan.conf.update({'wsme': {'debug': CONF.debug}})
 
-    #if config.app.enable_acl:
-    #    app = acl.install(app, cfg.CONF)
+    if config.app.enable_acl:
+        app = acl.install(app, cfg.CONF)
 
     return app
 
