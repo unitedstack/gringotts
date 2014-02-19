@@ -126,18 +126,19 @@ class OrdersController(rest.RestController):
         if uuidutils.is_uuid_like(order_id):
             return OrderController(order_id), remainder
 
-    @wsexpose(models.Orders, wtypes.text, datetime.datetime, datetime.datetime)
-    def get_all(self, type=None, start_time=None, end_time=None):
+    @wsexpose(models.Orders, wtypes.text, wtypes.text, datetime.datetime,
+              datetime.datetime)
+    def get_all(self, type=None, status=type, start_time=None, end_time=None):
         """Get queried orders
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
         conn = pecan.request.db_conn
-
-        orders_db = list(conn.get_orders(request.context, type=type,
+        orders_db = list(conn.get_orders(request.context,
+                                         type=type,
+                                         status=status,
                                          start_time=start_time,
                                          end_time=end_time))
-
         orders = []
         total_count = len(orders_db)
         total_price = gringutils._quantize_decimal(0)
