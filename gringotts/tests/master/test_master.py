@@ -12,6 +12,7 @@ from gringotts import constants as const
 from gringotts.openstack.common import timeutils
 
 from gringotts.tests import fake_data
+from gringotts.tests import db_fixtures
 from gringotts.waiter import service as waiter_service
 from gringotts.master import service as master_service
 from gringotts.worker import service as worker_service
@@ -24,7 +25,7 @@ class TestMasterService(db_test_base.DBTestBase):
     def setUp(self):
         super(TestMasterService, self).setUp()
 
-        self.useFixture(db_test_base.DatabaseInit(self.conn))
+        self.useFixture(db_fixtures.DatabaseInit(self.conn))
 
         self.waiter_srv = waiter_service.WaiterService('the-host', 'the-topic')
         self.master_srv = master_service.MasterService()
@@ -34,16 +35,15 @@ class TestMasterService(db_test_base.DBTestBase):
             self.waiter_srv.start()
 
         self.ctxt = context.get_admin_context()
-        self.instance_id = 'b3725586-ae77-4001-9ecb-c0b4afb35904'
 
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def test_resource_create_end(self):
-        self.waiter_srv.process_notification(fake_data.NOTICE_INSTANCE_CREATE_END)
+        self.waiter_srv.process_notification(fake_data.NOTICE_INSTANCE_1_CREATED)
 
         order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   self.instance_id)
+                                                   fake_data.INSTANCE_ID_1)
 
-        action_time = fake_data.INSTANCE_CREATED_TIME
+        action_time = fake_data.INSTANCE_1_CREATED_TIME
         remarks = 'Instance Has Been Created.'
         self.master_srv.resource_created(self.ctxt, order.order_id,
                                          action_time, remarks)
@@ -66,18 +66,18 @@ class TestMasterService(db_test_base.DBTestBase):
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def test_resource_change_end(self):
         # Create an instance
-        self.waiter_srv.process_notification(fake_data.NOTICE_INSTANCE_CREATE_END)
+        self.waiter_srv.process_notification(fake_data.NOTICE_INSTANCE_1_CREATED)
 
         order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   self.instance_id)
+                                                   fake_data.INSTANCE_ID_1)
 
-        action_time = fake_data.INSTANCE_CREATED_TIME
+        action_time = fake_data.INSTANCE_1_CREATED_TIME
         remarks = 'Instance Has Been Created.'
         self.master_srv.resource_created(self.ctxt, order.order_id,
                                          action_time, remarks)
 
         # Stop the instance
-        action_time = fake_data.INSTANCE_STOPPED_TIME
+        action_time = fake_data.INSTANCE_1_STOPPED_TIME
         remarks = 'Instance Has Been Stopped.'
         change_to = const.STATE_STOPPED
         self.master_srv.resource_changed(self.ctxt, order.order_id,
@@ -105,7 +105,7 @@ class TestMasterService(db_test_base.DBTestBase):
 
         # Check the updated order
         order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   self.instance_id)
+                                                   fake_data.INSTANCE_ID_1)
         self.assertEqual('stopped', order.status)
         self.assertEqual(Decimal('0.0020'), order.unit_price)
         self.assertEqual(Decimal('0.0170'), order.total_price)
@@ -113,18 +113,18 @@ class TestMasterService(db_test_base.DBTestBase):
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def test_resource_delete_end(self):
         # Create an instance
-        self.waiter_srv.process_notification(fake_data.NOTICE_INSTANCE_CREATE_END)
+        self.waiter_srv.process_notification(fake_data.NOTICE_INSTANCE_1_CREATED)
 
         order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   self.instance_id)
+                                                   fake_data.INSTANCE_ID_1)
 
-        action_time = fake_data.INSTANCE_CREATED_TIME
+        action_time = fake_data.INSTANCE_1_CREATED_TIME
         remarks = 'Instance Has Been Created.'
         self.master_srv.resource_created(self.ctxt, order.order_id,
                                          action_time, remarks)
 
         # Delete the instance
-        action_time = fake_data.INSTANCE_DELETED_TIME
+        action_time = fake_data.INSTANCE_1_DELETED_TIME
         self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time)
 
         # Assertions
@@ -148,7 +148,7 @@ class TestMasterService(db_test_base.DBTestBase):
 
         # Check the updated order
         order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   self.instance_id)
+                                                   fake_data.INSTANCE_ID_1)
         self.assertEqual('deleted', order.status)
         self.assertEqual(Decimal('0.0000'), order.unit_price)
         self.assertEqual(Decimal('0.0450'), order.total_price)
@@ -156,18 +156,18 @@ class TestMasterService(db_test_base.DBTestBase):
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def test_resource_resize_end(self):
         # Create a volume
-        self.waiter_srv.process_notification(fake_data.NOTICE_VOLUME_CREATE_END)
+        self.waiter_srv.process_notification(fake_data.NOTICE_VOLUME_1_CREATED)
 
-        volume_id = '7d0e2a0f-15dc-47f1-bb63-27513c6ab431'
+        volume_id = fake_data.VOLUME_ID_1
         order = self.conn.get_order_by_resource_id(self.ctxt, volume_id)
 
-        action_time = fake_data.VOLUME_CREATED_TIME
-        remarks = 'Instance Has Been Created.'
+        action_time = fake_data.VOLUME_1_CREATED_TIME
+        remarks = 'Volume Has Been Created.'
         self.master_srv.resource_created(self.ctxt, order.order_id,
                                          action_time, remarks)
 
         # Resize the instance
-        action_time = fake_data.VOLUME_RESIZED_TIME
+        action_time = fake_data.VOLUME_1_RESIZED_TIME
         remarks = 'Volume Has Been Resized.'
         quantity = 4 # resize size
         self.master_srv.resource_resized(self.ctxt, order.order_id,
@@ -194,8 +194,7 @@ class TestMasterService(db_test_base.DBTestBase):
         self.assertEqual(1, len(cron_jobs))
 
         # Check the updated order
-        order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   volume_id)
+        order = self.conn.get_order_by_resource_id(self.ctxt, volume_id)
         self.assertEqual('running', order.status)
         self.assertEqual(Decimal('0.0080'), order.unit_price)
         self.assertEqual(Decimal('0.0087'), order.total_price)
