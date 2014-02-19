@@ -115,7 +115,8 @@ class VolumeCreateEnd(VolumeNotificationBase):
     event_types = ['volume.create.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'], message['payload']['volume_id'])
 
         # We only care the instance created successfully
         if message['payload']['status'] != 'available':
@@ -160,7 +161,8 @@ class VolumeResizeEnd(VolumeNotificationBase):
     event_types = ['volume.resize.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'], message['payload']['volume_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['volume_id']
@@ -183,7 +185,8 @@ class VolumeDeleteEnd(VolumeNotificationBase):
     event_types = ['volume.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'], message['payload']['volume_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['volume_id']

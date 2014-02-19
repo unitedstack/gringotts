@@ -175,7 +175,9 @@ class InstanceCreateEnd(ComputeNotificationBase):
     event_types = ['compute.instance.create.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['instance_id'])
 
         # We only care the instance created successfully
         if message['payload']['state'] != 'active':
@@ -225,7 +227,9 @@ class InstanceStopEnd(ComputeNotificationBase):
     event_types = ['compute.instance.power_off.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['instance_id'])
 
         # We only care the instance stopped successfully
         if message['payload']['state'] != 'stopped':
@@ -256,7 +260,9 @@ class InstanceStartEnd(ComputeNotificationBase):
     event_types = ['compute.instance.power_on.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['instance_id'])
 
         # We only care the instance started successfully
         if message['payload']['state'] != 'active':
@@ -286,7 +292,9 @@ class InstanceResizeEnd(ComputeNotificationBase):
     event_types = ['compute.instance.resize.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['instance_id'])
 
 
 class InstanceDeleteEnd(ComputeNotificationBase):
@@ -295,7 +303,9 @@ class InstanceDeleteEnd(ComputeNotificationBase):
     event_types = ['compute.instance.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['instance_id'])
 
         # We only care the instance deleted successfully
         if message['payload']['state'] != 'deleted':
@@ -321,7 +331,9 @@ class InstanceSuspendEnd(ComputeNotificationBase):
     event_types = ['compute.instance.suspend']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['instance_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
@@ -344,7 +356,9 @@ class InstanceResumeEnd(ComputeNotificationBase):
     event_types = ['compute.instance.resume']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['instance_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']

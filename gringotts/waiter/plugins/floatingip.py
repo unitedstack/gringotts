@@ -115,7 +115,9 @@ class FloatingIpCreateEnd(FloatingIpNotificationBase):
     event_types = ['floatingip.create.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['floatingip']['id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -153,7 +155,9 @@ class FloatingIpResizeEnd(FloatingIpNotificationBase):
     event_types = ['floatingip.update_ratelimit.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['floatingip']['id'])
 
         quantity = message['payload']['floatingip']['rate_limit'] / 1024
 
@@ -177,7 +181,9 @@ class FloatingIpDeleteEnd(FloatingIpNotificationBase):
     event_types = ['floatingip.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['floatingip']['id'])
 
         # Get the order of this resource
         resource_id = message['payload']['floatingip_id']

@@ -115,7 +115,8 @@ class SnapshotCreateEnd(SnapshotNotificationBase):
     event_types = ['snapshot.create.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'], message['payload']['snapshot_id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -153,7 +154,8 @@ class SnapshotDeleteEnd(SnapshotNotificationBase):
     event_types = ['snapshot.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'], message['payload']['snapshot_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['snapshot_id']

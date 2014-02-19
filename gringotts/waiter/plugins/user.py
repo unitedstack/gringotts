@@ -48,7 +48,8 @@ class UserRegisterEnd(RegisterNotificationBase):
     event_types = ['identity.account.register']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s', message['event_type'])
+        LOG.debug('Do action for event: %s, tenant_id: %s',
+                  message['event_type'], message['payload']['project_id'])
 
         try:
             user_id = message['payload']['user_id']
