@@ -50,3 +50,29 @@ def get_limited_to_project(headers):
 
     """
     return get_limited_to(headers)[1]
+
+
+def context_is_admin(headers):
+    """Check if the context is admin"""
+    global _ENFORCER
+    if not _ENFORCER:
+        _ENFORCER = policy.Enforcer()
+    if not _ENFORCER.enforce('context_is_admin',
+                             {},
+                             {'roles': headers.get('X-Roles', "").split(",")}):
+        return False
+    else:
+        return True
+
+
+def context_is_staff(headers):
+    """Check if the context is admin"""
+    global _ENFORCER
+    if not _ENFORCER:
+        _ENFORCER = policy.Enforcer()
+    if not _ENFORCER.enforce('context_is_staff',
+                             {},
+                             {'roles': headers.get('X-Roles', "").split(",")}):
+        return False
+    else:
+        return True

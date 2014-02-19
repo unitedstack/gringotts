@@ -41,13 +41,12 @@ class RequestContext(object):
     """
 
     def __init__(self, auth_token=None, user_id=None, project_id=None,
-                 is_admin=False, request_id=None):
+                 is_admin=False, is_staff=None, request_id=None):
         self.auth_token = auth_token
         self.user_id = user_id
         self.project_id = project_id
-        self.user = user_id
-        self.tenant = project_id
         self.is_admin = is_admin
+        self.is_staff = is_staff
         if not request_id:
             request_id = generate_request_id()
         self.request_id = request_id
@@ -55,9 +54,8 @@ class RequestContext(object):
     def to_dict(self):
         return {'user_id': self.user_id,
                 'project_id': self.project_id,
-                'user': self.user,
-                'tenant': self.tenant,
                 'is_admin': self.is_admin,
+                'is_staff': self.is_staff,
                 'auth_token': self.auth_token,
                 'request_id': self.request_id}
 

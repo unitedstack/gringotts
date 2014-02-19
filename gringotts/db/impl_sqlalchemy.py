@@ -72,7 +72,7 @@ def model_query(context, model, *args, **kwargs):
     session = kwargs.get('session') or get_session()
     query = session.query(model, *args)
 
-    if gring_context.is_user_context(context):
+    if gring_context.is_user_context(context) and hasattr(model, 'project_id'):
         query = query.filter_by(project_id=context.project_id)
     return query
 
