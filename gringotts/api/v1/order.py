@@ -44,7 +44,7 @@ class OrderController(rest.RestController):
             raise exception.OrderBillsNotFound(order_id=self._id)
         return order
 
-    @wsexpose([models.Bill], wtypes.text, datetime.datetime, datetime.datetime)
+    @wsexpose([models.Bill], datetime.datetime, datetime.datetime)
     def get(self, start_time=None, end_time=None):
         """Return this order's detail
         """

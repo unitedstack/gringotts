@@ -1,377 +1,337 @@
 """Fake data for all tests"""
 
-INSTANCE_CREATED_TIME = '2014-01-08 03:38:36.129954'
-INSTANCE_STOPPED_TIME = '2014-01-08 03:48:36.958286'
-INSTANCE_STARTED_TIME = '2014-01-08 03:58:36.234079'
-INSTANCE_DELETED_TIME = '2014-01-08 04:08:36.102937'
+DEMO_USER_ID = '2675d4da10b54c5b8f79c69dba7cfb93'
+DEMO_PROJECT_ID = '26dfd7a12ec247b9a3426acc114418a8'
 
-# notifications
-NOTICE_INSTANCE_CREATE_END = {
-    u'_context_auth_token': u'3117c58084b54ab496ecbe331bd79e84',
-    u'_context_instance_lock_checked': False,
-    u'_context_is_admin': True,
-    u'_context_project_id': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_project_name': u'admin',
-    u'_context_quota_class': None,
-    u'_context_read_deleted': u'no',
-    u'_context_remote_address': u'10.96.24.95',
-    u'_context_request_id': u'req-61390f71-2274-4dda-846c-e700fa477aba',
-    u'_context_roles': [u'admin'],
-    u'_context_service_catalog': [{u'endpoints': [{u'adminURL': u'http://10.96.24.95:8776/v1/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'id': u'24f36a42b676407aa32182436b5fc1d8',
-                                                   u'internalURL': u'http://10.96.24.95:8776/v1/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'publicURL': u'http://10.96.24.95:8776/v1/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'region': u'RegionOne'}],
-                                   u'endpoints_links': [],
-                                   u'name': u'cinder',
-                                   u'type': u'volume'}],
-    u'_context_tenant': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_timestamp': u'2014-01-08T03:38:28.556914',
-    u'_context_user': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_name': u'admin',
-    u'_unique_id': u'840c563ebbb94312b9cf2342d01ce697',
-    u'event_type': u'compute.instance.create.end',
-    u'message_id': u'ad090099-3cc2-472b-846a-446183a4b183',
-    u'payload': {u'access_ip_v4': None,
-                 u'access_ip_v6': None,
-                 u'architecture': None,
-                 u'availability_zone': None,
-                 u'created_at': u'2014-01-08 03:38:29+00:00',
-                 u'deleted_at': u'',
-                 u'disk_gb': 1,
-                 u'display_name': u'vm1',
-                 u'ephemeral_gb': 0,
-                 u'fixed_ips': [{u'address': u'172.24.4.3',
-                                 u'floating_ips': [],
-                                 u'label': u'public',
-                                 u'meta': {},
-                                 u'type': u'fixed',
-                                 u'version': 4}],
-                 u'host': u'ustack',
-                 u'hostname': u'vm1',
-                 u'image_meta': {u'base_image_ref': u'b75f1447-1f62-489f-becf-a1b26e547358',
-                                 u'container_format': u'ami',
-                                 u'disk_format': u'ami',
-                                 u'kernel_id': u'fef38f4d-48c5-43ed-8732-6f24be1d456a',
-                                 u'min_disk': u'1',
-                                 u'min_ram': u'0',
-                                 u'ramdisk_id': u'8c2a1917-4b37-424b-b301-bd15cd751b19'},
-                 u'image_name': u'cirros-0.3.1-x86_64-uec',
-                 u'image_ref_url': u'http://10.96.24.95:9292/images/b75f1447-1f62-489f-becf-a1b26e547358',
-                 u'instance_flavor_id': u'1',
-                 u'instance_id': u'b3725586-ae77-4001-9ecb-c0b4afb35904',
-                 u'instance_type': u'm1.tiny',
-                 u'instance_type_id': 2,
-                 u'kernel_id': u'fef38f4d-48c5-43ed-8732-6f24be1d456a',
-                 u'launched_at': u'2014-01-08T03:38:35.868179',
-                 u'memory_mb': 512,
-                 u'message': u'Success',
-                 u'metadata': {},
-                 u'node': u'ustack',
-                 u'os_type': None,
-                 u'ramdisk_id': u'8c2a1917-4b37-424b-b301-bd15cd751b19',
-                 u'reservation_id': u'r-8u8f5rwn',
-                 u'root_gb': 1,
-                 u'state': u'active',
-                 u'state_description': u'',
-                 u'tenant_id': u'26dfd7a12ec247b9a3426acc114418a8',
-                 u'terminated_at': u'',
-                 u'user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-                 u'vcpus': 1},
-    u'priority': u'INFO',
-    u'publisher_id': u'compute.ustack',
-    u'timestamp': INSTANCE_CREATED_TIME
-}
+ADMIN_USER_ID = '2675d4da10b54c5b8f79c69dba7cfb95'
+ADMIN_PROJECT_ID = '26dfd7a12ec247b9a3426acc114418a9'
 
-NOTICE_INSTANCE_STOP_END = {
-    u'_context_auth_token': u'd20f94b7feed4fdb9e4136c2a784f088',
-    u'_context_instance_lock_checked': False,
-    u'_context_is_admin': True,
-    u'_context_project_id': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_project_name': u'admin',
-    u'_context_quota_class': None,
-    u'_context_read_deleted': u'no',
-    u'_context_remote_address': u'10.96.24.95',
-    u'_context_request_id': u'req-56118b4e-b76f-4811-8feb-ec1ca3f2565a',
-    u'_context_roles': [u'admin'],
-    u'_context_service_catalog': [{u'endpoints': [{u'adminURL': u'http://10.96.24.95:8776/v1/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'id': u'24f36a42b676407aa32182436b5fc1d8',
-                                                   u'internalURL': u'http://10.96.24.95:8776/v1/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'publicURL': u'http://10.96.24.95:8776/v1/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'region': u'RegionOne'}],
-                                   u'endpoints_links': [],
-                                   u'name': u'cinder',
-                                   u'type': u'volume'}],
-    u'_context_tenant': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_timestamp': u'2014-01-08T03:40:12.280180',
-    u'_context_user': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_name': u'admin',
-    u'_unique_id': u'891b77158456498c8c4057a2c7d7aded',
-    u'event_type': u'compute.instance.power_off.end',
-    u'message_id': u'ad7a1d6d-3837-4c2b-881e-91a922df895e',
-    u'payload': {u'access_ip_v4': None,
-                 u'access_ip_v6': None,
-                 u'architecture': None,
-                 u'availability_zone': None,
-                 u'created_at': u'2014-01-08 03:38:29+00:00',
-                 u'deleted_at': u'',
-                 u'disk_gb': 1,
-                 u'display_name': u'vm1',
-                 u'ephemeral_gb': 0,
-                 u'host': u'ustack',
-                 u'hostname': u'vm1',
-                 u'image_meta': {u'base_image_ref': u'b75f1447-1f62-489f-becf-a1b26e547358',
-                                 u'container_format': u'ami',
-                                 u'disk_format': u'ami',
-                                 u'kernel_id': u'fef38f4d-48c5-43ed-8732-6f24be1d456a',
-                                 u'min_disk': u'1',
-                                 u'min_ram': u'0',
-                                 u'ramdisk_id': u'8c2a1917-4b37-424b-b301-bd15cd751b19'},
-                 u'image_ref_url': u'http://10.96.24.95:9292/images/b75f1447-1f62-489f-becf-a1b26e547358',
-                 u'instance_flavor_id': u'1',
-                 u'instance_id': u'b3725586-ae77-4001-9ecb-c0b4afb35904',
-                 u'instance_type': u'm1.tiny',
-                 u'instance_type_id': 2,
-                 u'kernel_id': u'fef38f4d-48c5-43ed-8732-6f24be1d456a',
-                 u'launched_at': u'2014-01-08T03:38:35.000000',
-                 u'memory_mb': 512,
-                 u'metadata': {},
-                 u'node': u'ustack',
-                 u'os_type': None,
-                 u'ramdisk_id': u'8c2a1917-4b37-424b-b301-bd15cd751b19',
-                 u'reservation_id': u'r-8u8f5rwn',
-                 u'root_gb': 1,
-                 u'state': u'stopped',
-                 u'state_description': u'',
-                 u'tenant_id': u'26dfd7a12ec247b9a3426acc114418a8',
-                 u'terminated_at': u'',
-                 u'user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-                 u'vcpus': 1},
-    u'priority': u'INFO',
-    u'publisher_id': u'compute.ustack',
-    u'timestamp': INSTANCE_STOPPED_TIME
-}
+CIRROS_IMAGE_ID = 'b75f1447-1f62-489f-becf-a1b26e547358'
+CIRROS_IMAGE_NAME = 'cirros-0.3.1-x86_64-uec'
 
-NOTICE_INSTANCE_START_END = {
-    u'_context_auth_token': u'79e6ada9a4cd40b09e51c8512d557c55',
-    u'_context_instance_lock_checked': False,
-    u'_context_is_admin': True,
-    u'_context_project_id': u'b9bc0301f3d44d3985aefa00574333ab',
-    u'_context_project_name': u'admin',
-    u'_context_quota_class': None,
-    u'_context_read_deleted': u'no',
-    u'_context_remote_address': u'192.168.56.11',
-    u'_context_request_id': u'req-215cce6b-df48-4891-8478-e0604af2f368',
-    u'_context_roles': [u'admin'],
-    u'_context_service_catalog': [{u'endpoints': [{u'adminURL': u'http://master.ustack.in:8776/v1/b9bc0301f3d44d3985aefa00574333ab',
-                                                   u'id': u'024144548bd840e38338ac6afc55c5d6',
-                                                   u'internalURL': u'http://master.ustack.in:8776/v1/b9bc0301f3d44d3985aefa00574333ab',
-                                                   u'publicURL': u'http://master.ustack.in:8776/v1/b9bc0301f3d44d3985aefa00574333ab',
-                                                   u'region': u'RegionOne'}],
-                                   u'endpoints_links': [],
-                                   u'name': u'cinder',
-                                   u'type': u'volume'}],
-    u'_context_tenant': u'b9bc0301f3d44d3985aefa00574333ab',
-    u'_context_timestamp': u'2013-12-20T09:46:53.968670',
-    u'_context_user': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_name': u'admin',
-    u'_unique_id': u'e002c74244344a70a49ba97177e29b69',
-    u'event_type': u'compute.instance.power_on.end',
-    u'message_id': u'546598c1-95f0-49b6-96fa-985058bcf9e0',
-    u'payload': {u'access_ip_v4': None,
-                 u'access_ip_v6': None,
-                 u'architecture': None,
-                 u'availability_zone': None,
-                 u'created_at': u'2013-12-20 09:40:51+00:00',
-                 u'deleted_at': u'',
-                 u'disk_gb': 1,
-                 u'display_name': u'vm1',
-                 u'ephemeral_gb': 0,
-                 u'host': u'master',
-                 u'hostname': u'vm1',
-                 u'image_meta': {u'base_image_ref': u'b75f1447-1f62-489f-becf-a1b26e547358'},
-                 u'image_ref_url': u'http://192.168.56.11:9292/images/b75f1447-1f62-489f-becf-a1b26e547358',
-                 u'instance_id': u'b3725586-ae77-4001-9ecb-c0b4afb35904',
-                 u'instance_type': u'm1.tiny',
-                 u'instance_type_id': 2,
-                 u'kernel_id': u'',
-                 u'launched_at': u'2013-12-20T09:41:07.000000',
-                 u'memory_mb': 512,
-                 u'metadata': {},
-                 u'node': u'master.ustack.in',
-                 u'os_type': None,
-                 u'ramdisk_id': u'',
-                 u'reservation_id': u'r-5cahdq5a',
-                 u'root_gb': 1,
-                 u'state': u'active',
-                 u'state_description': u'',
-                 u'tenant_id': u'26dfd7a12ec247b9a3426acc114418a8',
-                 u'user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-                 u'vcpus': 1},
-    u'priority': u'INFO',
-    u'publisher_id': u'compute.master',
-    u'timestamp': INSTANCE_STARTED_TIME
-}
+# instances
+INSTANCE_ID_1 = 'b3725586-ae77-4001-9ecb-c0b4afb35901'
+INSTANCE_ID_2 = 'b3725586-ae77-4001-9ecb-c0b4afb35902'
+INSTANCE_ID_3 = 'b3725586-ae77-4001-9ecb-c0b4afb35903'
+INSTANCE_ID_4 = 'b3725586-ae77-4001-9ecb-c0b4afb35904'
 
-NOTICE_INSTANCE_DELETE_END = {
-    u'_context_auth_token': u'7a5d514d5de148f5a2104d818ab96162',
-    u'_context_instance_lock_checked': False,
-    u'_context_is_admin': True,
-    u'_context_project_id': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_project_name': u'admin',
-    u'_context_quota_class': None,
-    u'_context_read_deleted': u'no',
-    u'_context_remote_address': u'10.96.24.95',
-    u'_context_request_id': u'req-93dca170-4d98-4487-b887-6660b83d74ff',
-    u'_context_roles': [u'admin'],
-    u'_context_service_catalog': [{u'endpoints': [{u'adminURL': u'http://10.96.24.95:8776/v1/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'id': u'24f36a42b676407aa32182436b5fc1d8',
-                                                   u'internalURL': u'http://10.96.24.95:8776/v1/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'publicURL': u'http://10.96.24.95:8776/v1/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'region': u'RegionOne'}],
-                                   u'endpoints_links': [],
-                                   u'name': u'cinder',
-                                   u'type': u'volume'}],
-    u'_context_tenant': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_timestamp': u'2014-01-08T03:41:02.851619',
-    u'_context_user': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_name': u'admin',
-    u'_unique_id': u'e40d57823e104ee1a46d628349568232',
-    u'event_type': u'compute.instance.delete.end',
-    u'message_id': u'ade83f19-b95c-4235-8370-33931cb2be0c',
-    u'payload': {u'access_ip_v4': None,
-                 u'access_ip_v6': None,
-                 u'architecture': None,
-                 u'availability_zone': None,
-                 u'created_at': u'2014-01-08 03:38:29+00:00',
-                 u'deleted_at': u'2014-01-08T03:41:04.862398',
-                 u'disk_gb': 1,
-                 u'display_name': u'vm1',
-                 u'ephemeral_gb': 0,
-                 u'host': u'ustack',
-                 u'hostname': u'vm1',
-                 u'image_meta': {u'base_image_ref': u'b75f1447-1f62-489f-becf-a1b26e547358',
-                                 u'container_format': u'ami',
-                                 u'disk_format': u'ami',
-                                 u'kernel_id': u'fef38f4d-48c5-43ed-8732-6f24be1d456a',
-                                 u'min_disk': u'1',
-                                 u'min_ram': u'0',
-                                 u'ramdisk_id': u'8c2a1917-4b37-424b-b301-bd15cd751b19'},
-                 u'image_ref_url': u'http://10.96.24.95:9292/images/b75f1447-1f62-489f-becf-a1b26e547358',
-                 u'instance_flavor_id': u'1',
-                 u'instance_id': u'b3725586-ae77-4001-9ecb-c0b4afb35904',
-                 u'instance_type': u'm1.tiny',
-                 u'instance_type_id': 2,
-                 u'kernel_id': u'fef38f4d-48c5-43ed-8732-6f24be1d456a',
-                 u'launched_at': u'2014-01-08T03:38:35.000000',
-                 u'memory_mb': 512,
-                 u'metadata': {},
-                 u'node': u'ustack',
-                 u'os_type': None,
-                 u'ramdisk_id': u'8c2a1917-4b37-424b-b301-bd15cd751b19',
-                 u'reservation_id': u'r-8u8f5rwn',
-                 u'root_gb': 1,
-                 u'state': u'deleted',
-                 u'state_description': u'',
-                 u'tenant_id': u'26dfd7a12ec247b9a3426acc114418a8',
-                 u'terminated_at': u'2014-01-08T03:41:04.000000',
-                 u'user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-                 u'vcpus': 1},
-    u'priority': u'INFO',
-    u'publisher_id': u'compute.ustack',
-    u'timestamp': INSTANCE_DELETED_TIME
-}
+INSTANCE_1_CREATED_TIME = '2014-01-08 03:38:36.129955'
+INSTANCE_1_STOPPED_TIME = '2014-01-08 03:48:36.958285'
+INSTANCE_1_STARTED_TIME = '2014-01-08 03:58:36.234075'
+INSTANCE_1_DELETED_TIME = '2014-01-08 04:08:36.102935'
+
+INSTANCE_2_CREATED_TIME = '2014-02-08 03:38:36.129955'
+INSTANCE_2_STOPPED_TIME = '2014-02-08 03:48:36.958285'
+INSTANCE_2_STARTED_TIME = '2014-02-08 03:58:36.234075'
+INSTANCE_2_DELETED_TIME = '2014-02-08 04:08:36.102935'
+
+INSTANCE_3_CREATED_TIME = '2014-03-08 03:38:36.129955'
+INSTANCE_3_STOPPED_TIME = '2014-03-08 03:48:36.958285'
+INSTANCE_3_STARTED_TIME = '2014-03-08 03:58:36.234075'
+INSTANCE_3_DELETED_TIME = '2014-03-08 04:08:36.102935'
+
+INSTANCE_4_CREATED_TIME = '2014-04-08 03:38:36.129955'
+INSTANCE_4_STOPPED_TIME = '2014-04-08 03:48:36.958285'
+INSTANCE_4_STARTED_TIME = '2014-04-08 03:58:36.234075'
+INSTANCE_4_DELETED_TIME = '2014-04-08 04:08:36.102935'
+
+# volumes
+VOLUME_ID_1 = '7d0e2a0f-15dc-47f1-bb63-27513c6ab431'
+VOLUME_ID_2 = '7d0e2a0f-15dc-47f1-bb63-27513c6ab432'
+
+VOLUME_1_CREATED_TIME = '2014-01-08 05:18:36.612835'
+VOLUME_1_RESIZED_TIME = '2014-01-08 05:28:36.237170'
+VOLUME_1_DELETED_TIME = '2014-01-08 05:38:36.237170'
+
+VOLUME_2_CREATED_TIME = '2014-02-08 05:18:36.612835'
+VOLUME_2_RESIZED_TIME = '2014-02-08 05:28:36.237170'
+VOLUME_2_DELETED_TIME = '2014-02-08 05:38:36.237170'
+
+# routers
+ROUTER_ID_1 = '3d659073-8a1f-4c16-a608-bc2c073af0f1'
+ROUTER_ID_2 = '3d659073-8a1f-4c16-a608-bc2c073af0f2'
+
+ROUTER_1_CREATED_TIME = '2014-01-08 06:08:36.237170'
+ROUTER_1_DELETED_TIME = '2014-01-08 06:18:36.237170'
 
 
 VOLUME_CREATED_TIME = '2014-01-08 03:18:36.612835'
 VOLUME_RESIZED_TIME = '2014-01-08 03:28:36.237170'
 
-NOTICE_VOLUME_CREATE_END = {
-    u'_context_auth_token': u'3a51da63cfa54234beb1a0aa545ff5c3',
-    u'_context_is_admin': True,
-    u'_context_project_id': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_project_name': u'admin',
-    u'_context_quota_class': None,
-    u'_context_read_deleted': u'no',
-    u'_context_remote_address': u'10.96.24.95',
-    u'_context_request_id': u'req-fea48640-65bd-44e3-a62d-385e65679468',
-    u'_context_roles': [u'admin'],
-    u'_context_service_catalog': [{u'endpoints': [{u'adminURL': u'http://10.96.24.95:8774/v2/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'id': u'7256f097b55e45469168872087847024',
-                                                   u'internalURL': u'http://10.96.24.95:8774/v2/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'publicURL': u'http://10.96.24.95:8774/v2/26dfd7a12ec247b9a3426acc114418a8',
-                                                   u'region': u'RegionOne'}],
-                                   u'endpoints_links': [],
-                                   u'name': u'nova',
-                                   u'type': u'compute'}],
-    u'_context_tenant': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_timestamp': u'2014-01-08T03:43:34.424578',
-    u'_context_user': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_unique_id': u'1c2d805eb29e4973b6a207b9dfc04036',
-    u'event_type': u'volume.create.end',
-    u'message_id': u'd58e048d-1e2d-45fb-98b6-d268a6c2c711',
-    u'payload': {u'availability_zone': u'nova',
-                 u'created_at': u'2014-01-08 03:43:34',
-                 u'display_name': u'vol-1',
-                 u'launched_at': u'2014-01-08 03:43:37.546625',
-                 u'size': 2,
-                 u'snapshot_id': None,
-                 u'status': u'available',
-                 u'tenant_id': u'26dfd7a12ec247b9a3426acc114418a8',
-                 u'user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-                 u'volume_id': u'7d0e2a0f-15dc-47f1-bb63-27513c6ab431',
-                 u'volume_type': None},
-    u'priority': u'INFO',
-    u'publisher_id': u'volume.ustack',
-    u'timestamp': VOLUME_CREATED_TIME
-}
+INSTANCE_CREATED_TIME = '2014-01-08 03:38:36.129954'
+INSTANCE_STOPPED_TIME = '2014-01-08 03:48:36.958286'
+INSTANCE_STARTED_TIME = '2014-01-08 03:58:36.234079'
+INSTANCE_DELETED_TIME = '2014-01-08 04:08:36.102937'
 
 
-NOTICE_VOLUME_RESIZE_END = {
-    u'_context_auth_token': u'abefab05e8284876b3dd46fdaaccc23f',
-    u'_context_is_admin': True,
-    u'_context_project_id': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_project_name': u'admin',
-    u'_context_quota_class': None,
-    u'_context_read_deleted': u'no',
-    u'_context_remote_address': u'10.1.0.12',
-    u'_context_request_id': u'req-a12cdb9e-be7d-484e-9cc9-c4b51cc4e58c',
-    u'_context_roles': [u'admin'],
-    u'_context_service_catalog': [{u'endpoints': [{u'adminURL': u'http://10.1.0.12:8774/v2/6be1ae9da5964fbc855525fe6ae57331',
-                                                   u'id': u'0b4d14aaaa8b4e118054b5da76c98d43',
-                                                   u'internalURL': u'http://10.1.0.12:8774/v2/6be1ae9da5964fbc855525fe6ae57331',
-                                                   u'publicURL': u'http://10.1.0.12:8774/v2/6be1ae9da5964fbc855525fe6ae57331',
-                                                   u'region': u'RegionOne'}],
-                                   u'endpoints_links': [],
-                                   u'name': u'nova',
-                                   u'type': u'compute'}],
-    u'_context_tenant': u'26dfd7a12ec247b9a3426acc114418a8',
-    u'_context_timestamp': u'2014-02-12T06:05:28.956241',
-    u'_context_user': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_context_user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-    u'_unique_id': u'640be213a3ea4cb3bb289714166aecdd',
-    u'event_type': u'volume.resize.end',
-    u'message_id': u'df812e73-84ea-46e2-be29-be0a91d81a9a',
-    u'payload': {u'availability_zone': u'nova',
-                 u'created_at': u'2014-02-11 10:31:23',
-                 u'display_name': u'fds',
-                 u'launched_at': u'2014-02-11 10:31:24',
-                 u'size': 4,
-                 u'snapshot_id': None,
-                 u'status': u'extending',
-                 u'tenant_id': u'26dfd7a12ec247b9a3426acc114418a8',
-                 u'user_id': u'2675d4da10b54c5b8f79c69dba7cfb93',
-                 u'volume_id': u'7d0e2a0f-15dc-47f1-bb63-27513c6ab431',
-                 u'volume_type': None},
-    u'priority': u'INFO',
-    u'publisher_id': u'volume.lg-0-12',
-    u'timestamp': VOLUME_RESIZED_TIME
-}
+# -----------------I am style line :)-----------------
+
+def make_instance_message(event_type=None, instance_id=None, display_name=None,
+                          user_id=None, tenant_id=None, instance_type=None,
+                          image_name=None, base_image_ref=None, disk_gb=None,
+                          state=None, timestamp=None):
+    message = {
+        'event_type': event_type,
+        'payload': {
+            'instance_id': instance_id,
+            'display_name': display_name,
+            'user_id': user_id,
+            'tenant_id': tenant_id,
+            'instance_type': instance_type,
+            'image_name': image_name,
+            'image_meta': {
+                'base_image_ref': base_image_ref
+            },
+            'disk_gb': disk_gb,
+            'state': state
+        },
+        'timestamp': timestamp
+    }
+
+    return message
+
+
+def make_instance_created_message(instance_id, timestamp, **kwargs):
+    return make_instance_message(event_type='compute.instance.create.end',
+                                 instance_id=instance_id,
+                                 display_name=kwargs.get('display_name') or 'vm',
+                                 user_id=DEMO_USER_ID,
+                                 tenant_id=DEMO_PROJECT_ID,
+                                 instance_type=kwargs.get('instance_type') or 'm1.tiny',
+                                 image_name=CIRROS_IMAGE_NAME,
+                                 base_image_ref=CIRROS_IMAGE_ID,
+                                 disk_gb=kwargs.get('disk_gb') or 1,
+                                 state='active',
+                                 timestamp=timestamp)
+
+def make_instance_stopped_message(instance_id, timestamp, **kwargs):
+    return make_instance_message(event_type='compute.instance.power_off.end',
+                                 instance_id=instance_id,
+                                 display_name=kwargs.get('display_name') or 'vm',
+                                 user_id=DEMO_USER_ID,
+                                 tenant_id=DEMO_PROJECT_ID,
+                                 instance_type=kwargs.get('instance_type') or 'm1.tiny',
+                                 image_name=CIRROS_IMAGE_NAME,
+                                 base_image_ref=CIRROS_IMAGE_ID,
+                                 disk_gb=kwargs.get('disk_gb') or 1,
+                                 state='stopped',
+                                 timestamp=timestamp)
+
+def make_instance_started_message(instance_id, timestamp, **kwargs):
+    return make_instance_message(event_type='compute.instance.power_on.end',
+                                 instance_id=instance_id,
+                                 display_name=kwargs.get('display_name') or 'vm',
+                                 user_id=DEMO_USER_ID,
+                                 tenant_id=DEMO_PROJECT_ID,
+                                 instance_type=kwargs.get('instance_type') or 'm1.tiny',
+                                 image_name=CIRROS_IMAGE_NAME,
+                                 base_image_ref=CIRROS_IMAGE_ID,
+                                 disk_gb=kwargs.get('disk_gb') or 1,
+                                 state='active',
+                                 timestamp=timestamp)
+
+def make_instance_deleted_message(instance_id, timestamp, **kwargs):
+    return make_instance_message(event_type='compute.instance.delete.end',
+                                 instance_id=instance_id,
+                                 display_name=kwargs.get('display_name') or 'vm',
+                                 user_id=DEMO_USER_ID,
+                                 tenant_id=DEMO_PROJECT_ID,
+                                 instance_type=kwargs.get('instance_type') or 'm1.tiny',
+                                 image_name=CIRROS_IMAGE_NAME,
+                                 base_image_ref=CIRROS_IMAGE_ID,
+                                 disk_gb=kwargs.get('disk_gb') or 1,
+                                 state='deleted',
+                                 timestamp=timestamp)
+
+
+NOTICE_INSTANCE_1_CREATED = make_instance_created_message(INSTANCE_ID_1,
+                                                          INSTANCE_1_CREATED_TIME,
+                                                          display_name='vm1')
+
+NOTICE_INSTANCE_2_CREATED = make_instance_created_message(INSTANCE_ID_2,
+                                                          INSTANCE_2_CREATED_TIME,
+                                                          display_name='vm2')
+
+NOTICE_INSTANCE_3_CREATED = make_instance_created_message(INSTANCE_ID_3,
+                                                          INSTANCE_3_CREATED_TIME,
+                                                          display_name='vm3')
+
+NOTICE_INSTANCE_4_CREATED = make_instance_created_message(INSTANCE_ID_4,
+                                                          INSTANCE_4_CREATED_TIME,
+                                                          display_name='vm4')
+
+NOTICE_INSTANCE_1_STOPPED = make_instance_stopped_message(INSTANCE_ID_1,
+                                                          INSTANCE_1_STOPPED_TIME,
+                                                          display_name='vm1')
+
+NOTICE_INSTANCE_2_STOPPED = make_instance_stopped_message(INSTANCE_ID_2,
+                                                          INSTANCE_2_STOPPED_TIME,
+                                                          display_name='vm2')
+
+NOTICE_INSTANCE_3_STOPPED = make_instance_stopped_message(INSTANCE_ID_3,
+                                                          INSTANCE_3_STOPPED_TIME,
+                                                          display_name='vm3')
+
+NOTICE_INSTANCE_4_STOPPED = make_instance_stopped_message(INSTANCE_ID_4,
+                                                          INSTANCE_4_STOPPED_TIME,
+                                                          display_name='vm4')
+
+NOTICE_INSTANCE_1_STARTED = make_instance_started_message(INSTANCE_ID_1,
+                                                          INSTANCE_1_STARTED_TIME,
+                                                          display_name='vm1')
+
+NOTICE_INSTANCE_2_STARTED = make_instance_started_message(INSTANCE_ID_2,
+                                                          INSTANCE_2_STARTED_TIME,
+                                                          display_name='vm2')
+
+NOTICE_INSTANCE_3_STARTED = make_instance_started_message(INSTANCE_ID_3,
+                                                          INSTANCE_3_STARTED_TIME,
+                                                          display_name='vm3')
+
+NOTICE_INSTANCE_4_STARTED = make_instance_started_message(INSTANCE_ID_4,
+                                                          INSTANCE_4_STARTED_TIME,
+                                                          display_name='vm4')
+
+NOTICE_INSTANCE_1_DELETED = make_instance_deleted_message(INSTANCE_ID_1,
+                                                          INSTANCE_1_DELETED_TIME,
+                                                          display_name='vm1')
+
+NOTICE_INSTANCE_2_DELETED = make_instance_deleted_message(INSTANCE_ID_2,
+                                                          INSTANCE_2_DELETED_TIME,
+                                                          display_name='vm2')
+
+NOTICE_INSTANCE_3_DELETED = make_instance_deleted_message(INSTANCE_ID_3,
+                                                          INSTANCE_3_DELETED_TIME,
+                                                          display_name='vm3')
+
+NOTICE_INSTANCE_4_DELETED = make_instance_deleted_message(INSTANCE_ID_4,
+                                                          INSTANCE_4_DELETED_TIME,
+                                                          display_name='vm4')
+
+# -------------------I am style line :)----------------------------------
+
+def make_volume_message(event_type=None, volume_id=None, display_name=None,
+                        user_id=None, tenant_id=None, status=None,
+                        size=None, timestamp=None):
+    message = {
+        'event_type': event_type,
+        'payload': {
+            'volume_id': volume_id,
+            'display_name': display_name,
+            'user_id': user_id,
+            'tenant_id': tenant_id,
+            'size': size,
+            'status': status,
+        },
+        'timestamp': timestamp
+    }
+
+    return message
+
+
+def make_volume_created_message(volume_id, timestamp, **kwargs):
+    return make_volume_message(event_type='volume.create.end',
+                               volume_id=volume_id,
+                               display_name=kwargs.get('display_name') or 'vol',
+                               user_id=DEMO_USER_ID,
+                               tenant_id=DEMO_PROJECT_ID,
+                               status='available',
+                               size=kwargs.get('size') or 2,
+                               timestamp=timestamp)
+
+def make_volume_resized_message(volume_id, timestamp, **kwargs):
+    return make_volume_message(event_type='volume.resize.end',
+                               volume_id=volume_id,
+                               display_name=kwargs.get('display_name') or 'vol',
+                               user_id=DEMO_USER_ID,
+                               tenant_id=DEMO_PROJECT_ID,
+                               status='extending',
+                               size=kwargs.get('size') or 4,
+                               timestamp=timestamp)
+
+def make_volume_deleted_message(volume_id, timestamp, **kwargs):
+    return make_volume_message(event_type='volume.delete.end',
+                               volume_id=volume_id,
+                               display_name=kwargs.get('display_name') or 'vol',
+                               user_id=DEMO_USER_ID,
+                               tenant_id=DEMO_PROJECT_ID,
+                               status='deleted',
+                               size=kwargs.get('size') or 2,
+                               timestamp=timestamp)
+
+
+NOTICE_VOLUME_1_CREATED = make_volume_created_message(VOLUME_ID_1,
+                                                      VOLUME_1_CREATED_TIME,
+                                                      display_name='vol-1')
+
+NOTICE_VOLUME_2_CREATED = make_volume_created_message(VOLUME_ID_2,
+                                                      VOLUME_2_CREATED_TIME,
+                                                      display_name='vol-2')
+
+NOTICE_VOLUME_1_RESIZED = make_volume_resized_message(VOLUME_ID_1,
+                                                      VOLUME_1_RESIZED_TIME,
+                                                      display_name='vol-1')
+
+NOTICE_VOLUME_2_RESIZED = make_volume_created_message(VOLUME_ID_2,
+                                                      VOLUME_2_RESIZED_TIME,
+                                                      display_name='vol-2')
+
+NOTICE_VOLUME_1_DELETED = make_volume_deleted_message(VOLUME_ID_1,
+                                                      VOLUME_1_DELETED_TIME,
+                                                      display_name='vol-1')
+
+NOTICE_VOLUME_2_DELETED = make_volume_deleted_message(VOLUME_ID_2,
+                                                      VOLUME_2_DELETED_TIME,
+                                                      display_name='vol-2')
+
+
+# --------------------Haha, I am style line again:)--------------------------
+
+def make_router_message(event_type=None, router_id=None, router_name=None,
+                        user_id=None, tenant_id=None, timestamp=None):
+    message = {
+        'event_type': event_type,
+        'payload': {
+            'router':{
+                'id': router_id,
+                'name': router_name,
+                'user_id': user_id,
+                'tenant_id': tenant_id,
+            },
+            'router_id': router_id,
+        },
+        'timestamp': timestamp
+    }
+
+    return message
+
+
+def make_router_created_message(router_id, timestamp, **kwargs):
+    return make_router_message(event_type='router.create.end',
+                               router_id=router_id,
+                               router_name=kwargs.get('router_name') or 'router',
+                               user_id=DEMO_USER_ID,
+                               tenant_id=DEMO_PROJECT_ID,
+                               timestamp=timestamp)
+
+def make_router_deleted_message(router_id, timestamp, **kwargs):
+    return make_router_message(event_type='router.deleted.end',
+                               router_id=router_id,
+                               router_name=kwargs.get('router_name') or 'router',
+                               user_id=DEMO_USER_ID,
+                               tenant_id=DEMO_PROJECT_ID,
+                               timestamp=timestamp)
+
+
+NOTICE_ROUTER_1_CREATED = make_router_created_message(ROUTER_ID_1,
+                                                      ROUTER_1_CREATED_TIME,
+                                                      router_name='router-1')
+
+NOTICE_ROUTER_1_DELETED = make_router_deleted_message(ROUTER_ID_1,
+                                                      ROUTER_1_DELETED_TIME,
+                                                      router_name='router-1')
+
+# -------------------------H.e.l.l.o...---------------------------------
 
 # products
 PRODUCT_FLAVOR_TINY = {
@@ -402,6 +362,20 @@ PRODUCT_VOLUME_SIZE = {
     "deleted": False
 }
 
+PRODUCT_ROUTER_SIZE = {
+    "region_id": "default",
+    "service": "network",
+    "description": "some decs",
+    "unit_price": "0.0500",
+    "name": "router",
+    "type": "regular",
+    "unit": "hour",
+    "product_id": "4038d1b8-e08f-4824-9f4e-f277d15c5bfe",
+    "quantity": 0,
+    "total_price": 0,
+    "deleted": False
+}
+
 PRODUCT_SNAPSHOT_SIZE = {
     "region_id": "default",
     "service": "block_storage",
@@ -420,7 +394,7 @@ PRODUCT_IMAGE_LICENSE = {
     "product_id": "43b6909b-0ff8-4dd6-8365-cffedb9e646c",
     "service": "compute",
     "unit_price": "0.03",
-    "name": "cirros-0.3.1-x86_64-uec:b75f1447-1f62-489f-becf-a1b26e547358",
+    "name": "%s:%s" % (CIRROS_IMAGE_NAME, CIRROS_IMAGE_ID),
     "region_id": "default",
     "type": "regular",
     "unit": "hour",
@@ -431,10 +405,18 @@ PRODUCT_IMAGE_LICENSE = {
 }
 
 # account
-FAKE_ACCOUNT = {
-    "user_id": "2675d4da10b54c5b8f79c69dba7cfb93",
-    "project_id": "26dfd7a12ec247b9a3426acc114418a8",
+FAKE_ACCOUNT_DEMO = {
+    "user_id": DEMO_USER_ID,
+    "project_id": DEMO_PROJECT_ID,
     "balance": 100,
     "consumption": 0,
+    "currency": "CNY"
+}
+
+FAKE_ACCOUNT_ADMIN = {
+    "user_id": ADMIN_USER_ID,
+    "project_id": ADMIN_PROJECT_ID,
+    "balance": 8975,
+    "consumption": 9527,
     "currency": "CNY"
 }
