@@ -183,7 +183,7 @@ class FloatingIpDeleteEnd(FloatingIpNotificationBase):
     def process_notification(self, message):
         LOG.debug('Do action for event: %s, resource_id: %s',
                   message['event_type'],
-                  message['payload']['floatingip']['id'])
+                  message['payload']['floatingip_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['floatingip_id']

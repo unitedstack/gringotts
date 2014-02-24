@@ -155,7 +155,7 @@ class RouterDeleteEnd(RouterNotificationBase):
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['router']['id'])
+                  message['event_type'], message['payload']['router_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['router_id']

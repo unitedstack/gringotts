@@ -25,6 +25,7 @@ connection=mysql://root:admin@localhost/gringotts?charset=utf8
 auth_protocol=http
 auth_host=127.0.0.1
 auth_port=35357
+auth_version=v3.0
 admin_user=admin
 admin_password=admin
 admin_tenant_name=admin
