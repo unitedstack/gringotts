@@ -60,6 +60,9 @@ class AccountsController(rest.RestController):
 
         try:
             accounts = self.conn.get_accounts(request.context)
+        except exception.NotAuthorized as e:
+            LOG.exception('Fail to get all accounts')
+            raise exception.NotAuthorized()
         except Exception as e:
             LOG.exception('Fail to get all accounts')
             raise exception.DBError(reason=e)
