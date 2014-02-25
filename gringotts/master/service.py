@@ -206,8 +206,8 @@ class MasterService(rpc_service.Service):
             raise exception.DBError(reason='Fail to update the order')
 
     def resource_created(self, ctxt, order_id, action_time, remarks):
-        LOG.debug('Resource created, its order_id: %s, action_time: %s' %
-                  (order_id, action_time))
+        LOG.debug('Resource created, its order_id: %s, action_time: %s',
+                  order_id, action_time)
         with self.lock:
             if self.check_if_owe(order_id):
                 LOG.warning('The order: %s is owed' % order_id)

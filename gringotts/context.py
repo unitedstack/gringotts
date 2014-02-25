@@ -57,7 +57,28 @@ class RequestContext(object):
                 'is_admin': self.is_admin,
                 'is_staff': self.is_staff,
                 'auth_token': self.auth_token,
-                'request_id': self.request_id}
+                'request_id': self.request_id,
+                'tenant': self.tenant,
+                'user': self.user}
+
+    @classmethod
+    def from_dict(cls, values):
+        values.pop('user', None)
+        values.pop('tenant', None)
+        return cls(**values)
+
+    # NOTE(suo): the openstack/common version of RequestContext uses
+    # tenant/user whereas the Gringotts version uses project_id/user_id. We need
+    # this shim in order to use context-aware code from openstack/common, like
+    # logging, until we make the switch to using openstack/common's version of
+    # RequestContext.
+    @property
+    def tenant(self):
+        return self.project_id
+
+    @property
+    def user(self):
+        return self.user_id
 
 
 admin_context = None
