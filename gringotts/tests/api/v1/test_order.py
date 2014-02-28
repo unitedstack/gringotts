@@ -13,13 +13,12 @@ class TestOrders(FunctionalTest):
     def test_get_orders_none(self):
         data = self.get_json(self.PATH, headers=self.headers)
         self.assertEqual(0, data['total_count'])
-        self.assertEqual('0.0000', data['total_price'])
+        self.assertEqual(0, len(data['orders']))
 
     def test_get_orders(self):
         self.useFixture(db_fixtures.GenerateFakeData(self.conn))
         data = self.get_json(self.PATH, headers=self.headers)
         self.assertEqual(7, data['total_count'])
-        self.assertEqual('0.3013', data['total_price'])
 
         # instance
         self.assertEqual('0.0900', data['orders'][0]['total_price'])
@@ -46,10 +45,24 @@ class TestOrders(FunctionalTest):
         data = self.get_json(self.PATH, headers=self.headers,
                              start_time=start_time, end_time=end_time)
         self.assertEqual(3, data['total_count'])
-        self.assertEqual('0.1440', data['total_price'])
         self.assertEqual('0.0900', data['orders'][0]['total_price'])
         self.assertEqual('0.0040', data['orders'][1]['total_price'])
         self.assertEqual('0.0500', data['orders'][2]['total_price'])
+
+    def test_get_orders_with_pagination(self):
+        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
+
+        # First page
+        data = self.get_json(self.PATH, headers=self.headers,
+                             limit=3, offset=0)
+        self.assertEqual(7, data['total_count'])
+        self.assertEqual(3, len(data['orders']))
+
+        # Third page
+        data = self.get_json(self.PATH, headers=self.headers,
+                             limit=3, offset=6)
+        self.assertEqual(7, data['total_count'])
+        self.assertEqual(1, len(data['orders']))
 
     def test_get_orders_summary(self):
         self.useFixture(db_fixtures.GenerateFakeData(self.conn))
@@ -84,19 +97,19 @@ class TestOrders(FunctionalTest):
         path = self.PATH + '/' + order_id
         data = self.get_json(path, headers=self.headers)
 
-        self.assertEqual(3, len(data))
+        self.assertEqual(3, len(data['bills']))
 
         # check first bill
-        self.assertEqual('0.0900', data[0]['unit_price'])
-        self.assertEqual('0.0150', data[0]['total_price'])
+        self.assertEqual('0.0900', data['bills'][0]['unit_price'])
+        self.assertEqual('0.0150', data['bills'][0]['total_price'])
 
         # check bill time is sequential
-        self.assertEqual('2014-03-08T03:38:36', data[0]['start_time'][:19])
-        self.assertEqual('2014-03-08T03:48:36', data[0]['end_time'][:19])
-        self.assertEqual('2014-03-08T03:48:36', data[1]['start_time'][:19])
-        self.assertEqual('2014-03-08T03:58:36', data[1]['end_time'][:19])
-        self.assertEqual('2014-03-08T03:58:36', data[2]['start_time'][:19])
-        self.assertEqual('2014-03-08T04:58:36', data[2]['end_time'][:19])
+        self.assertEqual('2014-03-08T03:38:36', data['bills'][0]['start_time'][:19])
+        self.assertEqual('2014-03-08T03:48:36', data['bills'][0]['end_time'][:19])
+        self.assertEqual('2014-03-08T03:48:36', data['bills'][1]['start_time'][:19])
+        self.assertEqual('2014-03-08T03:58:36', data['bills'][1]['end_time'][:19])
+        self.assertEqual('2014-03-08T03:58:36', data['bills'][2]['start_time'][:19])
+        self.assertEqual('2014-03-08T04:58:36', data['bills'][2]['end_time'][:19])
 
     def test_get_single_order_with_time_range(self):
         self.useFixture(db_fixtures.GenerateFakeData(self.conn))
@@ -110,10 +123,30 @@ class TestOrders(FunctionalTest):
         data = self.get_json(path, headers=self.headers,
                              start_time=start_time, end_time=end_time)
 
-        self.assertEqual(2, len(data))
+        self.assertEqual(2, len(data['bills']))
 
         # check bill's timestamp
-        self.assertEqual('2014-04-08T03:38:36', data[0]['start_time'][:19])
-        self.assertEqual('2014-04-08T03:48:36', data[0]['end_time'][:19])
-        self.assertEqual('2014-04-08T03:48:36', data[1]['start_time'][:19])
-        self.assertEqual('2014-04-08T03:58:36', data[1]['end_time'][:19])
+        self.assertEqual('2014-04-08T03:38:36', data['bills'][0]['start_time'][:19])
+        self.assertEqual('2014-04-08T03:48:36', data['bills'][0]['end_time'][:19])
+        self.assertEqual('2014-04-08T03:48:36', data['bills'][1]['start_time'][:19])
+        self.assertEqual('2014-04-08T03:58:36', data['bills'][1]['end_time'][:19])
+
+    def test_get_single_order_with_pagination(self):
+        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
+        orders = self.get_json(self.PATH, headers=self.headers)
+
+        # check vm4
+        order_id = orders['orders'][3]['order_id']
+        path = self.PATH + '/' + order_id
+
+        # first page
+        data = self.get_json(path, headers=self.headers,
+                             limit=2, offset=0)
+
+        self.assertEqual(2, len(data['bills']))
+
+        # second page
+        data = self.get_json(path, headers=self.headers,
+                             limit=2, offset=2)
+
+        self.assertEqual(1, len(data['bills']))

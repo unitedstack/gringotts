@@ -32,24 +32,38 @@ class OrderController(rest.RestController):
     def __init__(self, order_id):
         self._id = order_id
 
-    def _order(self, start_time=None, end_time=None):
+    def _order(self, start_time=None, end_time=None,
+               limit=None, offset=None):
         self.conn = pecan.request.db_conn
         try:
-            order = self.conn.get_bills_by_order_id(request.context,
+            bills = self.conn.get_bills_by_order_id(request.context,
                                                     order_id=self._id,
                                                     start_time=start_time,
-                                                    end_time=end_time)
+                                                    end_time=end_time,
+                                                    limit=limit,
+                                                    offset=offset)
         except Exception as e:
             LOG.error('Order(%s)\'s bills not found' % self._id)
             raise exception.OrderBillsNotFound(order_id=self._id)
-        return order
+        return bills
 
-    @wsexpose([models.Bill], datetime.datetime, datetime.datetime)
-    def get(self, start_time=None, end_time=None):
+    @wsexpose(models.Bills, datetime.datetime, datetime.datetime, int, int)
+    def get(self, start_time=None, end_time=None, limit=None, offset=None):
         """Return this order's detail
         """
-        bills = self._order(start_time=start_time, end_time=end_time)
-        return [models.Bill.from_db_model(bill) for bill in bills]
+        bills = self._order(start_time=start_time, end_time=end_time,
+                            limit=limit, offset=offset)
+        bills_list = []
+        for bill in bills:
+            bills_list.append(models.Bill.from_db_model(bill))
+
+        total_count = self.conn.get_bills_count(request.context,
+                                                order_id=self._id,
+                                                start_time=start_time,
+                                                end_time=end_time)
+
+        return models.Bills.transform(total_count=total_count,
+                                      bills=bills_list)
 
 
 class SummaryController(rest.RestController):
@@ -126,33 +140,32 @@ class OrdersController(rest.RestController):
         if uuidutils.is_uuid_like(order_id):
             return OrderController(order_id), remainder
 
-    @wsexpose(models.Orders, wtypes.text, wtypes.text, datetime.datetime,
-              datetime.datetime)
-    def get_all(self, type=None, status=None, start_time=None, end_time=None):
+    @wsexpose(models.Orders, wtypes.text, wtypes.text,
+              datetime.datetime, datetime.datetime, int, int)
+    def get_all(self, type=None, status=None, start_time=None, end_time=None,
+                limit=None, offset=None):
         """Get queried orders
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
         conn = pecan.request.db_conn
-        orders_db = list(conn.get_orders(request.context,
-                                         type=type,
-                                         status=status,
-                                         start_time=start_time,
-                                         end_time=end_time))
+        orders_db, total_count = conn.get_orders(request.context,
+                                                 type=type,
+                                                 status=status,
+                                                 start_time=start_time,
+                                                 end_time=end_time,
+                                                 limit=limit,
+                                                 offset=offset,
+                                                 with_count=True)
         orders = []
-        total_count = len(orders_db)
-        total_price = gringutils._quantize_decimal(0)
-
         for order in orders_db:
             price = self._get_order_price(order,
                                           start_time=start_time,
                                           end_time=end_time)
-            total_price += price
             order.total_price = price
             orders.append(models.Order.from_db_model(order))
 
         return models.Orders.transform(total_count=total_count,
-                                       total_price=total_price,
                                        orders=orders)
 
     def _get_order_price(self, order, start_time=None, end_time=None):

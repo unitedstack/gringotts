@@ -272,7 +272,7 @@ class ProductsController(rest.RestController):
     @wsexpose([models.Product], wtypes.text, wtypes.text, wtypes.text,
               int, wtypes.text, wtypes.text, wtypes.text)
     def get_all(self, name=None, service=None, region_id=None,
-                limit=None, marker=None,
+                limit=None, offset=None,
                 sort_key='created_at', sort_dir='desc'):
         """Get all product
         """
@@ -289,7 +289,7 @@ class ProductsController(rest.RestController):
         result = conn.get_products(request.context,
                                    filters=filters,
                                    limit=limit,
-                                   marker=marker,
+                                   offset=offset,
                                    sort_key=sort_key,
                                    sort_dir=sort_dir)
         return [models.Product.from_db_model(p) for p in result]

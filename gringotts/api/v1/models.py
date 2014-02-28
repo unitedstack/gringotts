@@ -213,13 +213,11 @@ class Orders(APIBase):
     """Collection of orders
     """
     total_count = int
-    total_price = decimal.Decimal
     orders = [Order]
 
     @classmethod
     def sample(cls):
-        return cls(order_amount=2,
-                   total_price=12.34,
+        return cls(total_count=13,
                    orders=[Order.sample1(),
                            Order.sample2()])
 
@@ -256,6 +254,7 @@ class Bill(APIBase):
 class Bills(APIBase):
     """Collection of bills
     """
+    total_count = int
     total_price = decimal.Decimal
     bills = [Bill]
 

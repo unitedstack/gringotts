@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 import functools
 import os
-from sqlalchemy import desc
+from sqlalchemy import desc, asc
 from sqlalchemy import func
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -77,16 +77,60 @@ def model_query(context, model, *args, **kwargs):
     return query
 
 
-def _paginate_query(context, model, limit=None, marker=None,
-                    sort_key=None, sort_dir=None, query=None):
+def paginate_query(context, model, limit=None, offset=None,
+                   sort_key=None, sort_dir=None, query=None):
     if not query:
         query = model_query(context, model)
     sort_keys = ['id']
     if sort_key and sort_key not in sort_keys:
         sort_keys.insert(0, sort_key)
-    query = db_utils.paginate_query(query, model, limit, sort_keys,
-                                    marker=marker, sort_dir=sort_dir)
+    query = _paginate_query(query, model, limit, sort_keys,
+                            offset=offset, sort_dir=sort_dir)
     return query.all()
+
+
+def _paginate_query(query, model, limit, sort_keys, offset=None,
+                     sort_dir=None, sort_dirs=None):
+    if 'id' not in sort_keys:
+        # TODO(justinsb): If this ever gives a false-positive, check
+        # the actual primary key, rather than assuming its id
+        LOG.warn(_('Id not in sort_keys; is sort_keys unique?'))
+
+    assert(not (sort_dir and sort_dirs))
+
+    # Default the sort direction to ascending
+    if sort_dirs is None and sort_dir is None:
+        sort_dir = 'asc'
+
+    # Ensure a per-column sort direction
+    if sort_dirs is None:
+        sort_dirs = [sort_dir for _sort_key in sort_keys]
+
+    assert(len(sort_dirs) == len(sort_keys))
+
+    # Add sorting
+    for current_sort_key, current_sort_dir in zip(sort_keys, sort_dirs):
+        try:
+            sort_dir_func = {
+                'asc': asc,
+                'desc': desc,
+            }[current_sort_dir]
+        except KeyError:
+            raise ValueError(_("Unknown sort direction, "
+                               "must be 'desc' or 'asc'"))
+        try:
+            sort_key_attr = getattr(model, current_sort_key)
+        except AttributeError:
+            raise InvalidSortKey()
+        query = query.order_by(sort_dir_func(sort_key_attr))
+
+    if offset is not None:
+        query = query.offset(offset)
+
+    if limit is not None:
+        query = query.limit(limit)
+
+    return query
 
 
 class SQLAlchemyStorage(base.StorageEngine):
@@ -225,7 +269,7 @@ class Connection(base.Connection):
 
     @require_context
     def get_products(self, context, filters=None, read_deleted=False,
-                     limit=None, marker=None, sort_key=None,
+                     limit=None, offset=None, sort_key=None,
                      sort_dir=None):
         query = model_query(context, sa_models.Product)
         if 'name' in filters:
@@ -237,16 +281,11 @@ class Connection(base.Connection):
         if not read_deleted:
             query = query.filter_by(deleted=False)
 
-        if marker is not None:
-            try:
-                marker = self.get_product(context, marker)
-            except exception.ProductIdNotFound:
-                raise exception.MarkerNotFount(marker)
+        result = paginate_query(context, sa_models.Product,
+                                limit=limit, offset=offset,
+                                sort_key=sort_key, sort_dir=sort_dir,
+                                query=query)
 
-        result = _paginate_query(context, sa_models.Product,
-                                 limit=limit, marker=marker,
-                                 sort_key=sort_key, sort_dir=sort_dir,
-                                 query=query)
         return (self._row_to_db_product_model(p) for p in result)
 
     @require_context
@@ -328,8 +367,8 @@ class Connection(base.Connection):
 
     @require_context
     def get_orders(self, context, start_time=None, end_time=None, type=None,
-                   status=None, limit=None, marker=None, sort_key=None,
-                   sort_dir=None):
+                   status=None, limit=None, offset=None, sort_key=None,
+                   sort_dir=None, with_count=False):
         """Get orders that have bills during start_time and end_time.
         If start_time is None or end_time is None, will ignore the datetime
         range, and return all orders
@@ -346,13 +385,19 @@ class Connection(base.Connection):
                                sa_models.Order.order_id==sa_models.Bill.order_id)
             query = query.filter(sa_models.Bill.start_time >= start_time)
             query = query.filter(sa_models.Bill.end_time < end_time)
+            query = query.group_by(sa_models.Bill.order_id)
 
-        result = _paginate_query(context, sa_models.Order,
-                                 limit=limit, marker=marker,
-                                 sort_key=sort_key, sort_dir=sort_dir,
-                                 query=query)
+        if with_count:
+            total_count = len(query.all())
 
-        return (self._row_to_db_order_model(o) for o in result)
+        result = paginate_query(context, sa_models.Order,
+                                limit=limit, offset=offset,
+                                sort_key=sort_key, sort_dir=sort_dir,
+                                query=query)
+        if with_count:
+            return (self._row_to_db_order_model(o) for o in result), total_count
+        else:
+            return (self._row_to_db_order_model(o) for o in result)
 
     @require_admin_context
     def create_subscription(self, context, subscription):
@@ -394,20 +439,19 @@ class Connection(base.Connection):
     @require_admin_context
     def get_subscriptions_by_product_id(self, context, product_id,
                                         start_time=None, end_time=None,
-                                        limit=None, marker=None, sort_key=None,
+                                        limit=None, offset=None, sort_key=None,
                                         sort_dir=None):
         query = model_query(context, sa_models.Subscription).\
             filter_by(product_id=product_id)
 
-        if start_time:
+        if all([start_time, end_time]):
             query = query.filter(sa_models.Subscription.created_at >= start_time)
-        if end_time:
             query = query.filter(sa_models.Subscription.created_at < end_time)
 
-        ref = _paginate_query(context, sa_models.Subscription,
-                              limit=limit, marker=marker,
-                              sort_key=sort_key, sort_dir=sort_dir,
-                              query=query)
+        ref = paginate_query(context, sa_models.Subscription,
+                             limit=limit, offset=offset,
+                             sort_key=sort_key, sort_dir=sort_dir,
+                             query=query)
 
         return (self._row_to_db_subscription_model(r) for r in ref)
 
@@ -450,55 +494,102 @@ class Connection(base.Connection):
         return (self._row_to_db_bill_model(r) for r in ref)
 
     @require_context
-    def get_bills_by_order_id(self, context, order_id,
-                              start_time=None, end_time=None):
+    def get_bills_by_order_id(self, context, order_id, type=None,
+                              start_time=None, end_time=None,
+                              limit=None, offset=None, sort_key=None,
+                              sort_dir=None):
         query = model_query(context, sa_models.Bill).\
             filter_by(order_id=order_id)
+        if type:
+            query = query.filter_by(type=type)
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Bill.start_time >= start_time)
             query = query.filter(sa_models.Bill.end_time < end_time)
 
-        ref = query.all()
-        return (self._row_to_db_bill_model(r) for r in ref)
+        result = paginate_query(context, sa_models.Bill,
+                                limit=limit, offset=offset,
+                                sort_key=sort_key, sort_dir=sort_dir,
+                                query=query)
+
+        return (self._row_to_db_bill_model(r) for r in result)
 
     @require_context
     def get_bills(self, context, start_time=None, end_time=None,
-                  type=None, limit=None, marker=None, sort_key=None,
+                  type=None, limit=None, offset=None, sort_key=None,
                   sort_dir=None):
         query = model_query(context, sa_models.Bill)
 
-        if start_time:
-            query = query.filter(sa_models.Bill.start_time >= start_time)
-        if end_time:
-            query = query.filter(sa_models.Bill.end_time < end_time)
         if type:
             query = query.filter_by(type=type)
 
         query = query.filter_by(status=const.BILL_PAYED)
 
-        result = _paginate_query(context, sa_models.Bill,
-                                 limit=limit, marker=marker,
-                                 sort_key=sort_key, sort_dir=sort_dir,
-                                 query=query)
+        if all([start_time, end_time]):
+            query = query.filter(sa_models.Bill.start_time >= start_time)
+            query = query.filter(sa_models.Bill.end_time < end_time)
+
+        result = paginate_query(context, sa_models.Bill,
+                                limit=limit, offset=offset,
+                                sort_key=sort_key, sort_dir=sort_dir,
+                                query=query)
+
         return (self._row_to_db_bill_model(b) for b in result)
 
     @require_context
-    def get_bills_sum(self, context, start_time=None, end_time=None,
-                      order_id=None):
+    def get_bills_count(self, context, order_id=None, type=None,
+                        start_time=None, end_time=None):
         query = model_query(context, sa_models.Bill,
-                            func.sum(sa_models.Bill.total_price).label('sum'))
-
-        if start_time:
-            query = query.filter(sa_models.Bill.start_time >= start_time)
-        if end_time:
-            query = query.filter(sa_models.Bill.end_time < end_time)
+                            func.count(sa_models.Bill.id).label('count'))
         if order_id:
             query = query.filter_by(order_id=order_id)
+        if type:
+            query = query.filter_by(type=type)
+
+        if all([start_time, end_time]):
+            query = query.filter(sa_models.Bill.start_time >= start_time)
+            query = query.filter(sa_models.Bill.end_time < end_time)
+
+        query = query.filter_by(status=const.BILL_PAYED)
+
+        return query.one().count or 0
+
+    @require_context
+    def get_bills_sum(self, context, start_time=None, end_time=None,
+                      order_id=None, type=None):
+        query = model_query(context, sa_models.Bill,
+                            func.sum(sa_models.Bill.total_price).label('sum'))
+        if order_id:
+            query = query.filter_by(order_id=order_id)
+        if type:
+            query = query.filter_by(type=type)
+
+        if all([start_time, end_time]):
+            query = query.filter(sa_models.Bill.start_time >= start_time)
+            query = query.filter(sa_models.Bill.end_time < end_time)
 
         query = query.filter_by(status=const.BILL_PAYED)
 
         return query.one().sum or 0
+
+    @require_context
+    def get_bills_count_and_sum(self, context, order_id=None, type=None,
+                                start_time=None, end_time=None):
+        query = model_query(context, sa_models.Bill,
+                            func.count(sa_models.Bill.id).label('count'),
+                            func.sum(sa_models.Bill.total_price).label('sum'))
+        if order_id:
+            query = query.filter_by(order_id=order_id)
+        if type:
+            query = query.filter_by(type=type)
+
+        if all([start_time, end_time]):
+            query = query.filter(sa_models.Bill.start_time >= start_time)
+            query = query.filter(sa_models.Bill.end_time < end_time)
+
+        query = query.filter_by(status=const.BILL_PAYED)
+
+        return query.one().count or 0, query.one().sum or 0
 
     @require_context
     def create_account(self, context, account):
@@ -517,10 +608,16 @@ class Connection(base.Connection):
         return self._row_to_db_account_model(ref)
 
     @require_admin_context
-    def get_accounts(self, context):
+    def get_accounts(self, context, limit=None, offset=None,
+                     sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.Account)
-        ref = query.all()
-        return (self._row_to_db_account_model(r) for r in ref)
+
+        result = paginate_query(context, sa_models.Account,
+                                limit=limit, offset=offset,
+                                sort_key=sort_key, sort_dir=sort_dir,
+                                query=query)
+
+        return (self._row_to_db_account_model(r) for r in result)
 
     @require_context
     def update_account(self, context, account):

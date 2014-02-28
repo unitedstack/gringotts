@@ -34,7 +34,9 @@ class TrendsController(rest.RestController):
         """
         conn = pecan.request.db_conn
 
-        # The last 12 months from now
+        # The last 12 months from now.
+        # NOTE(suo): Adding another hour to each end_month is to
+        # include the cross month bill.
         now = datetime.datetime.utcnow()
         first_day = datetime.datetime(now.year, now.month, 1)
         now_day = datetime.datetime(now.year, now.month, now.day) + \
@@ -46,7 +48,7 @@ class TrendsController(rest.RestController):
             start_month = first_day - relativedelta(months=i+1)
             month_day = calendar.monthrange(start_month.year, start_month.month)[1]
             end_month = start_month + datetime.timedelta(days=month_day-1) + \
-                    datetime.timedelta(hours=25)
+                datetime.timedelta(hours=25)
             months.append((start_month, end_month))
 
         trends = []
@@ -70,32 +72,32 @@ class BillsController(rest.RestController):
     """
     trends = TrendsController()
 
-    @wsexpose(models.Bills, datetime.datetime, datetime.datetime, wtypes.text)
-    def get_all(self, start_time=None, end_time=None, type=None):
+    @wsexpose(models.Bills, datetime.datetime, datetime.datetime,
+              wtypes.text, int, int)
+    def get_all(self, start_time=None, end_time=None, type=None,
+                limit=None, offset=None):
         """Get all bills, filter by type, start time, and end time
         """
         conn = pecan.request.db_conn
 
-        if start_time:
-            start_time = datetime.datetime(start_time.year, start_time.month,
-                                           start_time.day)
-
-        if end_time:
-            end_time = datetime.datetime(end_time.year, end_time.month,
-                                         end_time.day)
-            end_time += datetime.timedelta(hours=25)
-
         bills_db = list(conn.get_bills(request.context,
                                        start_time=start_time,
                                        end_time=end_time,
-                                       type=type))
+                                       type=type,
+                                       limit=limit,
+                                       offset=offset))
+        total_count, total_price = conn.get_bills_count_and_sum(
+            request.context,
+            start_time=start_time,
+            end_time=end_time,
+            type=type)
+
+        total_price=gringutils._quantize_decimal(total_price)
 
         bills = []
-        total_price = gringutils._quantize_decimal(0)
-
         for bill in bills_db:
-            total_price += bill.total_price
             bills.append(models.Bill.from_db_model(bill))
 
         return models.Bills.transform(total_price=total_price,
+                                      total_count=total_count,
                                       bills=bills)

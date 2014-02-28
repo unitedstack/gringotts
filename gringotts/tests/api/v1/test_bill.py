@@ -38,6 +38,30 @@ class TestBills(FunctionalTest):
         self.assertEqual(3, len(data['bills']))
         self.assertEqual('0.1440', data['total_price'])
 
+    def test_get_bills_with_pagination(self):
+        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
+
+        # first page
+        data = self.get_json(self.PATH, headers=self.headers,
+                             limit=5, offset=0)
+
+        self.assertEqual(13, data['total_count'])
+        self.assertEqual(5, len(data['bills']))
+
+        # last page
+        data = self.get_json(self.PATH, headers=self.headers,
+                             limit=5, offset=10)
+
+        self.assertEqual(13, data['total_count'])
+        self.assertEqual(3, len(data['bills']))
+
+        # null page
+        data = self.get_json(self.PATH, headers=self.headers,
+                             limit=5, offset=15)
+
+        self.assertEqual(13, data['total_count'])
+        self.assertEqual(0, len(data['bills']))
+
     def test_get_bill_trends(self):
         self.useFixture(db_fixtures.GenerateFakeData(self.conn))
         path = self.PATH + '/trends'
