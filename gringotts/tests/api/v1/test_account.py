@@ -14,8 +14,10 @@ class TestAccounts(FunctionalTest):
     def test_get_accounts(self):
         accounts = self.get_json(self.PATH, headers=self.headers)
         self.assertEqual(2, len(accounts))
-        self.assertEqual('100.0000',accounts[0]['balance'])
-        self.assertEqual('8975.0000',accounts[1]['balance'])
+
+        # Default is desc
+        self.assertEqual('100.0000',accounts[1]['balance'])
+        self.assertEqual('8975.0000',accounts[0]['balance'])
 
     def test_get_single_account(self):
         path = self.PATH + '/' + fake_data.DEMO_PROJECT_ID

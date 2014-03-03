@@ -89,14 +89,14 @@ class TestMasterService(db_test_base.DBTestBase):
         # Check bills
         bills = list(bills)
         self.assertEqual(2, len(bills))
-        self.assertEqual(Decimal('0.0150'), bills[0].total_price)
+        self.assertEqual(Decimal('0.0020'), bills[0].total_price)
 
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=worker_service.TIMESTAMP_TIME_FORMAT)
         bill_end_time = action_time + datetime.timedelta(hours=1)
 
         bill_end_time = test_utils.remove_microsecond(bill_end_time)
-        actual = test_utils.remove_microsecond(bills[1].end_time)
+        actual = test_utils.remove_microsecond(bills[0].end_time)
         self.assertEqual(bill_end_time, actual)
 
         # Check apscheduler cron jobs
@@ -179,14 +179,14 @@ class TestMasterService(db_test_base.DBTestBase):
         # Check bills
         bills = list(bills)
         self.assertEqual(2, len(bills))
-        self.assertEqual(Decimal('0.0007'), bills[0].total_price)
+        self.assertEqual(Decimal('0.0080'), bills[0].total_price)
 
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=worker_service.TIMESTAMP_TIME_FORMAT)
         bill_end_time = action_time + datetime.timedelta(hours=1)
 
         bill_end_time = test_utils.remove_microsecond(bill_end_time)
-        actual = test_utils.remove_microsecond(bills[1].end_time)
+        actual = test_utils.remove_microsecond(bills[0].end_time)
         self.assertEqual(bill_end_time, actual)
 
         # Check apscheduler cron jobs

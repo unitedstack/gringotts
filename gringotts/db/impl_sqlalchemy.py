@@ -100,7 +100,7 @@ def _paginate_query(query, model, limit, sort_keys, offset=None,
 
     # Default the sort direction to ascending
     if sort_dirs is None and sort_dir is None:
-        sort_dir = 'asc'
+        sort_dir = 'desc'
 
     # Ensure a per-column sort direction
     if sort_dirs is None:
