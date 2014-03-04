@@ -45,7 +45,7 @@ class RateLimitItem(waiter_plugin.ProductItem):
         resource_id = message['payload']['floatingip']['id']
         resource_name = message['payload']['floatingip']['uos:name']
         resource_type = const.RESOURCE_FLOATINGIP
-        resource_volume = message['payload']['floatingip']['rate_limit'] / 1024
+        resource_volume = int(message['payload']['floatingip']['rate_limit']) / 1024
         user_id = None
         project_id = message['payload']['floatingip']['tenant_id']
 
@@ -159,7 +159,7 @@ class FloatingIpResizeEnd(FloatingIpNotificationBase):
                   message['event_type'],
                   message['payload']['floatingip']['id'])
 
-        quantity = message['payload']['floatingip']['rate_limit'] / 1024
+        quantity = int(message['payload']['floatingip']['rate_limit']) / 1024
 
         # Get the order of this resource
         resource_id = message['payload']['floatingip']['id']
