@@ -96,6 +96,11 @@ class Order(Base):
     """Order DB Model of SQLAlchemy"""
 
     __tablename__ = 'order'
+    __table_args__ = (
+        Index('ix_order_order_id', 'order_id'),
+        Index('ix_order_resource_id', 'resource_id'),
+        Index('ix_order_project_id', 'project_id'),
+    )
 
     id = Column(Integer, primary_key=True)
 
@@ -123,6 +128,12 @@ class Subscription(Base):
     """Subscription DB Model of SQLAlchemy"""
 
     __tablename__ = 'subscription'
+    __table_args__ = (
+        Index('ix_subscription_subscription_id', 'subscription_id'),
+        Index('ix_subscription_product_id', 'product_id'),
+        Index('ix_subscription_order_id', 'order_id'),
+        Index('ix_subscription_project_id', 'project_id'),
+    )
 
     id = Column(Integer, primary_key=True)
 
@@ -147,6 +158,12 @@ class Subscription(Base):
 class Bill(Base):
 
     __tablename__ = 'bill'
+    __table_args__ = (
+        Index('ix_bill_bill_id', 'bill_id'),
+        Index('ix_bill_start_end_time', 'start_time', 'end_time'),
+        Index('ix_bill_order_id', 'order_id'),
+        Index('ix_bill_project_id', 'project_id'),
+    )
 
     id = Column(Integer, primary_key=True)
 

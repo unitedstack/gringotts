@@ -60,7 +60,7 @@ class TrendsController(rest.RestController):
 
             bills_sum = gringutils._quantize_decimal(bills_sum)
 
-            trends.append(models.Trend.transform(
+            trends.insert(0, models.Trend.transform(
                 start_time=start_time.date(),
                 end_time=(end_time-datetime.timedelta(hours=25)).date(),
                 consumption=bills_sum))

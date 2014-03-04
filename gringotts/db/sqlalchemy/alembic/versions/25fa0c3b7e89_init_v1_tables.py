@@ -47,8 +47,8 @@ def upgrade():
 
         sa.Column('id', sa.Integer, primary_key=True),
 
-        sa.Column('order_id', sa.String(255)),
-        sa.Column('resource_id', sa.String(255)),
+        sa.Column('order_id', sa.String(255), index=True),
+        sa.Column('resource_id', sa.String(255), index=True),
         sa.Column('resource_name', sa.String(255)),
 
         sa.Column('type', sa.String(255)),
@@ -61,7 +61,7 @@ def upgrade():
         sa.Column('date_time', sa.DateTime),
 
         sa.Column('user_id', sa.String(255)),
-        sa.Column('project_id', sa.String(255)),
+        sa.Column('project_id', sa.String(255), index=True),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -75,19 +75,19 @@ def upgrade():
 
         sa.Column('id', sa.Integer, primary_key=True),
 
-        sa.Column('subscription_id', sa.String(255)),
+        sa.Column('subscription_id', sa.String(255), index=True),
         sa.Column('type', sa.String(64)),
 
-        sa.Column('product_id', sa.String(255)),
+        sa.Column('product_id', sa.String(255), index=True),
         sa.Column('unit_price', sa.DECIMAL(20,4)),
         sa.Column('unit', sa.String(64)),
         sa.Column('quantity', sa.Integer),
         sa.Column('total_price', sa.DECIMAL(20,4)),
 
-        sa.Column('order_id', sa.String(255)),
+        sa.Column('order_id', sa.String(255), index=True),
 
         sa.Column('user_id', sa.String(255)),
-        sa.Column('project_id', sa.String(255)),
+        sa.Column('project_id', sa.String(255), index=True),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -101,7 +101,7 @@ def upgrade():
 
         sa.Column('id', sa.Integer, primary_key=True),
 
-        sa.Column('bill_id', sa.String(255)),
+        sa.Column('bill_id', sa.String(255), index=True),
 
         sa.Column('start_time', sa.DateTime),
         sa.Column('end_time', sa.DateTime),
@@ -112,13 +112,13 @@ def upgrade():
         sa.Column('unit_price', sa.DECIMAL(20,4)),
         sa.Column('unit', sa.String(64)),
         sa.Column('total_price', sa.DECIMAL(20,4)),
-        sa.Column('order_id', sa.String(255)),
+        sa.Column('order_id', sa.String(255), index=True),
         sa.Column('resource_id', sa.String(255)),
 
         sa.Column('remarks', sa.String(255)),
 
         sa.Column('user_id', sa.String(255)),
-        sa.Column('project_id', sa.String(255)),
+        sa.Column('project_id', sa.String(255), index=True),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -126,6 +126,10 @@ def upgrade():
         mysql_engine='InnoDB',
         mysql_charset='utf8',
     )
+
+    op.create_index('ix_bill_start_end_time',
+                    'bill',
+                    ['start_time', 'end_time'])
 
     op.create_table(
         'account',
