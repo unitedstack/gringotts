@@ -384,7 +384,7 @@ class Connection(base.Connection):
             query = query.join(sa_models.Bill,
                                sa_models.Order.order_id==sa_models.Bill.order_id)
             query = query.filter(sa_models.Bill.start_time >= start_time,
-                                 sa_models.Bill.end_time < end_time)
+                                 sa_models.Bill.start_time < end_time)
             query = query.group_by(sa_models.Bill.order_id)
 
         if with_count:
@@ -505,7 +505,7 @@ class Connection(base.Connection):
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Bill.start_time >= start_time,
-                                 sa_models.Bill.end_time < end_time)
+                                 sa_models.Bill.start_time < end_time)
 
         result = paginate_query(context, sa_models.Bill,
                                 limit=limit, offset=offset,
@@ -527,7 +527,7 @@ class Connection(base.Connection):
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Bill.start_time >= start_time,
-                                 sa_models.Bill.end_time < end_time)
+                                 sa_models.Bill.start_time < end_time)
 
         result = paginate_query(context, sa_models.Bill,
                                 limit=limit, offset=offset,
@@ -548,9 +548,7 @@ class Connection(base.Connection):
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Bill.start_time >= start_time,
-                                 sa_models.Bill.end_time < end_time)
-
-        query = query.filter_by(status=const.BILL_PAYED)
+                                 sa_models.Bill.start_time < end_time)
 
         return query.one().count or 0
 
@@ -566,9 +564,7 @@ class Connection(base.Connection):
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Bill.start_time >= start_time,
-                                 sa_models.Bill.end_time < end_time)
-
-        query = query.filter_by(status=const.BILL_PAYED)
+                                 sa_models.Bill.start_time < end_time)
 
         return query.one().sum or 0
 
@@ -585,9 +581,7 @@ class Connection(base.Connection):
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Bill.start_time >= start_time,
-                                 sa_models.Bill.end_time < end_time)
-
-        query = query.filter_by(status=const.BILL_PAYED)
+                                 sa_models.Bill.start_time < end_time)
 
         return query.one().count or 0, query.one().sum or 0
 

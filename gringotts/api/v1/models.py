@@ -317,6 +317,6 @@ class Summaries(APIBase):
 class Trend(APIBase):
     """Total sunsumption in one month
     """
-    start_time = datetime.date
-    end_time = datetime.date
+    start_time = wtypes.text
+    end_time = wtypes.text
     consumption = decimal.Decimal

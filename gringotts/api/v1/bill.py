@@ -35,12 +35,10 @@ class TrendsController(rest.RestController):
         conn = pecan.request.db_conn
 
         # The last 12 months from now.
-        # NOTE(suo): Adding another hour to each end_month is to
-        # include the cross month bill.
         now = datetime.datetime.utcnow()
         first_day = datetime.datetime(now.year, now.month, 1)
         now_day = datetime.datetime(now.year, now.month, now.day) + \
-                datetime.timedelta(hours=25)
+                datetime.timedelta(hours=24)
 
         months = [(first_day, now_day)]
 
@@ -48,7 +46,7 @@ class TrendsController(rest.RestController):
             start_month = first_day - relativedelta(months=i+1)
             month_day = calendar.monthrange(start_month.year, start_month.month)[1]
             end_month = start_month + datetime.timedelta(days=month_day-1) + \
-                datetime.timedelta(hours=25)
+                datetime.timedelta(hours=24)
             months.append((start_month, end_month))
 
         trends = []
@@ -59,10 +57,12 @@ class TrendsController(rest.RestController):
                                            end_time=end_time)
 
             bills_sum = gringutils._quantize_decimal(bills_sum)
+            start_time=start_time.date().strftime("%d/%m/%Y")
+            end_time=(end_time-datetime.timedelta(hours=24)).date().strftime("%d/%m/%Y")
 
             trends.insert(0, models.Trend.transform(
-                start_time=start_time.date(),
-                end_time=(end_time-datetime.timedelta(hours=25)).date(),
+                start_time=start_time,
+                end_time=end_time,
                 consumption=bills_sum))
         return trends
 
