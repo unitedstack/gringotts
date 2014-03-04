@@ -162,7 +162,9 @@ class OrdersController(rest.RestController):
             price = self._get_order_price(order,
                                           start_time=start_time,
                                           end_time=end_time)
-            order.total_price = price
+
+            order.total_price = gringutils._quantize_decimal(price)
+
             orders.append(models.Order.from_db_model(order))
 
         return models.Orders.transform(total_count=total_count,

@@ -119,7 +119,7 @@ class TestOrders(FunctionalTest):
         order_id = orders['orders'][3]['order_id']
         path = self.PATH + '/' + order_id
         start_time = '2014-04-08T00:00:00'
-        end_time = '2014-04-08T04:00:00'
+        end_time = '2014-04-08T03:50:00'
         data = self.get_json(path, headers=self.headers,
                              start_time=start_time, end_time=end_time)
 
