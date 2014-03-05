@@ -57,8 +57,12 @@ class TrendsController(rest.RestController):
                                            end_time=end_time)
 
             bills_sum = gringutils._quantize_decimal(bills_sum)
-            start_time=start_time.date().strftime("%d/%m/%Y")
-            end_time=(end_time-datetime.timedelta(hours=24)).date().strftime("%d/%m/%Y")
+
+            start_date = start_time.date()
+            start_time = "%s/%s/%s" % (start_date.month, start_date.day, start_date.year)
+
+            end_date=(end_time-datetime.timedelta(hours=24)).date()
+            end_time = "%s/%s/%s" % (end_date.month, end_date.day, end_date.year)
 
             trends.insert(0, models.Trend.transform(
                 start_time=start_time,
