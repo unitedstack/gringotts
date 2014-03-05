@@ -171,7 +171,7 @@ class Subscription(APIBase):
     total_price = decimal.Decimal
     user_id = wtypes.text
     project_id = wtypes.text
-    created_time =  datetime.datetime
+    created_at =  datetime.datetime
 
 
 class Order(APIBase):
@@ -184,7 +184,7 @@ class Order(APIBase):
     unit_price = decimal.Decimal
     total_price = decimal.Decimal
     type = wtypes.text
-    created_time = datetime.datetime
+    created_at = datetime.datetime
 
     @classmethod
     def sample1(cls):
@@ -195,7 +195,7 @@ class Order(APIBase):
                    unit_price=0.48,
                    total_price=12.55,
                    type='instance',
-                   created_time=datetime.datetime(2013, 12, 29, 03, 00, 00))
+                   created_at=datetime.datetime(2013, 12, 29, 03, 00, 00))
 
     @classmethod
     def sample2(cls):
@@ -206,7 +206,7 @@ class Order(APIBase):
                    unit_price=0.48,
                    total_price=1234.55,
                    type='instance',
-                   created_time=datetime.datetime(2013, 12, 29, 04, 00, 00))
+                   created_at=datetime.datetime(2013, 12, 29, 04, 00, 00))
 
 
 class Orders(APIBase):
