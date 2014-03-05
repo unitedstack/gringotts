@@ -1,0 +1,20 @@
+V1 Web API
+==========
+
+Get user balance
+----------------
+
+.. http:get:: /v1/account/{project_id}
+
+    :param project_id: User's tenant id
+    :return: UserAccount
+    :statuscode200: OK
+
+    Example::
+
+        curl http://10.98.58.6:8975/v1/accounts/605d33813e2f4a2ca9a634770e159bd3
+
+        {
+            "currency": "CNY",
+            "balance": "83.2747"
+        }
