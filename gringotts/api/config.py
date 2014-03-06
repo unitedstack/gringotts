@@ -10,7 +10,7 @@ app = {
     'modules': ['gringotts.api'],
     'static_root': '%(confdir)s/public',
     'template_path': '%(confdir)s/v1/templates',
-    'debug': True,
+    'debug': False,
     'enable_acl': True,
 }
 
