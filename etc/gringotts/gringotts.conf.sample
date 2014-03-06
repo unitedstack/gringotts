@@ -14,6 +14,8 @@ initial_balance=10
 [master]
 use_local=Flase
 reserved_days=7
+apscheduler_threadpool_max_threads=20
+apscheduler_threadpool_core_threads=10
 
 [worker]
 use_local=True

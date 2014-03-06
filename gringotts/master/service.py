@@ -30,6 +30,12 @@ OPTS = [
     cfg.IntOpt('reserved_days',
                default=7,
                help='Reserved days after the resource is owed'),
+    cfg.IntOpt('apscheduler_threadpool_max_threads',
+               default=20,
+               help='Maximum number of total threads in the pool'),
+    cfg.IntOpt('apscheduler_threadpool_core_threads',
+               default=10,
+               help='Maximum number of persistent threads in the pool'),
 ]
 
 cfg.CONF.register_opts(OPTS, group="master")
@@ -47,7 +53,16 @@ class MasterService(rpc_service.Service):
         )
         self.db_conn = db.get_connection(cfg.CONF)
         self.worker_api = worker.API()
-        self.apsched = APScheduler()
+
+        config = {
+            'apscheduler.misfire_grace_time': 604800,
+            'apscheduler.coalesce': False,
+            'apscheduler.threadpool.max_threads': cfg.CONF.master.apscheduler_threadpool_max_threads,
+            'apscheduler.threadpool.core_threads': cfg.CONF.master.apscheduler_threadpool_core_threads,
+            'apscheduler.threadpool.keepalive': 1,
+        }
+        self.apsched = APScheduler(config)
+
         self.cron_jobs = {}
         self.date_jobs = {}
         self.lock = Lock()
@@ -143,9 +158,8 @@ class MasterService(rpc_service.Service):
                                             hours=1,
                                             start_date=start_date,
                                             name=order_id,
-                                            #seconds=60,
-                                            #start_date=action_time + timedelta(seconds=60),
-                                            args=[order_id])
+                                            args=[order_id],
+                                            max_instances=604800)
         self.cron_jobs[order_id] = job
 
     def _delete_cron_job(self, order_id):
