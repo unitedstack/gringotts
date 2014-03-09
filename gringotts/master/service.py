@@ -34,7 +34,7 @@ OPTS = [
                default=20,
                help='Maximum number of total threads in the pool'),
     cfg.IntOpt('apscheduler_threadpool_core_threads',
-               default=10,
+               default=20,
                help='Maximum number of persistent threads in the pool'),
 ]
 
