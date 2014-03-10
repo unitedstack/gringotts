@@ -320,3 +320,18 @@ class Trend(APIBase):
     start_time = wtypes.text
     end_time = wtypes.text
     consumption = decimal.Decimal
+
+
+class Charge(APIBase):
+    """Charge to account
+    """
+    value = decimal.Decimal
+    type = wtypes.text
+    come_from = wtypes.text
+    charge_time = datetime.datetime
+
+
+class Charges(APIBase):
+    total_price = decimal.Decimal
+    total_count = int
+    charges = [Charge]

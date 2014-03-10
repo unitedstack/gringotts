@@ -214,6 +214,8 @@ class Charge(Base):
     user_id = Column(String(255))
     project_id = Column(String(255))
     value = Column(DECIMAL(20,4))
+    type = Column(String(64))
+    come_from = Column(String(255))
     currency = Column(String(64))
     charge_time = Column(DateTime)
 

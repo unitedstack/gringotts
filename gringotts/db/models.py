@@ -221,8 +221,8 @@ class Charge(Model):
     :param charge_time: The charge time
     """
 
-    def __init__(self, charge_id, user_id, project_id, value,
-                 currency, charge_time,
+    def __init__(self, charge_id, project_id, value, charge_time,
+                 type=None, come_from=None, currency=None, user_id=None,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,
@@ -230,6 +230,8 @@ class Charge(Model):
             user_id=user_id,
             project_id=project_id,
             value=value,
+            type=type,
+            come_from=come_from,
             currency=currency,
             charge_time=charge_time,
             created_at=created_at,

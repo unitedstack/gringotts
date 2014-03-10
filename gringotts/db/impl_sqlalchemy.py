@@ -245,6 +245,8 @@ class Connection(base.Connection):
                                 user_id=row.user_id,
                                 project_id=row.project_id,
                                 value=row.value,
+                                type=row.type,
+                                come_from=row.come_from,
                                 currency=row.currency,
                                 charge_time=row.charge_time,
                                 created_at=row.created_at,
@@ -631,3 +633,31 @@ class Connection(base.Connection):
             ref.update(charge.as_dict())
             session.add(ref)
         return self._row_to_db_charge_model(ref)
+
+    @require_context
+    def get_charges(self, context, start_time=None, end_time=None,
+                    limit=None, offset=None, sort_key=None, sort_dir=None):
+        query = model_query(context, sa_models.Charge)
+
+        if all([start_time, end_time]):
+            query = query.filter(sa_models.Charge.charge_time >= start_time,
+                                 sa_models.Charge.charge_time < end_time)
+
+        result = paginate_query(context, sa_models.Charge,
+                                limit=limit, offset=offset,
+                                sort_key=sort_key, sort_dir=sort_dir,
+                                query=query)
+
+        return (self._row_to_db_charge_model(r) for r in result)
+
+    @require_context
+    def get_charges_price_and_count(self, context, start_time=None, end_time=None):
+        query = model_query(context, sa_models.Charge,
+                            func.count(sa_models.Charge.id).label('count'),
+                            func.sum(sa_models.Charge.value).label('sum'))
+
+        if all([start_time, end_time]):
+            query = query.filter(sa_models.Charge.charge_time >= start_time,
+                                 sa_models.Charge.charge_time < end_time)
+
+        return query.one().sum or 0, query.one().count or 0

@@ -23,3 +23,35 @@ class TestAccounts(FunctionalTest):
         path = self.PATH + '/' + fake_data.DEMO_PROJECT_ID
         account = self.get_json(path, headers=self.headers)
         self.assertEqual('100.0000', account['balance'])
+
+    def test_charge_account(self):
+        path = self.PATH + '/' + fake_data.DEMO_PROJECT_ID
+        data = {'value': 100}
+
+        self.put_json(path, data, headers=self.headers)
+
+        account = self.get_json(path, headers=self.headers)
+        self.assertEqual('200.0000', account['balance'])
+
+    def test_charge_negative_account(self):
+        path = self.PATH + '/' + fake_data.DEMO_PROJECT_ID
+        data = {'value': -100}
+
+        resp = self.put_json(path, data, expect_errors=True,
+                             headers=self.headers)
+        self.assertEqual(400, resp.status_int)
+
+    def test_get_account_charges(self):
+        charge_path = self.PATH + '/' + fake_data.DEMO_PROJECT_ID
+        data = {'value': 100}
+
+        self.put_json(charge_path, data, headers=self.headers)
+        self.put_json(charge_path, data, headers=self.headers)
+        self.put_json(charge_path, data, headers=self.headers)
+
+        path = self.PATH + '/' + fake_data.DEMO_PROJECT_ID + '/charges'
+        charges = self.get_json(path, headers=self.headers)
+
+        self.assertEqual(3, len(charges['charges']))
+        self.assertEqual('300.0000', charges['total_price'])
+        self.assertEqual(3, charges['total_count'])

@@ -131,6 +131,10 @@ class Invalid(GringottsException):
     code = 400
 
 
+class InvalidChargeValue(Invalid):
+    message = _("The charge value %(value)s is invalid.")
+
+
 class InvalidUUID(Invalid):
     message = _("Expected a uuid but received %(uuid)s.")
 

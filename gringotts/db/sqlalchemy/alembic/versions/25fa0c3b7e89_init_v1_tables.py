@@ -156,6 +156,8 @@ def upgrade():
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255)),
         sa.Column('value', sa.DECIMAL(20,4)),
+        sa.Column('type', sa.String(64)),
+        sa.Column('come_from', sa.String(255)),
         sa.Column('currency', sa.String(64)),
         sa.Column('charge_time', sa.DateTime),
 
