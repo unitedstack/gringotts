@@ -31,10 +31,10 @@ OPTS = [
                default=7,
                help='Reserved days after the resource is owed'),
     cfg.IntOpt('apscheduler_threadpool_max_threads',
-               default=20,
+               default=1,
                help='Maximum number of total threads in the pool'),
     cfg.IntOpt('apscheduler_threadpool_core_threads',
-               default=20,
+               default=1,
                help='Maximum number of persistent threads in the pool'),
 ]
 
@@ -98,34 +98,13 @@ class MasterService(rpc_service.Service):
                     self._create_cron_job(order.order_id,
                                           start_date=order.cron_time)
 
-    def check_if_owe(self, order_id, deduct=None):
-        """Check if the account balance is enough.
-        Return True if owe, False not owe
-        """
-        order = self.db_conn.get_order(self.ctxt, order_id)
-        total_price = deduct or order.unit_price
-
-        # Confirm the user's balance is enough
-        try:
-            account = self.db_conn.get_account(self.ctxt, order.project_id)
-        except Exception:
-            LOG.warning('Fail to find the account: %s' % order.project_id)
-            raise exception.DBError(reason='Fail to find the account')
-
-        if account.balance < total_price:
-            LOG.warning("The balance of the account(%s) is not enough to "
-                        "pay for the fee: %s" % (order.project_id, total_price))
-            return True
-        return False
-
     def _pre_deduct(self, order_id):
         # NOTE(suo): Because account is shared among different cron job threads, we must
         # ensure thread synchronization here. Further more, because we use greenthread in
         # master service, we also should use green lock.
+        remarks = 'Hourly Billing'
         with self.lock:
-            if self.check_if_owe(order_id):
-                LOG.warning('The order: %s is owed' % order_id)
-            self.worker_api.pre_deduct(self.ctxt, order_id)
+            self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
 
     def _destroy_resource(self, order_id):
         """Destroy the resource
@@ -223,9 +202,6 @@ class MasterService(rpc_service.Service):
         LOG.debug('Resource created, its order_id: %s, action_time: %s',
                   order_id, action_time)
         with self.lock:
-            if self.check_if_owe(order_id):
-                LOG.warning('The order: %s is owed' % order_id)
-
             self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
             self._create_cron_job(order_id, action_time=action_time)
 
@@ -248,9 +224,6 @@ class MasterService(rpc_service.Service):
             # change the order's unit price and its active subscriptions
             self._change_order(order_id, change_to)
 
-            if self.check_if_owe(order_id):
-                LOG.warning('The order: %s is owed' % order_id)
-
             # create a new bill for the updated order
             self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
             self._create_cron_job(order_id, action_time=action_time)
@@ -268,9 +241,6 @@ class MasterService(rpc_service.Service):
 
             # change the order's unit price and its active subscriptions
             self._change_order(order_id, const.STATE_RUNNING)
-
-            if self.check_if_owe(order_id):
-                LOG.warning('The order: %s is owed' % order_id)
 
             # create a new bill for the updated order
             self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)

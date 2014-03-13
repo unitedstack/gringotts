@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 
+import datetime
 import functools
 import os
 from sqlalchemy import desc, asc
@@ -11,6 +12,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from gringotts import constants as const
 from gringotts import context as gring_context
 from gringotts import exception
+from gringotts import utils as gringutils
 
 from gringotts.db import base
 from gringotts.db import models as db_models
@@ -22,6 +24,8 @@ from gringotts.db.sqlalchemy.models import Base
 from gringotts.openstack.common.db.sqlalchemy import session as db_session
 from gringotts.openstack.common.db.sqlalchemy import utils as db_utils
 from gringotts.openstack.common import log
+from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import timeutils
 
 
 LOG = log.getLogger(__name__)
@@ -457,25 +461,6 @@ class Connection(base.Connection):
 
         return (self._row_to_db_subscription_model(r) for r in ref)
 
-    @require_admin_context
-    def create_bill(self, context, bill):
-        session = db_session.get_session()
-        with session.begin():
-            bill_ref = sa_models.Bill()
-            bill_ref.update(bill.as_dict())
-            session.add(bill_ref)
-        return self._row_to_db_bill_model(bill_ref)
-
-    @require_admin_context
-    def update_bill(self, context, bill):
-        session = db_session.get_session()
-        with session.begin():
-            query = model_query(context, sa_models.Bill)
-            query = query.filter_by(bill_id=bill.bill_id)
-            query.update(bill.as_dict(), synchronize_session='fetch')
-            ref = query.one()
-        return self._row_to_db_bill_model(ref)
-
     @require_context
     def get_latest_bill(self, context, order_id):
         session = db_session.get_session()
@@ -661,3 +646,113 @@ class Connection(base.Connection):
                                  sa_models.Charge.charge_time < end_time)
 
         return query.one().sum or 0, query.one().count or 0
+
+    @require_admin_context
+    def create_bill(self, context, order_id, action_time=None, remarks=None):
+        session = db_session.get_session()
+        with session.begin():
+            # get order
+            order = model_query(context, sa_models.Order, session=session).\
+                filter_by(order_id=order_id).one()
+
+            if not action_time:
+                action_time = order.cron_time
+
+            # Create a bill
+            bill = sa_models.Bill(bill_id=uuidutils.generate_uuid(),
+                                  start_time=action_time,
+                                  end_time=action_time + datetime.timedelta(hours=1),
+                                  type=order.type,
+                                  status=const.BILL_PAYED,
+                                  unit_price=order.unit_price,
+                                  unit=order.unit,
+                                  total_price=order.unit_price,
+                                  order_id=order.order_id,
+                                  resource_id=order.resource_id,
+                                  remarks=remarks,
+                                  user_id=order.user_id,
+                                  project_id=order.project_id)
+            session.add(bill)
+
+            # Update the order
+            cron_time = action_time + datetime.timedelta(hours=1)
+            order.total_price += order.unit_price
+            order.cron_time = cron_time
+            order.updated_at = datetime.datetime.utcnow()
+
+            # Update subscriptions
+            subs = model_query(context, sa_models.Subscription, session=session).\
+                filter_by(order_id=order_id).\
+                filter_by(type=order.status).\
+                all()
+
+            for sub in subs:
+                sub_single_price = sub.unit_price * sub.quantity
+                sub_single_price = gringutils._quantize_decimal(sub_single_price)
+                sub.total_price += sub_single_price
+                sub.updated_at = datetime.datetime.utcnow()
+
+                # update product
+                product = model_query(context, sa_models.Product, session=session).\
+                    filter_by(product_id=sub.product_id).\
+                    filter_by(deleted=False).\
+                    one()
+                product.total_price += sub_single_price
+
+            # Update account
+            account = model_query(context, sa_models.Account, session=session).\
+                filter_by(project_id=order.project_id).one()
+            account.balance -= order.unit_price
+            account.consumption += order.unit_price
+            account.updated_at = datetime.datetime.utcnow()
+
+    @require_admin_context
+    def close_bill(self, context, order_id, action_time):
+        session = db_session.get_session()
+        with session.begin():
+            # get order
+            order = model_query(context, sa_models.Order, session=session).\
+                filter_by(order_id=order_id).one()
+
+            # Update the latest bill
+            bill = model_query(context, sa_models.Bill, session=session).\
+                filter_by(order_id=order_id).\
+                order_by(desc(sa_models.Bill.id)).all()[0]
+
+            delta = timeutils.delta_seconds(action_time, bill.end_time) / 3600.0
+            delta = gringutils._quantize_decimal(delta)
+
+            more_fee = gringutils._quantize_decimal(delta * order.unit_price)
+            bill.end_time = action_time
+            bill.total_price -= more_fee
+            bill.updated_at = datetime.datetime.utcnow()
+
+            # Update the order
+            order.total_price -= more_fee
+            order.cron_time = None
+            order.updated_at = datetime.datetime.utcnow()
+
+            # Update subscriptions
+            subs = model_query(context, sa_models.Subscription, session=session).\
+                filter_by(order_id=order_id).\
+                filter_by(type=order.status).\
+                all()
+
+            for sub in subs:
+                sub_more_fee = gringutils._quantize_decimal(delta * sub.unit_price * sub.quantity)
+                sub.total_price -= sub_more_fee
+                sub.updated_at = datetime.datetime.utcnow()
+
+                # update product
+                product = model_query(context, sa_models.Product, session=session).\
+                    filter_by(product_id=sub.product_id).\
+                    filter_by(deleted=False).\
+                    one()
+                product.total_price -= sub_more_fee
+
+            # Update the account
+            account = model_query(context, sa_models.Account, session=session).\
+                filter_by(project_id=order.project_id).one()
+            account.balance += more_fee
+            account.consumption -= more_fee
+            account.updated_at = datetime.datetime.utcnow()

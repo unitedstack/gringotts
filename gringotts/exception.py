@@ -173,6 +173,14 @@ class AccountCreateFailed(GringottsException):
     message = _("Fail to create account for the project %(project_id)s")
 
 
+class BillCreateFailed(GringottsException):
+    message = _("Fail to create bill for the order: %(order_id)s")
+
+
+class BillCloseFailed(GringottsException):
+    message = _("Fail to close bill for the order: %(order_id)s")
+
+
 class OrderBillsNotFound(NotFound):
     message = _("Order %(order_id)s bills could not be found")
 

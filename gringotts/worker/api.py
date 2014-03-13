@@ -31,11 +31,9 @@ class LocalAPI(object):
     def __init__(self):
         self._service = service.WorkerService()
 
-    def create_bill(self, ctxt, order_id, action_time, remarks):
-        self._service.create_bill(ctxt, order_id, action_time, remarks)
-
-    def pre_deduct(self, ctxt, order_id):
-        self._service.pre_deduct(ctxt, order_id)
+    def create_bill(self, ctxt, order_id, action_time=None, remarks=None):
+        self._service.create_bill(ctxt, order_id, action_time=action_time,
+                                  remarks=remarks)
 
     def close_bill(self, ctxt, order_id, action_time):
         self._service.close_bill(ctxt, order_id, action_time)
