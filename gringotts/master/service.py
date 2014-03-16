@@ -31,10 +31,10 @@ OPTS = [
                default=7,
                help='Reserved days after the resource is owed'),
     cfg.IntOpt('apscheduler_threadpool_max_threads',
-               default=1,
+               default=10,
                help='Maximum number of total threads in the pool'),
     cfg.IntOpt('apscheduler_threadpool_core_threads',
-               default=1,
+               default=10,
                help='Maximum number of persistent threads in the pool'),
 ]
 
@@ -72,9 +72,12 @@ class MasterService(rpc_service.Service):
     def start(self):
         self.apsched.start()
         self.load_jobs()
-        super(MasterService, self).start()
-        # Add a dummy thread to have wait() working
+        LOG.warning('Jobs loaded successfully.')
 
+        super(MasterService, self).start()
+        LOG.warning('Master started successfully.')
+
+        # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
     def load_jobs(self):
@@ -99,12 +102,8 @@ class MasterService(rpc_service.Service):
                                           start_date=order.cron_time)
 
     def _pre_deduct(self, order_id):
-        # NOTE(suo): Because account is shared among different cron job threads, we must
-        # ensure thread synchronization here. Further more, because we use greenthread in
-        # master service, we also should use green lock.
         remarks = 'Hourly Billing'
-        with self.lock:
-            self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
+        self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
 
     def _destroy_resource(self, order_id):
         """Destroy the resource
@@ -113,10 +112,9 @@ class MasterService(rpc_service.Service):
         2. The order's owed cron job must be removed
         3. Change the order status to deleted
         """
-        with self.lock:
-            self.worker_api.destory_resource(self.ctxt, order_id)
-            self._delete_cron_job(order_id)
-            self._change_order(order_id, const.STATE_DELETED)
+        self.worker_api.destory_resource(self.ctxt, order_id)
+        self._delete_cron_job(order_id)
+        self._change_order(order_id, const.STATE_DELETED)
 
     def _utc_to_local(self, utc_dt):
         from_zone = tz.tzutc()
@@ -171,13 +169,10 @@ class MasterService(rpc_service.Service):
             self.db_conn.update_subscription(self.ctxt, sub)
 
     def _change_order(self, order_id, change_to):
-        # Get newest order
-        order = self.db_conn.get_order(self.ctxt, order_id)
-
         # Get new unit price and update subscriptions
         subscriptions = self.db_conn.get_subscriptions_by_order_id(
             self.ctxt,
-            order.order_id,
+            order_id,
             type=change_to)
 
         unit_price = 0
@@ -188,63 +183,59 @@ class MasterService(rpc_service.Service):
             unit = sub.unit
 
         # Update the order
-        order.unit_price = unit_price
-        order.unit = unit
-        order.status = change_to
-        order.updated_at = datetime.datetime.utcnow()
         try:
-            self.db_conn.update_order(self.ctxt, order)
+            self.db_conn.update_order(self.ctxt, order_id,
+                                      unit_price=unit_price,
+                                      unit=unit,
+                                      status=change_to,
+                                      updated_at=datetime.datetime.utcnow())
         except Exception:
-            LOG.warning('Fail to update the order: %s' % order.order_id)
+            LOG.warning('Fail to update the order: %s' % order_id)
             raise exception.DBError(reason='Fail to update the order')
 
     def resource_created(self, ctxt, order_id, action_time, remarks):
         LOG.debug('Resource created, its order_id: %s, action_time: %s',
                   order_id, action_time)
-        with self.lock:
-            self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
-            self._create_cron_job(order_id, action_time=action_time)
+        self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
+        self._create_cron_job(order_id, action_time=action_time)
 
     def resource_deleted(self, ctxt, order_id, action_time):
         LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
                   (order_id, action_time))
-        with self.lock:
-            self.worker_api.close_bill(self.ctxt, order_id, action_time)
-            self._delete_cron_job(order_id)
-            self._change_order(order_id, const.STATE_DELETED)
+        self.worker_api.close_bill(self.ctxt, order_id, action_time)
+        self._delete_cron_job(order_id)
+        self._change_order(order_id, const.STATE_DELETED)
 
     def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
         LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to: %s'
                   % (order_id, action_time, change_to))
-        with self.lock:
-            # close the old bill
-            self.worker_api.close_bill(self.ctxt, order_id, action_time)
-            self._delete_cron_job(order_id)
+        # close the old bill
+        self.worker_api.close_bill(self.ctxt, order_id, action_time)
+        self._delete_cron_job(order_id)
 
-            # change the order's unit price and its active subscriptions
-            self._change_order(order_id, change_to)
+        # change the order's unit price and its active subscriptions
+        self._change_order(order_id, change_to)
 
-            # create a new bill for the updated order
-            self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
-            self._create_cron_job(order_id, action_time=action_time)
+        # create a new bill for the updated order
+        self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
+        self._create_cron_job(order_id, action_time=action_time)
 
     def resource_resized(self, ctxt, order_id, action_time, quantity, remarks):
         LOG.debug('Resource resized, its order_id: %s, action_time: %s, will resize to: %s'
                   % (order_id, action_time, quantity))
-        with self.lock:
-            # close the old bill
-            self.worker_api.close_bill(self.ctxt, order_id, action_time)
-            self._delete_cron_job(order_id)
+        # close the old bill
+        self.worker_api.close_bill(self.ctxt, order_id, action_time)
+        self._delete_cron_job(order_id)
 
-            # change subscirption's quantity
-            self._change_subscription(order_id, quantity)
+        # change subscirption's quantity
+        self._change_subscription(order_id, quantity)
 
-            # change the order's unit price and its active subscriptions
-            self._change_order(order_id, const.STATE_RUNNING)
+        # change the order's unit price and its active subscriptions
+        self._change_order(order_id, const.STATE_RUNNING)
 
-            # create a new bill for the updated order
-            self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
-            self._create_cron_job(order_id, action_time=action_time)
+        # create a new bill for the updated order
+        self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
+        self._create_cron_job(order_id, action_time=action_time)
 
 
 def master():

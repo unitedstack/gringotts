@@ -338,12 +338,13 @@ class Connection(base.Connection):
         return self._row_to_db_order_model(ref)
 
     @require_admin_context
-    def update_order(self, context, order):
+    def update_order(self, context, order_id, **kwargs):
         session = db_session.get_session()
         with session.begin():
             query = model_query(context, sa_models.Order)
-            query = query.filter_by(order_id=order.order_id)
-            query.update(order.as_dict(), synchronize_session='fetch')
+            query = query.filter_by(order_id=order_id)
+            query = query.with_lockmode('update')
+            query.update(kwargs, synchronize_session='fetch')
             ref = query.one()
         return self._row_to_db_order_model(ref)
 
@@ -653,7 +654,12 @@ class Connection(base.Connection):
         with session.begin():
             # get order
             order = model_query(context, sa_models.Order, session=session).\
-                filter_by(order_id=order_id).one()
+                filter_by(order_id=order_id).\
+                with_lockmode('update').one()
+
+            if (order.status == const.STATE_DELETED or
+                order.status == const.STATE_CHANGING):
+                return
 
             if not action_time:
                 action_time = order.cron_time
@@ -701,7 +707,9 @@ class Connection(base.Connection):
 
             # Update account
             account = model_query(context, sa_models.Account, session=session).\
-                filter_by(project_id=order.project_id).one()
+                filter_by(project_id=order.project_id).\
+                with_lockmode('update').\
+                one()
             account.balance -= order.unit_price
             account.consumption += order.unit_price
             account.updated_at = datetime.datetime.utcnow()
@@ -712,7 +720,8 @@ class Connection(base.Connection):
         with session.begin():
             # get order
             order = model_query(context, sa_models.Order, session=session).\
-                filter_by(order_id=order_id).one()
+                filter_by(order_id=order_id).\
+                with_lockmode('update').one()
 
             # Update the latest bill
             bill = model_query(context, sa_models.Bill, session=session).\
@@ -730,6 +739,7 @@ class Connection(base.Connection):
             # Update the order
             order.total_price -= more_fee
             order.cron_time = None
+            order.status = const.STATE_CHANGING
             order.updated_at = datetime.datetime.utcnow()
 
             # Update subscriptions
@@ -752,7 +762,9 @@ class Connection(base.Connection):
 
             # Update the account
             account = model_query(context, sa_models.Account, session=session).\
-                filter_by(project_id=order.project_id).one()
+                filter_by(project_id=order.project_id).\
+                with_lockmode('update').\
+                one()
             account.balance += more_fee
             account.consumption -= more_fee
             account.updated_at = datetime.datetime.utcnow()

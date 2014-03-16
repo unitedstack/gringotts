@@ -20,7 +20,7 @@ def upgrade():
 
         sa.Column('id', sa.Integer, primary_key=True),
 
-        sa.Column('product_id', sa.String(255)),
+        sa.Column('product_id', sa.String(255), index=True),
         sa.Column('name', sa.String(255)),
         sa.Column('service', sa.String(255)),
         sa.Column('region_id', sa.String(255)),
@@ -136,7 +136,7 @@ def upgrade():
 
         sa.Column('id', sa.Integer, primary_key=True),
         sa.Column('user_id', sa.String(255)),
-        sa.Column('project_id', sa.String(255)),
+        sa.Column('project_id', sa.String(255), index=True),
         sa.Column('balance', sa.DECIMAL(20,4)),
         sa.Column('consumption', sa.DECIMAL(20,4)),
         sa.Column('currency', sa.String(64)),

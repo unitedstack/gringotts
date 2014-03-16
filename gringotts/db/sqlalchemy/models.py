@@ -70,6 +70,9 @@ class Product(Base):
     """Product DB Model of SQLAlchemy"""
 
     __tablename__ = 'product'
+    __table_args__ = (
+        Index('ix_product_product_id', 'product_id'),
+    )
 
     id = Column(Integer, primary_key=True)
 
@@ -193,6 +196,9 @@ class Bill(Base):
 class Account(Base):
 
     __tablename__ = 'account'
+    __table_args__ = (
+        Index('ix_account_project_id', 'project_id'),
+    )
 
     id = Column(Integer, primary_key=True)
     user_id = Column(String(255))

@@ -109,7 +109,7 @@ class TestProducts(FunctionalTest):
         sales = self.get_json(path, headers=self.headers)
 
         self.assertEqual(5, len(sales['sales']))
-        self.assertEqual('0.3013', sales['total_price'])
+        self.assertEqual('0.6080', sales['total_price'])
 
         add_up = decimal.Decimal('0')
 
