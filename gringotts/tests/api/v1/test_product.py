@@ -5,6 +5,7 @@ from gringotts.tests.api.v1 import FunctionalTest
 
 class TestProducts(FunctionalTest):
     PATH = '/products'
+    PATH_DETAIL = '/products/detail'
 
     def setUp(self):
         super(TestProducts, self).setUp()
@@ -21,7 +22,7 @@ class TestProducts(FunctionalTest):
 
     def test_post_product(self):
         self.post_json(self.PATH, self.product_1, headers=self.headers)
-        data = self.get_json(self.PATH, headers=self.headers)
+        data = self.get_json(self.PATH_DETAIL, headers=self.headers)
         self.assertEqual(1, len(data))
         self.assertEqual('product-1', data[0]['name'])
 
@@ -33,14 +34,14 @@ class TestProducts(FunctionalTest):
 
     def test_put_product(self):
         self.post_json(self.PATH, self.product_1, headers=self.headers)
-        products = self.get_json(self.PATH, headers=self.headers)
+        products = self.get_json(self.PATH_DETAIL, headers=self.headers)
 
         products[0].update(unit_price='0.0600')
 
         put_path = self.PATH + '/' + products[0]['product_id']
         self.put_json(put_path, products[0], headers=self.headers)
 
-        data = self.get_json(self.PATH, headers=self.headers)
+        data = self.get_json(self.PATH_DETAIL, headers=self.headers)
         self.assertEqual('0.0600', data[0]['unit_price'])
 
     def test_put_product_to_duplicated(self):
@@ -58,7 +59,7 @@ class TestProducts(FunctionalTest):
         self.post_json(self.PATH, self.product_1, headers=self.headers)
         self.post_json(self.PATH, self.product_2, headers=self.headers)
 
-        products = self.get_json(self.PATH, headers=self.headers)
+        products = self.get_json(self.PATH_DETAIL, headers=self.headers)
 
         # Change product-1's name to product-2
         products[1].update(name='product-2') 
@@ -71,32 +72,38 @@ class TestProducts(FunctionalTest):
 
     def test_delete_product(self):
         self.post_json(self.PATH, self.product_1, headers=self.headers)
-        products = self.get_json(self.PATH, headers=self.headers)
+        products = self.get_json(self.PATH_DETAIL, headers=self.headers)
 
         path = self.PATH + '/' + products[0]['product_id']
         self.delete(path, headers=self.headers)
-        products = self.get_json(self.PATH, headers=self.headers)
+        products = self.get_json(self.PATH_DETAIL, headers=self.headers)
 
         self.assertEqual(0, len(products))
 
     def test_get_single_product(self):
         self.post_json(self.PATH, self.product_1, headers=self.headers)
-        products = self.get_json(self.PATH, headers=self.headers)
+        products = self.get_json(self.PATH_DETAIL, headers=self.headers)
         
         path = self.PATH + '/' + products[0]['product_id']
         data = self.get_json(path, headers=self.headers)
         self.assertEqual('network', data['service'])
         self.assertEqual('product-1', data['name'])
 
-    def test_get_products(self):
+    def test_get_simple_products(self):
         self.useFixture(db_fixtures.DatabaseInit(self.conn))
         products = self.get_json(self.PATH, headers=self.headers)
 
         self.assertEqual(5, len(products))
 
+    def test_get_products(self):
+        self.useFixture(db_fixtures.DatabaseInit(self.conn))
+        products = self.get_json(self.PATH_DETAIL, headers=self.headers)
+
+        self.assertEqual(5, len(products))
+
     def test_get_products_with_params(self):
         self.useFixture(db_fixtures.DatabaseInit(self.conn))
-        products = self.get_json(self.PATH, headers=self.headers, service='compute')
+        products = self.get_json(self.PATH_DETAIL, headers=self.headers, service='compute')
 
         self.assertEqual(2, len(products))
         self.assertEqual('compute', products[0]['service'])
@@ -121,7 +128,7 @@ class TestProducts(FunctionalTest):
     def test_get_single_product_sales(self):
         self.useFixture(db_fixtures.DatabaseInit(self.conn))
         self.useFixture(db_fixtures.GenerateFakeData(self.conn))
-        products = self.get_json(self.PATH, headers=self.headers,
+        products = self.get_json(self.PATH_DETAIL, headers=self.headers,
                                  service='network')
 
         # check the router product

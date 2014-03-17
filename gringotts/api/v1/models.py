@@ -84,7 +84,7 @@ class Version(APIBase):
 
 
 class Product(APIBase):
-    """A product represents a rule applied to resources to be billed 
+    """A product represents a rule applied to resources to be billed
     """
     product_id = wtypes.text
     name = wtypes.text
@@ -111,6 +111,17 @@ class Product(APIBase):
                    unit='hour',
                    created_at=datetime.datetime.utcnow(),
                    updated_at=datetime.datetime.utcnow())
+
+
+class SimpleProduct(APIBase):
+    """A product represents a rule applied to resources to be billed
+    """
+    name = wtypes.text
+    service = wtypes.text
+
+    unit_price = decimal.Decimal
+    currency = wtypes.text
+    unit = wtypes.text
 
 
 class Purchase(APIBase):

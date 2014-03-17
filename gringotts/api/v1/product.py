@@ -210,11 +210,42 @@ class PriceController(rest.RestController):
                                       unit=unit)
 
 
+class DetailController(rest.RestController):
+    """Detail of products
+    """
+
+    @wsexpose([models.Product], wtypes.text, wtypes.text, wtypes.text,
+              int, wtypes.text, wtypes.text, wtypes.text)
+    def get_all(self, name=None, service=None, region_id=None,
+                limit=None, offset=None,
+                sort_key='created_at', sort_dir='desc'):
+        """Get all product
+        """
+        filters = {}
+        if name:
+            filters.update(name=name)
+        if service:
+            filters.update(service=service)
+        if region_id:
+            filters.update(region_id=region_id)
+
+        conn = pecan.request.db_conn
+
+        result = conn.get_products(request.context,
+                                   filters=filters,
+                                   limit=limit,
+                                   offset=offset,
+                                   sort_key=sort_key,
+                                   sort_dir=sort_dir)
+        return [models.Product.from_db_model(p) for p in result]
+
+
 class ProductsController(rest.RestController):
     """Manages operations on the products collection
     """
     sales = SalesController()
     price = PriceController()
+    detail = DetailController()
 
     @pecan.expose()
     def _lookup(self, product_id, *remainder):
@@ -269,7 +300,7 @@ class ProductsController(rest.RestController):
         # DB model to API model
         return models.Product.from_db_model(product)
 
-    @wsexpose([models.Product], wtypes.text, wtypes.text, wtypes.text,
+    @wsexpose([models.SimpleProduct], wtypes.text, wtypes.text, wtypes.text,
               int, wtypes.text, wtypes.text, wtypes.text)
     def get_all(self, name=None, service=None, region_id=None,
                 limit=None, offset=None,
@@ -292,4 +323,9 @@ class ProductsController(rest.RestController):
                                    offset=offset,
                                    sort_key=sort_key,
                                    sort_dir=sort_dir)
-        return [models.Product.from_db_model(p) for p in result]
+        return [models.SimpleProduct.transform(name=p.name,
+                                               service=p.service,
+                                               unit_price=p.unit_price,
+                                               currency='CNY',
+                                               unit=p.unit)
+                for p in result]
