@@ -52,7 +52,7 @@ def _make_cache_key(project_id, start_time, end_time):
 class TrendsController(rest.RestController):
     """Summary every order type's consumption
     """
-    @wsexpose([decimal.Decimal], datetime.datetime, wtypes.text)
+    @wsexpose([models.Trend], datetime.datetime, wtypes.text)
     def get(self, today=None, type=None):
         """Get summary of all kinds of orders in the latest 12 month or 12 day
 
@@ -105,7 +105,11 @@ class TrendsController(rest.RestController):
                                             end_time=periods[i][1],
                                             read_cache=read_cache)
             bills_sum = gringutils._quantize_decimal(bills_sum)
-            trends.insert(0, bills_sum)
+
+            trends.insert(0, models.Trend.transform(
+                start_time=periods[i][0],
+                end_time=periods[i][-1],
+                consumption=bills_sum))
 
         return trends
 

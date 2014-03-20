@@ -324,6 +324,14 @@ class Summaries(APIBase):
     summaries = [Summary]
 
 
+class Trend(APIBase):
+    """Total sunsumption in one months
+    """
+    start_time = datetime.datetime
+    end_time = datetime.datetime
+    consumption = decimal.Decimal
+
+
 class Charge(APIBase):
     """Charge to account
     """
