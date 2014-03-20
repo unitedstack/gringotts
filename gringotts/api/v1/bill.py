@@ -17,11 +17,36 @@ from gringotts import utils as gringutils
 from gringotts.api.v1 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
+from gringotts.openstack.common import memorycache
 from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import uuidutils
 
 
 LOG = log.getLogger(__name__)
+
+# NOTE(suo): The bill sum in the past will not change forever, so
+#            we can cache them a little longer.
+BILL_CACHE_SECONDS = 60 * 60 * 24
+MC = None
+
+
+def _get_cache():
+    global MC
+    if MC is None:
+        MC = memorycache.get_client()
+    return MC
+
+
+def reset_cache():
+    """Reset the cache, mainly for testing purposes and update
+    availability_zone for host aggregate
+    """
+    global MC
+    MC = None
+
+
+def _make_cache_key(project_id, start_time, end_time):
+    return "gring-bill-sum-%s-%s-%s" % (project_id, start_time, end_time)
 
 
 class TrendsController(rest.RestController):
@@ -68,15 +93,39 @@ class TrendsController(rest.RestController):
                 end_day = start_day + datetime.timedelta(days=1)
                 periods.append((start_day, end_day))
             LOG.debug('Latest 12 days: %s' % periods)
-        for start_time, end_time in periods:
-            bills_sum = conn.get_bills_sum(request.context,
-                                           start_time=start_time,
-                                           end_time=end_time)
 
+        # NOTE(suo): The latest period will not read cache
+        for i in range(12):
+            read_cache = True
+            if i == 0:
+                read_cache = False
+            bills_sum = self._get_bills_sum(request.context,
+                                            conn,
+                                            start_time=periods[i][0],
+                                            end_time=periods[i][1],
+                                            read_cache=read_cache)
             bills_sum = gringutils._quantize_decimal(bills_sum)
             trends.insert(0, bills_sum)
 
         return trends
+
+    def _get_bills_sum(self, context, conn, start_time, end_time,
+                       read_cache=True):
+        if read_cache:
+            cache = _get_cache()
+            key = _make_cache_key(context.project_id, start_time, end_time)
+
+            bills_sum = cache.get(key)
+            if not bills_sum and bills_sum != 0:
+                bills_sum = conn.get_bills_sum(context,
+                                               start_time=start_time,
+                                               end_time=end_time)
+                cache.set(key, bills_sum, BILL_CACHE_SECONDS)
+        else:
+            bills_sum = conn.get_bills_sum(context,
+                                           start_time=start_time,
+                                           end_time=end_time)
+        return bills_sum
 
 
 class BillsController(rest.RestController):
