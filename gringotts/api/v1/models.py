@@ -308,7 +308,6 @@ class AdminAccount(APIBase):
                    project_id='project-id-yyy')
 
 
-
 class Summary(APIBase):
     """Summary of one single kind of order
     """
@@ -323,14 +322,6 @@ class Summaries(APIBase):
     total_price = decimal.Decimal
     total_count = int
     summaries = [Summary]
-
-
-class Trend(APIBase):
-    """Total sunsumption in one month
-    """
-    start_time = wtypes.text
-    end_time = wtypes.text
-    consumption = decimal.Decimal
 
 
 class Charge(APIBase):

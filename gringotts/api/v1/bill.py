@@ -2,8 +2,7 @@ import calendar
 import pecan
 import wsme
 import datetime
-
-from dateutil.relativedelta import relativedelta
+import decimal
 
 from pecan import rest
 from pecan import request
@@ -28,46 +27,55 @@ LOG = log.getLogger(__name__)
 class TrendsController(rest.RestController):
     """Summary every order type's consumption
     """
-    @wsexpose([models.Trend])
-    def get(self):
-        """Get summary of all kinds of orders in the last year
+    @wsexpose([decimal.Decimal], datetime.datetime, wtypes.text)
+    def get(self, today=None, type=None):
+        """Get summary of all kinds of orders in the latest 12 month or 12 day
+
+        :param today: Client's today wee hour
+        :param type: month, day
         """
         conn = pecan.request.db_conn
-
-        # The last 12 months from now.
-        now = datetime.datetime.utcnow()
-        first_day = datetime.datetime(now.year, now.month, 1)
-        now_day = datetime.datetime(now.year, now.month, now.day) + \
-                datetime.timedelta(hours=24)
-
-        months = [(first_day, now_day)]
-
-        for i in range(11):
-            start_month = first_day - relativedelta(months=i+1)
-            month_day = calendar.monthrange(start_month.year, start_month.month)[1]
-            end_month = start_month + datetime.timedelta(days=month_day-1) + \
-                datetime.timedelta(hours=24)
-            months.append((start_month, end_month))
-
         trends = []
+        periods = []
 
-        for start_time, end_time in months:
+        if not type:
+            type = 'month'
+        if not today:
+            now = datetime.datetime.utcnow()
+            today = datetime.datetime(now.year, now.month, now.day)
+
+        # The latest 12 months
+        if type == 'month':
+            latest_start = today - datetime.timedelta(days=today.day)
+            next_month_days = gringutils.next_month_days(latest_start.year,
+                                                         latest_start.month)
+            latest_end = latest_start + datetime.timedelta(days=next_month_days)
+            periods = [(latest_start, latest_end)]
+
+            for i in range(11):
+                last = periods[-1][0]
+                last_days = calendar.monthrange(last.year, last.month)[1]
+                start_month = last - datetime.timedelta(days=last_days)
+                periods.append((start_month, last))
+            LOG.debug('Latest 12 months: %s' % periods)
+        # The latest 12 days
+        elif type == 'day':
+            latest_end = today + datetime.timedelta(days=1)
+            periods = [(today, latest_end)]
+
+            for i in range(11):
+                start_day = today - datetime.timedelta(days=i+1)
+                end_day = start_day + datetime.timedelta(days=1)
+                periods.append((start_day, end_day))
+            LOG.debug('Latest 12 days: %s' % periods)
+        for start_time, end_time in periods:
             bills_sum = conn.get_bills_sum(request.context,
                                            start_time=start_time,
                                            end_time=end_time)
 
             bills_sum = gringutils._quantize_decimal(bills_sum)
+            trends.insert(0, bills_sum)
 
-            start_date = start_time.date()
-            start_time = "%s/%s/%s" % (start_date.month, start_date.day, start_date.year)
-
-            end_date=(end_time-datetime.timedelta(hours=24)).date()
-            end_time = "%s/%s/%s" % (end_date.month, end_date.day, end_date.year)
-
-            trends.insert(0, models.Trend.transform(
-                start_time=start_time,
-                end_time=end_time,
-                consumption=bills_sum))
         return trends
 
 
