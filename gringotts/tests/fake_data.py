@@ -336,7 +336,7 @@ NOTICE_ROUTER_1_DELETED = make_router_deleted_message(ROUTER_ID_1,
 # products
 PRODUCT_FLAVOR_TINY = {
     "product_id": "ccd5f8cd-4a5e-4016-a7ce-3ce3c59071eb",
-    "region_id": "default",
+    "region_id": "RegionOne",
     "service": "compute",
     "description": "some decs",
     "unit_price": "0.0600",
@@ -349,7 +349,7 @@ PRODUCT_FLAVOR_TINY = {
 }
 
 PRODUCT_VOLUME_SIZE = {
-    "region_id": "default",
+    "region_id": "RegionOne",
     "service": "block_storage",
     "description": "some decs",
     "unit_price": "0.0020",
@@ -363,7 +363,7 @@ PRODUCT_VOLUME_SIZE = {
 }
 
 PRODUCT_ROUTER_SIZE = {
-    "region_id": "default",
+    "region_id": "RegionOne",
     "service": "network",
     "description": "some decs",
     "unit_price": "0.0500",
@@ -377,7 +377,7 @@ PRODUCT_ROUTER_SIZE = {
 }
 
 PRODUCT_SNAPSHOT_SIZE = {
-    "region_id": "default",
+    "region_id": "RegionOne",
     "service": "block_storage",
     "description": "some decs",
     "unit_price": "0.0002",
@@ -395,7 +395,7 @@ PRODUCT_IMAGE_LICENSE = {
     "service": "compute",
     "unit_price": "0.03",
     "name": "%s:%s" % (CIRROS_IMAGE_NAME, CIRROS_IMAGE_ID),
-    "region_id": "default",
+    "region_id": "RegionOne",
     "type": "regular",
     "unit": "hour",
     "description": "some decs",

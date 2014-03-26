@@ -5,14 +5,11 @@ from oslo.config import cfg
 from stevedore import extension
 
 from gringotts import constants as const
-from gringotts import context
-from gringotts import db
-from gringotts.db import models as db_models
-from gringotts import exception
-from gringotts import master
+from gringotts import utils as gringutils
 from gringotts import plugin
 from gringotts.waiter import plugin as waiter_plugin
 from gringotts.waiter.plugin import Collection
+from gringotts.waiter.plugin import Order
 
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
@@ -30,9 +27,6 @@ OPTS = [
 
 cfg.CONF.register_opts(OPTS)
 
-db_conn = db.get_connection(cfg.CONF)
-master_api = master.API()
-
 
 class RouterItem(waiter_plugin.ProductItem):
 
@@ -41,7 +35,7 @@ class RouterItem(waiter_plugin.ProductItem):
         """
         product_name = const.PRODUCT_ROUTER
         service = const.SERVICE_NETWORK
-        region_id = 'default'
+        region_id = cfg.CONF.region_name
         resource_id = message['payload']['router']['id']
         resource_name = message['payload']['router']['name']
         resource_type = const.RESOURCE_ROUTER
@@ -66,7 +60,7 @@ product_items = extension.ExtensionManager(
 )
 
 
-class RouterNotificationBase(plugin.NotificationBase):
+class RouterNotificationBase(waiter_plugin.NotificationBase):
     @staticmethod
     def get_exchange_topics(conf):
         """Return a sequence of ExchangeTopics defining the exchange and
@@ -79,33 +73,20 @@ class RouterNotificationBase(plugin.NotificationBase):
                            for topic in conf.notification_topics)),
         ]
 
-    def create_order(self, order_id, unit_price, unit, message):
-        """Create an order for one router
+    def make_order(self, message):
+        """Make an order model for one router
         """
         resource_id = message['payload']['router']['id']
         resource_name = message['payload']['router']['name']
         user_id = None
         project_id = message['payload']['router']['tenant_id']
 
-        order_in = db_models.Order(order_id=order_id,
-                                   resource_id=resource_id,
-                                   resource_name=resource_name,
-                                   type=const.RESOURCE_ROUTER,
-                                   unit_price=unit_price,
-                                   unit=unit,
-                                   total_price=0,
-                                   cron_time=None,
-                                   date_time=None,
-                                   status=const.STATE_RUNNING,
-                                   user_id=user_id,
-                                   project_id=project_id)
-
-        try:
-            order = db_conn.create_order(context.get_admin_context(), order_in)
-        except Exception:
-            LOG.exception('Fail to create order: %s' %
-                          order_in.as_dict())
-            raise exception.DBError(reason='Fail to create order')
+        order = Order(resource_id=resource_id,
+                      resource_name=resource_name,
+                      type=const.RESOURCE_ROUTER,
+                      status=const.STATE_RUNNING,
+                      user_id=user_id,
+                      project_id=project_id)
         return order
 
 
@@ -133,19 +114,17 @@ class RouterCreateEnd(RouterNotificationBase):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
                 if sub:
-                    unit_price += sub.unit_price * sub.quantity
-                    unit = sub.unit
+                    __ = sub['unit_price'] * sub['quantity']
+                    unit_price += gringutils._quantize_decimal(__)
+                    unit = sub['unit']
 
-        # Create an order for this instance
-        order = self.create_order(order_id, unit_price, unit, message)
+        # Create an order for this router
+        self.create_order(order_id, unit_price, unit, message)
 
+        # Notify master
         remarks = 'Router Has Been Created.'
         action_time = message['timestamp']
-
-        # Notify master, just give master messages it needs
-        master_api.resource_created(context.get_admin_context(),
-                                    order.order_id,
-                                    action_time, remarks)
+        self.resource_created(order_id, action_time, remarks)
 
 
 class RouterDeleteEnd(RouterNotificationBase):
@@ -159,9 +138,8 @@ class RouterDeleteEnd(RouterNotificationBase):
 
         # Get the order of this resource
         resource_id = message['payload']['router_id']
-        order = db_conn.get_order_by_resource_id(context.get_admin_context(),
-                                                 resource_id)
-        action_time = message['timestamp']
+        order = self.get_order_by_resource_id(resource_id)
 
-        master_api.resource_deleted(context.get_admin_context(),
-                                    order.order_id, action_time)
+        # Notify master
+        action_time = message['timestamp']
+        self.resource_deleted(order['order_id'], action_time)

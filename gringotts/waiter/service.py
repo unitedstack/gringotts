@@ -19,10 +19,17 @@ OPTS = [
                help='The queue to listen on exchange for waiter'),
     cfg.StrOpt('initial_balance',
                default='10',
-               help='initial balance when an user registered')
+               help='initial balance when an user registered'),
+]
+
+OPTS_GLOBAL = [
+    cfg.StrOpt('region_name',
+               default='RegionOne',
+               help='The region this waiter is deployed'),
 ]
 
 cfg.CONF.register_opts(OPTS, group="waiter")
+cfg.CONF.register_opts(OPTS_GLOBAL)
 
 
 class WaiterService(rpc_service.Service):

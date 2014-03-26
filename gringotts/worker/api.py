@@ -3,22 +3,10 @@
 from oslo.config import cfg
 
 from gringotts.worker import rpcapi
+from gringotts.worker import httpapi
 from gringotts.worker import service
 
 from gringotts.openstack.common import log as logging
-
-worker_opts = [
-    cfg.BoolOpt('use_local',
-                default=True,
-                help='Perform gring-worker operations locally'),
-]
-
-worker_group = cfg.OptGroup(name='worker')
-
-CONF = cfg.CONF
-
-CONF.register_group(worker_group)
-CONF.register_opts(worker_opts, worker_group)
 
 LOG = logging.getLogger(__name__)
 
@@ -41,9 +29,29 @@ class LocalAPI(object):
     def destory_resource(self, ctxt, order_id):
         self._service.destory_resource(ctxt, order_id)
 
+    def create_subscription(self, ctxt, order_id, type=None, **kwargs):
+        return self._service.create_subscription(ctxt, order_id,
+                                                 type=type, **kwargs)
 
-class API(LocalAPI):
-    """Master API that handles requests via RPC to the MasterService
+    def change_subscription(self, ctxt, order_id, quantity, change_to):
+        self._service.change_subscription(ctxt, order_id, quantity, change_to)
+
+    def create_order(self, ctxt, order_id, region_id, unit_price, unit, **kwargs):
+        self._service.create_order(ctxt, order_id, region_id,
+                                   unit_price, unit, **kwargs)
+
+    def change_order(self, ctxt, order_id, change_to):
+        self._service.change_order(ctxt, order_id, change_to)
+
+    def get_orders(self, ctxt, status=None):
+        return self._service.get_orders(ctxt, status=status)
+
+    def get_order_by_resource_id(self, ctxt, resource_id):
+        return self._service.get_order_by_resource_id(ctxt, resource_id)
+
+
+class RPCAPI(LocalAPI):
+    """A rpc version of the worker API that handles all requests.
     """
 
     def __init__(self):
@@ -51,3 +59,11 @@ class API(LocalAPI):
 
     def wait_until_ready(self, context, early_timeout=10, early_attempts=10):
         pass
+
+
+class HTTPAPI(LocalAPI):
+    """Http version of the worker api that handles all requests
+    """
+
+    def __init__(self):
+        self._service = httpapi.WorkerAPI()

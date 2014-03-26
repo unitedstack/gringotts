@@ -4,6 +4,7 @@ rabbit_port=5672
 rabbit_userid=guest
 rabbit_password=rachel
 
+region_name=RegionOne
 auth_strategy=keystone
 debug=True
 
@@ -12,20 +13,29 @@ queue_name=gringotts.notification
 initial_balance=10
 
 [master]
-use_local=Flase
 reserved_days=7
-apscheduler_threadpool_max_threads=20
+apscheduler_threadpool_max_threads=10
 apscheduler_threadpool_core_threads=10
 
 [worker]
-use_local=True
+# There are three options: local, rpc, http
+protocol=local
+
+# If protocol is http, we should configure the options used by authentication:
+# protocol=http
+# username=admin
+# password=admin
+# project_name=admin
+# user_domain_name=Default
+# project_domain_name=Default
+# auth_url=http://localhost:35357/v3
 
 [database]
 connection=mysql://root:admin@localhost/gringotts?charset=utf8
 
 [keystone_authtoken]
 auth_protocol=http
-auth_host=127.0.0.1
+auth_host=localhost
 auth_port=35357
 auth_version=v3.0
 admin_user=admin

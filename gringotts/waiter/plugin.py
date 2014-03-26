@@ -5,17 +5,19 @@ from oslo.config import cfg
 
 from gringotts import context
 from gringotts import db
-from gringotts.db import models as db_models
-from gringotts import exception
 from gringotts import plugin
+from gringotts import worker
+from gringotts import master
 
 from gringotts.openstack.common import log
-from gringotts.openstack.common import uuidutils
 
 
 db_conn = db.get_connection(cfg.CONF)
 
 LOG = log.getLogger(__name__)
+
+worker_api = worker.API()
+master_api = master.API()
 
 
 class Collection(object):
@@ -48,72 +50,86 @@ class ProductItem(plugin.PluginBase):
         """Get collection from message
         """
 
-    def _get_product(self, collection):
-        """Get product from db
-        """
-        filters = dict(name=collection.product_name,
-                       service=collection.service,
-                       region_id=collection.region_id)
-
-        result = list(db_conn.get_products(context.get_admin_context(),
-                                           filters=filters))
-
-        if len(result) > 1:
-            msg = "Duplicated products with name(%s) within service(%s) in region_id(%s)" % \
-                   (collection.product_name, collection.service, collection.region_id)
-            LOG.error(msg)
-            raise exception.DuplicatedProduct(reason=msg)
-
-        if len(result) == 0:
-            msg = "Product with name(%s) within service(%s) in region_id(%s) not found" % \
-                   (collection.product_name, collection.service, collection.region_id)
-            LOG.warning(msg)
-            return None
-
-        return result[0]
-
     def create_subscription(self, message, order_id, type=None):
         """Subscribe to this product
         """
         collection = self.get_collection(message)
-        product = self._get_product(collection)
 
-        # We don't bill the resource which can't find its products
-        if not product:
-            return None
+        LOG.debug('Create subscription for order: %s' % order_id)
 
-        # Create subscription
-        subscription_id = uuidutils.generate_uuid()
-        product_id = product.product_id
-        # copy unit price of the product to subscription
-        unit_price = product.unit_price
-        unit = product.unit
-        quantity = collection.resource_volume
-        total_price = 0
-        user_id = collection.user_id
-        project_id = collection.project_id
+        result = worker_api.create_subscription(context.get_admin_context(),
+                                                order_id,
+                                                type=type,
+                                                **collection.as_dict())
+        return result
 
-        subscription_in = db_models.Subscription(
-            subscription_id, type, product_id, unit_price, unit,
-            quantity, total_price, order_id, user_id, project_id)
 
-        try:
-            subscription = db_conn.create_subscription(context.get_admin_context(),
-                                                       subscription_in)
-        except Exception:
-            LOG.exception('Fail to create subscription: %s' %
-                          subscription_in.as_dict())
-            raise exception.DBError(reason='Fail to create subscription')
+class Order(object):
+    """Some field collection that ProductItem will use to get product or
+    to create/update/delete subscription
+    """
+    def __init__(self, resource_id, resource_name, user_id, project_id,
+                 type, status):
+        self.resource_id = resource_id
+        self.resource_name = resource_name
+        self.user_id = user_id
+        self.project_id = project_id
+        self.type = type
+        self.status = status
 
-        # Update product
-        try:
-            product = db_conn.get_product(context.get_admin_context(),
-                                          product_id)
-            product.quantity += quantity
-            db_conn.update_product(context.get_admin_context(), product)
-        except Exception:
-            LOG.error("Fail to update the product\'s quantity: %s"
-                      % subscription.as_dict())
-            raise exception.DBError(reason='Fail to update the product')
+    def as_dict(self):
+        return copy.copy(self.__dict__)
 
-        return subscription
+
+class NotificationBase(plugin.NotificationBase):
+
+    @abc.abstractmethod
+    def make_order(self, message):
+        """Collect distinct fileds from different plugins
+        """
+
+    def create_order(self, order_id, unit_price, unit, message):
+        """Create an order for resource created
+        """
+        order = self.make_order(message)
+
+        LOG.debug('Create order for order_id: %s' % order_id)
+
+        worker_api.create_order(context.get_admin_context(),
+                                order_id,
+                                cfg.CONF.region_name,
+                                unit_price,
+                                unit,
+                                **order.as_dict())
+
+    def get_order_by_resource_id(self, resource_id):
+        return worker_api.get_order_by_resource_id(context.get_admin_context(),
+                                                   resource_id)
+
+    def resource_created(self, order_id, action_time, remarks):
+        """Notify master that resource has been created
+        """
+        master_api.resource_created(context.get_admin_context(),
+                                    order_id,
+                                    action_time, remarks)
+
+    def resource_deleted(self, order_id, action_time):
+        """Notify master that resource has been deleted
+        """
+        master_api.resource_deleted(context.get_admin_context(),
+                                    order_id,
+                                    action_time)
+
+    def resource_resized(self, order_id, action_time, quantity, remarks):
+        """Notify master that resource has been resized
+        """
+        master_api.resource_resized(context.get_admin_context(),
+                                    order_id,
+                                    action_time, quantity, remarks)
+
+    def resource_changed(self, order_id, action_time, change_to, remarks):
+        """Notify master that resource has been changed
+        """
+        master_api.resource_changed(context.get_admin_context(),
+                                    order_id,
+                                    action_time, change_to, remarks)

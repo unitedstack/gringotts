@@ -62,6 +62,7 @@ def upgrade():
 
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255), index=True),
+        sa.Column('region_id', sa.String(255)),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -88,6 +89,7 @@ def upgrade():
 
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255), index=True),
+        sa.Column('region_id', sa.String(255)),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -119,6 +121,7 @@ def upgrade():
 
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255), index=True),
+        sa.Column('region_id', sa.String(255)),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),

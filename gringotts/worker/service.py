@@ -13,26 +13,22 @@ from gringotts.service import prepare_service
 
 
 TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
-
 LOG = log.getLogger(__name__)
-
-OPTS = []
-
-cfg.CONF.register_opts(OPTS, group="worker")
-
-cfg.CONF.import_opt('worker_topic', 'gringotts.worker.rpcapi',
-                    group='worker')
 
 
 class WorkerService(rpc_service.Service):
+    """Worker execute commands from other components via db_conn or http.
+    There is no logical in worker, it is just a worker that do jobs. The
+    logical is in master and waiter.
+    """
 
     def __init__(self, *args, **kwargs):
         kwargs.update(
             host=cfg.CONF.host,
             topic=cfg.CONF.worker.worker_topic,
         )
-        self.db_conn = db.get_connection(cfg.CONF)
         self.ctxt = context.get_admin_context()
+        self.db_conn = db.get_connection(cfg.CONF)
         super(WorkerService, self).__init__(*args, **kwargs)
 
     def start(self):
@@ -65,6 +61,37 @@ class WorkerService(rpc_service.Service):
 
     def destory_resource(self, ctxt, order_id):
         LOG.debug('Destroy the resource because of owed')
+
+    def create_subscription(self, ctxt, order_id, type=None, **kwargs):
+        sub = dict(order_id=order_id,
+                   type=type,
+                   **kwargs)
+        return self.db_conn.create_subscription(ctxt, **sub)
+
+    def change_subscription(self, ctxt, order_id, quantity, change_to):
+        kwargs = dict(order_id=order_id,
+                      quantity=quantity,
+                      change_to=change_to)
+        self.db_conn.update_subscription(ctxt, **kwargs)
+
+    def create_order(self, ctxt, order_id, region_id, unit_price, unit, **kwargs):
+        order = dict(order_id=order_id,
+                     region_id=region_id,
+                     unit_price=unit_price,
+                     unit=unit,
+                     **kwargs)
+        self.db_conn.create_order(ctxt, **order)
+
+    def change_order(self, ctxt, order_id, change_to):
+        kwargs = dict(order_id=order_id,
+                      change_to=change_to)
+        self.db_conn.update_order(ctxt, **kwargs)
+
+    def get_orders(self, ctxt, status=None):
+        return self.db_conn.get_orders(ctxt, status=status)
+
+    def get_order_by_resource_id(self, ctxt, resource_id):
+        return self.db_conn.get_order_by_resource_id(ctxt, resource_id)
 
 
 def worker():

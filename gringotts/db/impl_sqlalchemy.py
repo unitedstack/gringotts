@@ -7,7 +7,7 @@ import functools
 import os
 from sqlalchemy import desc, asc
 from sqlalchemy import func
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 from gringotts import constants as const
 from gringotts import context as gring_context
@@ -197,6 +197,7 @@ class Connection(base.Connection):
                                date_time=row.date_time,
                                user_id=row.user_id,
                                project_id=row.project_id,
+                               region_id=row.region_id,
                                created_at=row.created_at,
                                updated_at=row.updated_at)
 
@@ -212,6 +213,7 @@ class Connection(base.Connection):
                                       order_id=row.order_id,
                                       user_id=row.user_id,
                                       project_id=row.project_id,
+                                      region_id=row.region_id,
                                       created_at=row.created_at,
                                       updated_at=row.updated_at)
 
@@ -230,6 +232,7 @@ class Connection(base.Connection):
                               remarks=row.remarks,
                               user_id=row.user_id,
                               project_id=row.project_id,
+                              region_id=row.region_id,
                               created_at=row.created_at,
                               updated_at=row.updated_at)
 
@@ -329,24 +332,53 @@ class Connection(base.Connection):
         return self._row_to_db_product_model(ref)
 
     @require_admin_context
-    def create_order(self, context, order):
+    def create_order(self, context, **order):
         session = db_session.get_session()
         with session.begin():
-            ref = sa_models.Order()
-            ref.update(order.as_dict())
+            ref = sa_models.Order(
+                order_id=order['order_id'],
+                resource_id=order['resource_id'],
+                resource_name=order['resource_name'],
+                type=order['type'],
+                unit_price=order['unit_price'],
+                unit=order['unit'],
+                total_price=0,
+                cron_time=None,
+                date_time=None,
+                status=order['status'],
+                user_id=order['user_id'],
+                project_id=order['project_id'],
+                region_id=order['region_id']
+            )
             session.add(ref)
         return self._row_to_db_order_model(ref)
 
     @require_admin_context
-    def update_order(self, context, order_id, **kwargs):
+    def update_order(self, context, **kwargs):
         session = db_session.get_session()
         with session.begin():
-            query = model_query(context, sa_models.Order)
-            query = query.filter_by(order_id=order_id)
-            query = query.with_lockmode('update')
-            query.update(kwargs, synchronize_session='fetch')
-            ref = query.one()
-        return self._row_to_db_order_model(ref)
+            # Get subs of this order
+            subs = model_query(context, sa_models.Subscription, session=session).\
+                filter_by(order_id=kwargs['order_id']).\
+                filter_by(type=kwargs['change_to']).\
+                with_lockmode('read').all()
+
+            # caculate new unit price
+            unit_price = 0
+            unit = None
+
+            for sub in subs:
+                unit_price += sub.unit_price * sub.quantity
+                unit = sub.unit
+
+            # update the order
+            order = model_query(context, sa_models.Order, session=session).\
+                filter_by(order_id=kwargs['order_id']).\
+                with_lockmode('update').\
+                update(dict(unit_price=unit_price,
+                            unit=unit,
+                            status=kwargs['change_to'],
+                            updated_at=datetime.datetime.utcnow()))
 
     @require_context
     def get_order_by_resource_id(self, context, resource_id):
@@ -375,7 +407,7 @@ class Connection(base.Connection):
     @require_context
     def get_orders(self, context, start_time=None, end_time=None, type=None,
                    status=None, limit=None, offset=None, sort_key=None,
-                   sort_dir=None, with_count=False):
+                   sort_dir=None, with_count=False, region_id=None):
         """Get orders that have bills during start_time and end_time.
         If start_time is None or end_time is None, will ignore the datetime
         range, and return all orders
@@ -386,6 +418,8 @@ class Connection(base.Connection):
             query = query.filter_by(type=type)
         if status:
             query = query.filter_by(status=status)
+        if region_id:
+            query = query.filter_by(region_id=region_id)
 
         if all([start_time, end_time]):
             query = query.join(sa_models.Bill,
@@ -407,23 +441,61 @@ class Connection(base.Connection):
             return (self._row_to_db_order_model(o) for o in result)
 
     @require_admin_context
-    def create_subscription(self, context, subscription):
+    def create_subscription(self, context, **subscription):
         session = db_session.get_session()
         with session.begin():
-            sub_ref = sa_models.Subscription()
-            sub_ref.update(subscription.as_dict())
-            session.add(sub_ref)
-        return self._row_to_db_subscription_model(sub_ref)
+            # Get product
+            try:
+                product = model_query(context, sa_models.Product, session=session).\
+                        filter_by(name=subscription['product_name']).\
+                        filter_by(service=subscription['service']).\
+                        filter_by(region_id=subscription['region_id']).\
+                        filter_by(deleted=False).\
+                        with_lockmode('update').one()
+            except NoResultFound:
+                msg = "Product with name(%s) within service(%s) in region_id(%s) not found" % \
+                       (subscription['product_name'], subscription['service'], subscription['region_id'])
+                LOG.warning(msg)
+                return None
+            except MultipleResultsFound:
+                msg = "Duplicated products with name(%s) within service(%s) in region_id(%s)" % \
+                       (subscription['product_name'], subscription['service'], subscription['region_id'])
+                LOG.error(msg)
+                raise exception.DuplicatedProduct(reason=msg)
 
-    @require_admin_context
-    def update_subscription(self, context, subscription):
+            quantity = subscription['resource_volume']
+
+            subscription = sa_models.Subscription(
+                subscription_id=uuidutils.generate_uuid(),
+                type=subscription['type'],
+                product_id=product.product_id,
+                unit_price=product.unit_price,
+                unit=product.unit,
+                quantity=quantity,
+                total_price=0,
+                order_id=subscription['order_id'],
+                user_id=subscription['user_id'],
+                project_id=subscription['project_id'],
+                region_id=subscription['region_id']
+            )
+
+            session.add(subscription)
+
+            # Update product
+            product.quantity += quantity
+
+        return self._row_to_db_subscription_model(subscription)
+
+    def update_subscription(self, context, **kwargs):
         session = db_session.get_session()
         with session.begin():
-            query = model_query(context, sa_models.Subscription)
-            query = query.filter_by(subscription_id=subscription.subscription_id)
-            query.update(subscription.as_dict(), synchronize_session='fetch')
-            ref = query.one()
-        return self._row_to_db_subscription_model(ref)
+            subs = model_query(context, sa_models.Subscription, session=session).\
+                filter_by(order_id=kwargs['order_id']).\
+                filter_by(type=kwargs['change_to']).\
+                with_lockmode('update').all()
+
+            for sub in subs:
+                sub.quantity = kwargs['quantity']
 
     @require_context
     def get_subscriptions_by_order_id(self, context, order_id, type=None):
@@ -541,7 +613,7 @@ class Connection(base.Connection):
         return query.one().count or 0
 
     @require_context
-    def get_bills_sum(self, context, start_time=None, end_time=None,
+    def get_bills_sum(self, context, region_id=None, start_time=None, end_time=None,
                       order_id=None, type=None):
         query = model_query(context, sa_models.Bill,
                             func.sum(sa_models.Bill.total_price).label('sum'))
@@ -549,6 +621,8 @@ class Connection(base.Connection):
             query = query.filter_by(order_id=order_id)
         if type:
             query = query.filter_by(type=type)
+        if region_id:
+            query = query.filter_by(region_id=region_id)
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Bill.start_time >= start_time,
@@ -601,7 +675,7 @@ class Connection(base.Connection):
 
         return (self._row_to_db_account_model(r) for r in result)
 
-    @require_context
+    @require_admin_context
     def update_account(self, context, account):
         session = db_session.get_session()
         with session.begin():
@@ -611,7 +685,7 @@ class Connection(base.Connection):
             ref = query.one()
         return self._row_to_db_account_model(ref)
 
-    @require_context
+    @require_admin_context
     def create_charge(self, context, charge):
         session = db_session.get_session()
         with session.begin():
@@ -677,7 +751,8 @@ class Connection(base.Connection):
                                   resource_id=order.resource_id,
                                   remarks=remarks,
                                   user_id=order.user_id,
-                                  project_id=order.project_id)
+                                  project_id=order.project_id,
+                                  region_id=order.region_id)
             session.add(bill)
 
             # Update the order

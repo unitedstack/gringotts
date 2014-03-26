@@ -179,10 +179,47 @@ class Subscription(APIBase):
     """
     unit_price = decimal.Decimal
     quantity = int
+    unit = wtypes.text
     total_price = decimal.Decimal
     user_id = wtypes.text
     project_id = wtypes.text
     created_at =  datetime.datetime
+
+
+class SubscriptionPostBody(APIBase):
+    product_name = wtypes.text
+    service = wtypes.text
+    region_id = wtypes.text
+    resource_volume = int
+    order_id = wtypes.text
+    type = wtypes.text
+    user_id = wtypes.text
+    project_id = wtypes.text
+
+
+class SubscriptionPutBody(APIBase):
+    order_id = wtypes.text
+    quantity = int
+
+
+class OrderPostBody(APIBase):
+    """One single order
+    """
+    order_id = wtypes.text
+    unit_price = decimal.Decimal
+    unit = wtypes.text
+    resource_id = wtypes.text
+    resource_name = wtypes.text
+    user_id = wtypes.text
+    project_id = wtypes.text
+    region_id = wtypes.text
+    type = wtypes.text
+    status = wtypes.text
+
+
+class OrderPutBody(APIBase):
+    order_id = wtypes.text
+    change_to = wtypes.text
 
 
 class Order(APIBase):
@@ -195,6 +232,7 @@ class Order(APIBase):
     unit_price = decimal.Decimal
     total_price = decimal.Decimal
     type = wtypes.text
+    cron_time = datetime.datetime
     created_at = datetime.datetime
 
     @classmethod
@@ -231,6 +269,12 @@ class Orders(APIBase):
         return cls(total_count=13,
                    orders=[Order.sample1(),
                            Order.sample2()])
+
+
+class BillBody(APIBase):
+    order_id = wtypes.text
+    action_time = datetime.datetime
+    remarks = wtypes.text
 
 
 class Bill(APIBase):

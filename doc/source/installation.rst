@@ -45,7 +45,7 @@ Installation
     reserved_days=7
 
     [worker]
-    use_local=True
+    protocol=local
 
     [database]
     connection=mysql://root:admin@localhost/gringotts?charset=utf8

@@ -45,15 +45,18 @@ def reset_cache():
     MC = None
 
 
-def _make_cache_key(project_id, start_time, end_time):
-    return "gring-bill-sum-%s-%s-%s" % (project_id, start_time, end_time)
+def _make_cache_key(region_id, project_id, start_time, end_time):
+    if region_id:
+        return "%s-%s-%s-%s" % (project_id, region_id, start_time, end_time)
+    else:
+        return "%s-%s-%s" % (project_id, start_time, end_time)
 
 
 class TrendsController(rest.RestController):
     """Summary every order type's consumption
     """
-    @wsexpose([models.Trend], datetime.datetime, wtypes.text)
-    def get(self, today=None, type=None):
+    @wsexpose([models.Trend], datetime.datetime, wtypes.text, wtypes.text)
+    def get(self, today=None, type=None, region_id=None):
         """Get summary of all kinds of orders in the latest 12 month or 12 day
 
         :param today: Client's today wee hour
@@ -104,6 +107,7 @@ class TrendsController(rest.RestController):
                 read_cache = False
             bills_sum = self._get_bills_sum(request.context,
                                             conn,
+                                            region_id=region_id,
                                             start_time=periods[i][0],
                                             end_time=periods[i][1],
                                             read_cache=read_cache)
@@ -116,20 +120,23 @@ class TrendsController(rest.RestController):
 
         return trends
 
-    def _get_bills_sum(self, context, conn, start_time, end_time,
+    def _get_bills_sum(self, context, conn, region_id, start_time, end_time,
                        read_cache=True):
         if read_cache:
             cache = _get_cache()
-            key = _make_cache_key(context.project_id, start_time, end_time)
+            key = _make_cache_key(context.project_id, region_id,
+                                  start_time, end_time)
 
             bills_sum = cache.get(key)
             if not bills_sum and bills_sum != 0:
                 bills_sum = conn.get_bills_sum(context,
+                                               region_id=region_id,
                                                start_time=start_time,
                                                end_time=end_time)
                 cache.set(key, bills_sum, BILL_CACHE_SECONDS)
         else:
             bills_sum = conn.get_bills_sum(context,
+                                           region_id=region_id,
                                            start_time=start_time,
                                            end_time=end_time)
         return bills_sum
@@ -169,3 +176,26 @@ class BillsController(rest.RestController):
         return models.Bills.transform(total_price=total_price,
                                       total_count=total_count,
                                       bills=bills)
+
+    @wsexpose(None, body=models.BillBody)
+    def post(self, data):
+        conn = pecan.request.db_conn
+        try:
+            conn.create_bill(request.context, data['order_id'],
+                             action_time=data['action_time'],
+                             remarks=data['remarks'])
+            LOG.debug('Create bill for order %s successfully.' % data['order_id'])
+        except Exception:
+            LOG.exception('Fail to create bill for the order: %s' % data['order_id'])
+            raise exception.BillCreateFailed(order_id=data['order_id'])
+
+    @wsexpose(None, body=models.BillBody)
+    def put(self, data):
+        conn = pecan.request.db_conn
+        try:
+            conn.close_bill(request.context, data['order_id'],
+                            action_time=data['action_time'])
+            LOG.debug('Close bill for order %s successfully.' % data['order_id'])
+        except Exception:
+            LOG.exception('Fail to close bill for the order: %s' % data['order_id'])
+            raise exception.BillCloseFailed(order_id=data['order_id'])

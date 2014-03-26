@@ -10,9 +10,6 @@ from apscheduler.scheduler import Scheduler as APScheduler
 
 from gringotts import constants as const
 from gringotts import context
-from gringotts import db
-from gringotts.db import models as db_models
-from gringotts import exception
 from gringotts import worker
 
 from gringotts.openstack.common import log
@@ -36,12 +33,12 @@ OPTS = [
     cfg.IntOpt('apscheduler_threadpool_core_threads',
                default=10,
                help='Maximum number of persistent threads in the pool'),
+    cfg.StrOpt('master_topic',
+               default='gringotts.master',
+               help='the topic master listen on'),
 ]
 
 cfg.CONF.register_opts(OPTS, group="master")
-
-cfg.CONF.import_opt('master_topic', 'gringotts.master.rpcapi',
-                    group='master')
 
 
 class MasterService(rpc_service.Service):
@@ -51,7 +48,6 @@ class MasterService(rpc_service.Service):
             host=cfg.CONF.host,
             topic=cfg.CONF.master.master_topic,
         )
-        self.db_conn = db.get_connection(cfg.CONF)
         self.worker_api = worker.API()
 
         config = {
@@ -84,22 +80,30 @@ class MasterService(rpc_service.Service):
         states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
         for s in states:
             LOG.debug('Loading jobs in %s state' % s)
-            orders = self.db_conn.get_orders(self.ctxt, status=s)
+
+            orders = self.worker_api.get_orders(self.ctxt, status=s)
+
             for order in orders:
-                if not order.cron_time:
+                if not order['cron_time']:
                     continue
+                elif isinstance(order['cron_time'], basestring):
+                    cron_time = timeutils.parse_strtime(order['cron_time'],
+                                                        fmt=timeutils._ISO8601_TIME_FORMAT)
+                else:
+                    cron_time = order['cron_time']
+
                 danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
-                if order.cron_time > danger_time:
-                    self._create_cron_job(order.order_id,
-                                          start_date=order.cron_time)
+                if cron_time > danger_time:
+                    self._create_cron_job(order['order_id'],
+                                          start_date=cron_time)
                 else:
                     LOG.warning('The order(%s) is in danger time after master started'
-                                % order.order_id)
-                    while order.cron_time <= danger_time:
-                        self._pre_deduct(order.order_id)
-                        order.cron_time += datetime.timedelta(hours=1)
-                    self._create_cron_job(order.order_id,
-                                          start_date=order.cron_time)
+                                % order['order_id'])
+                    while cron_time <= danger_time:
+                        self._pre_deduct(order['order_id'])
+                        cron_time += datetime.timedelta(hours=1)
+                    self._create_cron_job(order['order_id'],
+                                          start_date=cron_time)
 
     def _pre_deduct(self, order_id):
         remarks = 'Hourly Billing'
@@ -160,39 +164,6 @@ class MasterService(rpc_service.Service):
         self.apsched.unschedule_job(job)
         del self.date_jobs[order_id]
 
-    def _change_subscription(self, order_id, quantity):
-        subs = self.db_conn.get_subscriptions_by_order_id(
-                self.ctxt, order_id, type=const.STATE_RUNNING)
-        if subs:
-            sub = list(subs)[0]
-            sub.quantity = quantity
-            self.db_conn.update_subscription(self.ctxt, sub)
-
-    def _change_order(self, order_id, change_to):
-        # Get new unit price and update subscriptions
-        subscriptions = self.db_conn.get_subscriptions_by_order_id(
-            self.ctxt,
-            order_id,
-            type=change_to)
-
-        unit_price = 0
-        unit = None
-
-        for sub in subscriptions:
-            unit_price += sub.unit_price * sub.quantity
-            unit = sub.unit
-
-        # Update the order
-        try:
-            self.db_conn.update_order(self.ctxt, order_id,
-                                      unit_price=unit_price,
-                                      unit=unit,
-                                      status=change_to,
-                                      updated_at=datetime.datetime.utcnow())
-        except Exception:
-            LOG.warning('Fail to update the order: %s' % order_id)
-            raise exception.DBError(reason='Fail to update the order')
-
     def resource_created(self, ctxt, order_id, action_time, remarks):
         LOG.debug('Resource created, its order_id: %s, action_time: %s',
                   order_id, action_time)
@@ -204,7 +175,7 @@ class MasterService(rpc_service.Service):
                   (order_id, action_time))
         self.worker_api.close_bill(self.ctxt, order_id, action_time)
         self._delete_cron_job(order_id)
-        self._change_order(order_id, const.STATE_DELETED)
+        self.worker_api.change_order(self.ctxt, order_id, const.STATE_DELETED)
 
     def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
         LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to: %s'
@@ -214,7 +185,7 @@ class MasterService(rpc_service.Service):
         self._delete_cron_job(order_id)
 
         # change the order's unit price and its active subscriptions
-        self._change_order(order_id, change_to)
+        self.worker_api.change_order(self.ctxt, order_id, change_to)
 
         # create a new bill for the updated order
         self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
@@ -228,10 +199,11 @@ class MasterService(rpc_service.Service):
         self._delete_cron_job(order_id)
 
         # change subscirption's quantity
-        self._change_subscription(order_id, quantity)
+        self.worker_api.change_subscription(self.ctxt, order_id,
+                                            quantity, const.STATE_RUNNING)
 
         # change the order's unit price and its active subscriptions
-        self._change_order(order_id, const.STATE_RUNNING)
+        self.worker_api.change_order(self.ctxt, order_id, const.STATE_RUNNING)
 
         # create a new bill for the updated order
         self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)

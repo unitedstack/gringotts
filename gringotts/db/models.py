@@ -94,7 +94,7 @@ class Order(Model):
     def __init__(self,
                  order_id, resource_id, resource_name, type, status,
                  unit_price, unit, total_price, cron_time, date_time,
-                 user_id, project_id, created_at=None, updated_at=None):
+                 user_id, project_id, region_id, created_at=None, updated_at=None):
         Model.__init__(
             self,
             order_id=order_id,
@@ -109,6 +109,7 @@ class Order(Model):
             date_time=date_time,
             user_id=user_id,
             project_id=project_id,
+            region_id=region_id,
             created_at=created_at,
             updated_at=updated_at)
 
@@ -131,7 +132,7 @@ class Subscription(Model):
     def __init__(self,
                  subscription_id, type, product_id, unit_price, unit,
                  quantity, total_price, order_id, user_id, project_id,
-                 created_at=None, updated_at=None):
+                 region_id, created_at=None, updated_at=None):
         Model.__init__(
             self,
             subscription_id=subscription_id,
@@ -144,6 +145,7 @@ class Subscription(Model):
             order_id=order_id,
             user_id=user_id,
             project_id=project_id,
+            region_id=region_id,
             created_at=created_at,
             updated_at=updated_at)
 
@@ -168,7 +170,7 @@ class Bill(Model):
     def __init__(self,
                  bill_id, start_time, end_time, type, status, unit_price, unit,
                  total_price, order_id, resource_id, remarks, user_id,
-                 project_id, created_at=None, updated_at=None):
+                 project_id, region_id, created_at=None, updated_at=None):
         Model.__init__(
             self,
             bill_id=bill_id,
@@ -184,6 +186,7 @@ class Bill(Model):
             remarks=remarks,
             user_id=user_id,
             project_id=project_id,
+            region_id=region_id,
             created_at=created_at,
             updated_at=updated_at)
 

@@ -122,6 +122,7 @@ class Order(Base):
 
     user_id = Column(String(255))
     project_id = Column(String(255))
+    region_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
@@ -153,6 +154,7 @@ class Subscription(Base):
 
     user_id = Column(String(255))
     project_id = Column(String(255))
+    region_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
@@ -188,6 +190,7 @@ class Bill(Base):
 
     user_id = Column(String(255))
     project_id = Column(String(255))
+    region_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)

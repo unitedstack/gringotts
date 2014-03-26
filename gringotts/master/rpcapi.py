@@ -6,15 +6,8 @@ from gringotts.openstack.common.rpc import proxy
 
 LOG = log.getLogger(__name__)
 
-
-rpcapi_opts = [
-    cfg.StrOpt('master_topic',
-               default='gringotts.master',
-               help='the topic master listen on')
-]
-
-cfg.CONF.register_opts(rpcapi_opts, group='master')
-
+cfg.CONF.import_opt('master_topic', 'gringotts.master.service',
+                    group='master')
 
 class MasterAPI(proxy.RpcProxy):
     BASE_RPC_VERSION = '1.0'
