@@ -71,7 +71,10 @@ class TrendsController(rest.RestController):
 
         # The latest 12 months
         if type == 'month':
-            latest_start = today - datetime.timedelta(days=today.day)
+            if calendar.monthrange(today.year, today.month)[1] == today.day:
+                latest_start = today
+            else:
+                latest_start = today - datetime.timedelta(days=today.day)
             next_month_days = gringutils.next_month_days(latest_start.year,
                                                          latest_start.month)
             latest_end = latest_start + datetime.timedelta(days=next_month_days)
