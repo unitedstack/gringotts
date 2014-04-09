@@ -410,7 +410,8 @@ FAKE_ACCOUNT_DEMO = {
     "project_id": DEMO_PROJECT_ID,
     "balance": 100,
     "consumption": 0,
-    "currency": "CNY"
+    "currency": "CNY",
+    "level": 3
 }
 
 FAKE_ACCOUNT_ADMIN = {
@@ -418,5 +419,6 @@ FAKE_ACCOUNT_ADMIN = {
     "project_id": ADMIN_PROJECT_ID,
     "balance": 8975,
     "consumption": 9527,
-    "currency": "CNY"
+    "currency": "CNY",
+    "level": 3
 }

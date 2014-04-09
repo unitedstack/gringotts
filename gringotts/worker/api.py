@@ -20,11 +20,11 @@ class LocalAPI(object):
         self._service = service.WorkerService()
 
     def create_bill(self, ctxt, order_id, action_time=None, remarks=None):
-        self._service.create_bill(ctxt, order_id, action_time=action_time,
-                                  remarks=remarks)
+        return self._service.create_bill(ctxt, order_id, action_time=action_time,
+                                         remarks=remarks)
 
     def close_bill(self, ctxt, order_id, action_time):
-        self._service.close_bill(ctxt, order_id, action_time)
+        return self._service.close_bill(ctxt, order_id, action_time)
 
     def destory_resource(self, ctxt, order_id):
         self._service.destory_resource(ctxt, order_id)
@@ -43,11 +43,25 @@ class LocalAPI(object):
     def change_order(self, ctxt, order_id, change_to):
         self._service.change_order(ctxt, order_id, change_to)
 
-    def get_orders(self, ctxt, status=None):
-        return self._service.get_orders(ctxt, status=status)
+    def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):
+        return self._service.get_orders(ctxt,
+                                        status=status,
+                                        project_id=project_id,
+                                        owed=owed,
+                                        region_id=region_id)
+
+    def get_active_order_count(self, ctxt, region_id=None):
+        return self._service.get_active_order_count(ctxt,
+                                                    region_id=region_id)
 
     def get_order_by_resource_id(self, ctxt, resource_id):
         return self._service.get_order_by_resource_id(ctxt, resource_id)
+
+    def create_account(self, ctxt, user_id, project_id, balance,
+                       consumption, currency, level, **kwargs):
+        self._service.create_account(ctxt, user_id, project_id,
+                                     balance, consumption, currency,
+                                     level, **kwargs)
 
 
 class RPCAPI(LocalAPI):

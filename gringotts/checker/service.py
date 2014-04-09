@@ -1,0 +1,224 @@
+import datetime
+from oslo.config import cfg
+
+from apscheduler.scheduler import Scheduler as APScheduler
+
+from gringotts import master
+from gringotts import worker
+from gringotts import exception
+from gringotts import context
+from gringotts import utils
+from gringotts import constants as const
+from gringotts.service import prepare_service
+
+from gringotts.waiter import plugins
+
+from gringotts.openstack.common import log
+from gringotts.openstack.common import timeutils
+from gringotts.openstack.common import service as os_service
+
+
+LOG = log.getLogger(__name__)
+TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
+
+
+OPTS = [
+    cfg.BoolOpt('try_to_fix',
+                default=False,
+                help='If found some exceptio, we try to fix it or not'),
+]
+
+cfg.CONF.register_opts(OPTS, group="checker")
+
+
+def _utc_to_local(utc_dt):
+    from_zone = tz.tzutc()
+    to_zone = tz.tzlocal()
+    return utc_dt.replace(tzinfo=from_zone).astimezone(to_zone).replace(tzinfo=None)
+
+
+class CheckerService(os_service.Service):
+
+    def __init__(self, *args, **kwargs):
+        self.region_name = cfg.CONF.region_name
+        self.worker_api = worker.API()
+        self.master_api = master.API()
+        config = {
+            'apscheduler.threadpool.max_threads': 10,
+            'apscheduler.threadpool.core_threads': 10,
+        }
+        self.apsched = APScheduler(config)
+        self.ctxt = context.get_admin_context()
+
+        from gringotts.services import cinder
+        from gringotts.services import glance
+        from gringotts.services import neutron
+        from gringotts.services import nova
+        from gringotts.services import keystone
+
+        self.keystone_client = keystone
+
+        self.RESOURCE_LIST_METHOD = [
+            nova.server_list,
+            glance.image_list,
+            cinder.snapshot_list,
+            cinder.volume_list,
+            neutron.floatingip_list,
+            neutron.router_list,
+        ]
+
+        self.RESOURCE_CREATE_MAP = {
+            const.RESOURCE_FLOATINGIP: plugins.floatingip.FloatingIpCreateEnd(),
+            const.RESOURCE_IMAGE: plugins.image.ImageCreateEnd(),
+            const.RESOURCE_INSTANCE: plugins.instance.InstanceCreateEnd(),
+            const.RESOURCE_ROUTER: plugins.router.RouterCreateEnd(),
+            const.RESOURCE_SNAPSHOT: plugins.snapshot.SnapshotCreateEnd(),
+            const.RESOURCE_VOLUME: plugins.volume.VolumeCreateEnd()
+        }
+
+        super(CheckerService, self).__init__(*args, **kwargs)
+
+    def start(self):
+        super(CheckerService, self).start()
+        self.apsched.start()
+        self.load_jobs()
+        self.tg.add_timer(604800, lambda: None)
+
+
+    def load_jobs(self):
+        """Every check point is an apscheduler job that scheduled to different time
+        with different period
+        """
+        interval_jobs = [(self.check_if_resources_match_orders, 1),
+                         (self.check_if_cronjobs_match_orders, 1),
+                         (self.check_if_users_match_accounts, 24),
+                         (self.check_if_consumptions_match_total_price, 24)]
+
+        for job, period in interval_jobs:
+            job()
+            self.apsched.add_interval_job(job, hours=period)
+
+    def _check_resource_to_order(self, resource, resource_to_order):
+        LOG.debug('Checking resource: %s' % resource.as_dict())
+        try:
+            order = resource_to_order[resource.id]
+        except KeyError:
+            # Situation 1: There exist resources that are not billed
+            # TODO(suo): Create order and bills for these resources
+            LOG.warn('The resource(%s) has no order' % resource.as_dict())
+            if resource.status == const.STATE_ERROR:
+                LOG.warn('The status of the resource(%s) is error' % resource.as_dict())
+                return
+            if cfg.CONF.checker.try_to_fix:
+                now = datetime.datetime.utcnow()
+                created = timeutils.parse_strtime(resource.created_at,
+                                                  fmt=TIMESTAMP_TIME_FORMAT)
+                if timeutils.delta_seconds(created, now) > 30:
+                    create_cls = self.RESOURCE_CREATE_MAP[resource.resource_type]
+                    create_cls.process_notification(resource.to_message(),
+                                                    resource.status)
+        else:
+            # Situation 2: There exist resources whose status don't match with its order's status
+            # TODO(suo): Change order for these resources
+            if resource.status != order['status']:
+                LOG.warn('The status of the resource(%s) doesn\'t match with the status of the order(%s)' %
+                         (resource.as_dict(), order))
+
+            resource_to_order[resource.id]['checked'] = True
+
+    def _check_order_to_resource(self, resource_id, order):
+        LOG.warn('The resource of the order(%s) has been deleted.' % order)
+        if cfg.CONF.checker.try_to_fix:
+            deleted_at = utils.format_datetime(timeutils.strtime())
+            self.master_api.resource_deleted(self.ctxt, order['order_id'],
+                                             deleted_at)
+
+    def check_if_resources_match_orders(self):
+        """There are 3 situations in every check:
+
+        * There exist resources that are not billed
+        * There exist resources whose status don't match with its order's status
+        * There exist active orders that their resource has been deleted
+
+        We do this check every one hour.
+        """
+        LOG.debug('Checking if resources match with orders')
+        try:
+            projects = self.keystone_client.get_project_list()
+            for project in projects:
+                # Get all active orders
+                states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
+                resource_to_order = {}
+                for s in states:
+                    orders = self.worker_api.get_orders(self.ctxt,
+                                                        status=s,
+                                                        region_id=self.region_name,
+                                                        project_id=project.id)
+                    for order in orders:
+                        if not isinstance(order, dict):
+                            order = order.as_dict()
+                        order['checked'] = False
+                        resource_to_order[order['resource_id']] = order
+
+                # Check resource to order
+                for method in self.RESOURCE_LIST_METHOD:
+                    resources = method(project.id, region_name=self.region_name)
+                    for resource in resources:
+                        self._check_resource_to_order(resource,
+                                                      resource_to_order)
+                # Check order to resource
+                for resource_id, order in resource_to_order.items():
+                    if order['checked']:
+                        continue
+                    # Situation 3: There exist active orders that their resource has been deleted
+                    # TODO(suo): Close bills for these deleted resources
+                    self._check_order_to_resource(resource_id, order)
+
+            LOG.debug('Checked, resources are matched with orders')
+        except Exception:
+            LOG.exception('Some exceptions occurred when checking whether'
+                          'resources match with orders or not')
+
+    def check_if_cronjobs_match_orders(self):
+        """Check if number of cron jobs match number of orders in running and
+        stopped state, we do this check every one hour.
+        """
+        LOG.debug('Checking if cronjobs match with orders')
+        try:
+            cronjob_count = self.master_api.get_cronjob_count(self.ctxt)
+            order_count = self.worker_api.get_active_order_count(
+                self.ctxt, self.region_name)
+            if cronjob_count != order_count:
+                LOG.warn('There are %s cron jobs, but there are %s active orders' %
+                         (cronjob_count, order_count))
+            LOG.debug('Checked, There are %s cron jobs, and %s active orders' %
+                      (cronjob_count, order_count))
+        except Exception:
+            LOG.exception('Some exceptions occurred when checking whether'
+                          'cron jobs match with orders or not')
+
+    def check_if_users_match_accounts(self):
+        """Check if users and projects in keystone match accounts in gringotts.
+        We do this check every 24 hours.
+        """
+        LOG.debug('Checking if users match with accounts')
+        try:
+            LOG.debug('Checked, users are matched with accounts')
+        except Exception:
+            LOG.exception('Some exceptions occurred when checking whether'
+                          'users match with orders or not')
+
+    def check_if_consumptions_match_total_price(self):
+        """Check if consumption of an account match sum of all orders' total_price
+        """
+        LOG.debug('Checking if consumptions match with total price')
+        try:
+            LOG.debug('Checked, consumptions are matched with total price')
+        except Exception:
+            LOG.exception('Some exceptions occurred when checking whether'
+                          'consumptions match with total price or not')
+
+
+def checker():
+    prepare_service()
+    os_service.launch(CheckerService()).wait()

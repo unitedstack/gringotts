@@ -17,9 +17,24 @@ class MasterAPI(proxy.RpcProxy):
             topic=cfg.CONF.master.master_topic,
             default_version=self.BASE_RPC_VERSION)
 
+    def get_cronjob_count(self, ctxt):
+        return self.call(ctxt,
+                         self.make_msg('get_cronjob_count'))
+
+    def get_datejob_count(self, ctxt):
+        return self.call(ctxt,
+                         self.make_msg('get_datejob_count'))
+
     def resource_created(self, ctxt, order_id, action_time, remarks):
         return self.cast(ctxt,
                          self.make_msg('resource_created',
+                                       order_id=order_id,
+                                       action_time=action_time,
+                                       remarks=remarks))
+
+    def resource_created_again(self, ctxt, order_id, action_time, remarks):
+        return self.cast(ctxt,
+                         self.make_msg('resource_created_again',
                                        order_id=order_id,
                                        action_time=action_time,
                                        remarks=remarks))

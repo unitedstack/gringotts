@@ -118,6 +118,7 @@ class Order(Base):
     unit = Column(String(64))
     total_price = Column(DECIMAL(20,4))
     cron_time = Column(DateTime)
+    owed = Column(Boolean, default=False)
     date_time = Column(DateTime)
 
     user_id = Column(String(255))
@@ -209,6 +210,8 @@ class Account(Base):
     balance = Column(DECIMAL(20,4))
     consumption = Column(DECIMAL(20,4))
     currency = Column(String(64))
+    level = Column(Integer)
+    owed = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)

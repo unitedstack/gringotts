@@ -33,11 +33,13 @@ class SubsController(rest.RestController):
         conn = pecan.request.db_conn
         subscription = conn.create_subscription(request.context,
                                                 **data.as_dict())
-        return subscription
+        if subscription:
+            return models.Subscription.from_db_model(subscription)
+        else:
+            return None
 
-    @wsexpose(models.Subscription, body=models.SubscriptionPutBody)
+    @wsexpose(None, body=models.SubscriptionPutBody)
     def put(self, data):
         conn = pecan.request.db_conn
-        subscription = conn.update_subscription(request.context,
-                                                **data.as_dict())
-        return subscription
+        conn.update_subscription(request.context,
+                                 **data.as_dict())

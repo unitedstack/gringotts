@@ -94,7 +94,7 @@ class Order(Model):
     def __init__(self,
                  order_id, resource_id, resource_name, type, status,
                  unit_price, unit, total_price, cron_time, date_time,
-                 user_id, project_id, region_id, created_at=None, updated_at=None):
+                 user_id, project_id, region_id, owed=None, created_at=None, updated_at=None):
         Model.__init__(
             self,
             order_id=order_id,
@@ -110,6 +110,7 @@ class Order(Model):
             user_id=user_id,
             project_id=project_id,
             region_id=region_id,
+            owed=owed,
             created_at=created_at,
             updated_at=updated_at)
 
@@ -202,7 +203,7 @@ class Account(Model):
 
     def __init__(self,
                  user_id, project_id, balance, consumption, currency,
-                 created_at=None, updated_at=None):
+                 level, owed=None, created_at=None, updated_at=None):
         Model.__init__(
             self,
             user_id=user_id,
@@ -210,6 +211,8 @@ class Account(Model):
             balance=balance,
             consumption=consumption,
             currency=currency,
+            level=level,
+            owed=owed,
             created_at=created_at,
             updated_at=updated_at)
 

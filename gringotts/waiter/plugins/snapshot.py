@@ -73,7 +73,7 @@ class SnapshotNotificationBase(waiter_plugin.NotificationBase):
                            for topic in conf.notification_topics)),
         ]
 
-    def make_order(self, message):
+    def make_order(self, message, state=None):
         """Make an order model for one router
         """
         resource_id = message['payload']['snapshot_id']
@@ -84,7 +84,7 @@ class SnapshotNotificationBase(waiter_plugin.NotificationBase):
         order = Order(resource_id=resource_id,
                       resource_name=resource_name,
                       type=const.RESOURCE_SNAPSHOT,
-                      status=const.STATE_RUNNING,
+                      status=state if state else const.STATE_RUNNING,
                       user_id=user_id,
                       project_id=project_id)
         return order
@@ -95,7 +95,7 @@ class SnapshotCreateEnd(SnapshotNotificationBase):
     """
     event_types = ['snapshot.create.end']
 
-    def process_notification(self, message):
+    def process_notification(self, message, state=None):
         LOG.debug('Do action for event: %s, resource_id: %s',
                   message['event_type'], message['payload']['snapshot_id'])
 
@@ -108,23 +108,30 @@ class SnapshotCreateEnd(SnapshotNotificationBase):
         # Create subscriptions for this order
         for ext in product_items.extensions:
             if ext.name.startswith('suspend'):
-                ext.obj.create_subscription(message, order_id,
-                                            type=const.STATE_SUSPEND)
+                sub = ext.obj.create_subscription(message, order_id,
+                                                  type=const.STATE_SUSPEND)
+                if sub and state==const.STATE_SUSPEND:
+                    p = gringutils._quantize_decimal(sub['unit_price'])
+                    unit_price += p * sub['quantity']
+                    unit = sub['unit']
             elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
-                if sub:
+                if sub and (not state or state==const.STATE_RUNNING):
                     p = gringutils._quantize_decimal(sub['unit_price'])
                     unit_price += p * sub['quantity']
                     unit = sub['unit']
 
         # Create an order for this instance
-        self.create_order(order_id, unit_price, unit, message)
+        self.create_order(order_id, unit_price, unit, message, state=state)
 
         # Notify master
         remarks = 'Snapshot Has Been Created.'
         action_time = message['timestamp']
-        self.resource_created(order_id, action_time, remarks)
+        if state:
+            self.resource_created_again(order_id, action_time, remarks)
+        else:
+            self.resource_created(order_id, action_time, remarks)
 
 
 class SnapshotDeleteEnd(SnapshotNotificationBase):

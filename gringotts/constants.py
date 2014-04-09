@@ -4,6 +4,7 @@ STATE_STOPPED = 'stopped'
 STATE_DELETED = 'deleted'
 STATE_SUSPEND = 'suspend'
 STATE_CHANGING = 'changing'
+STATE_ERROR = 'error'
 
 
 # Service type

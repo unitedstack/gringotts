@@ -177,25 +177,27 @@ class BillsController(rest.RestController):
                                       total_count=total_count,
                                       bills=bills)
 
-    @wsexpose(None, body=models.BillBody)
+    @wsexpose(models.BillResult, body=models.BillBody)
     def post(self, data):
         conn = pecan.request.db_conn
         try:
-            conn.create_bill(request.context, data['order_id'],
-                             action_time=data['action_time'],
-                             remarks=data['remarks'])
+            result = conn.create_bill(request.context, data['order_id'],
+                                      action_time=data['action_time'],
+                                      remarks=data['remarks'])
             LOG.debug('Create bill for order %s successfully.' % data['order_id'])
+            return models.BillResult(**result)
         except Exception:
             LOG.exception('Fail to create bill for the order: %s' % data['order_id'])
             raise exception.BillCreateFailed(order_id=data['order_id'])
 
-    @wsexpose(None, body=models.BillBody)
+    @wsexpose(models.BillResult, body=models.BillBody)
     def put(self, data):
         conn = pecan.request.db_conn
         try:
-            conn.close_bill(request.context, data['order_id'],
-                            action_time=data['action_time'])
+            result = conn.close_bill(request.context, data['order_id'],
+                                     action_time=data['action_time'])
             LOG.debug('Close bill for order %s successfully.' % data['order_id'])
+            return models.BillResult(**result)
         except Exception:
             LOG.exception('Fail to close bill for the order: %s' % data['order_id'])
             raise exception.BillCloseFailed(order_id=data['order_id'])

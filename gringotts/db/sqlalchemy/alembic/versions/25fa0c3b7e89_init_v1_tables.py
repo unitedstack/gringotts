@@ -13,6 +13,8 @@ down_revision = None
 from alembic import op
 import sqlalchemy as sa
 
+from gringotts.services import keystone
+
 
 def upgrade():
     op.create_table(
@@ -185,6 +187,47 @@ def upgrade():
         mysql_engine='InnoDB',
         mysql_charset='utf8',
     )
+
+    # Add products
+    PRODUCT_SQL_PRE = "INSERT INTO product VALUES"
+
+    PRODUCT_SQLS = [
+        "(1,'98f2ce8b-8ad3-42db-b82e-dd022381d1bc','volume.size','block_storage','RegionOne','some decs','regular',0,'0.0020','hour',0,0,'2014-02-09 08:16:10',NULL,NULL)",
+        "(2,'e1cd002a-bef5-4306-b60e-8e6f54b80548','snapshot.size','block_storage','RegionOne','some decs','regular',0,'0.0002','hour',0,0,'2014-02-09 08:20:06',NULL,NULL)",
+        "(3,'a7ee0483-ff48-4567-84c4-932801cacfad','ip.floating','network','RegionOne','some decs','regular',0,'0.0300','hour',0,0,'2014-02-11 08:21:17',NULL,NULL)",
+        "(4,'4038d1b8-e08f-4824-9f4e-f277d15c5bfe','router','network','RegionOne','some decs','regular',0,'0.0500','hour',0,0,'2014-02-11 09:02:38',NULL,NULL)",
+        "(5,'0ab4bc1b-938f-4b9e-bebd-7e91dd58c85d','instance:micro-1','compute','RegionOne','some decs','regular',0,'0.0560','hour',0,0,'2014-03-18 06:42:15',NULL,NULL)",
+        "(6,'9425b452-d0fb-406c-ba1b-c00bec291a02','instance:micro-2','compute','RegionOne','some decs','regular',0,'0.1110','hour',0,0,'2014-03-18 06:42:59',NULL,NULL)",
+        "(7,'33969e9b-27b3-4772-acbc-a094940493f0','instance:standard-1','compute','RegionOne','some decs','regular',0,'0.2220','hour',0,0,'2014-03-18 06:43:49',NULL,NULL)",
+        "(8,'2cda8174-4b1d-4988-8d0f-e94b46442bce','instance:standard-2','compute','RegionOne','some decs','regular',0,'0.4440','hour',0,0,'2014-03-18 06:44:05',NULL,NULL)",
+        "(9,'bea31dc8-4140-47ee-8b48-4983f0f28a0f','instance:standard-4','compute','RegionOne','some decs','regular',0,'0.8890','hour',0,0,'2014-03-18 06:44:22',NULL,NULL)",
+        "(10,'da55dddc-aa4e-4439-ba30-8bcfba36094b','instance:standard-8','compute','RegionOne','some decs','regular',0,'1.7780','hour',0,0,'2014-03-18 06:44:46',NULL,NULL)",
+        "(11,'049378d6-8918-45be-b023-00fd573267ff','instance:standard-12','compute','RegionOne','some decs','regular',0,'3.5560','hour',0,0,'2014-03-18 06:45:01',NULL,NULL)",
+        "(12,'e73b7486-0071-4bf7-8ea2-dca040a8dee0','instance:memory-1','compute','RegionOne','some decs','regular',0,'0.3610','hour',0,0,'2014-03-18 06:45:41',NULL,NULL)",
+        "(13,'72af128b-9e82-45e6-824d-b15fcb01fbd3','instance:memory-2','compute','RegionOne','some decs','regular',0,'0.7220','hour',0,0,'2014-03-18 06:46:02',NULL,NULL)",
+        "(14,'46345fe6-ab66-4f39-b6ca-b2945557e999','instance:memory-4','compute','RegionOne','some decs','regular',0,'1.4440','hour',0,0,'2014-03-18 06:46:16',NULL,NULL)",
+        "(15,'732a3fe2-2837-4e46-80cd-ae6579c99121','instance:memory-8','compute','RegionOne','some decs','regular',0,'2.8890','hour',0,0,'2014-03-18 06:46:37',NULL,NULL)",
+        "(16,'41579554-6b2c-4cd9-965c-0f2544d68a24','instance:compute-2','compute','RegionOne','some decs','regular',0,'0.3330','hour',0,0,'2014-03-18 06:47:19',NULL,NULL)",
+        "(17,'4d2f6900-8f75-4f8d-877d-dff4dec1a57b','instance:compute-4','compute','RegionOne','some decs','regular',0,'0.6670','hour',0,0,'2014-03-18 06:47:43',NULL,NULL)",
+        "(18,'cef8cb7b-b0a5-46ff-80a5-57d82e7ac611','instance:compute-8','compute','RegionOne','some decs','regular',0,'1.3330','hour',0,0,'2014-03-18 06:47:58',NULL,NULL)",
+        "(19,'b45234b1-64fd-4572-8e71-2d5ff3e62593','instance:compute-12','compute','RegionOne','some decs','regular',0,'2.6670','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)"
+    ]
+
+    for PRODUCT in PRODUCT_SQLS:
+        op.execute(PRODUCT_SQL_PRE + PRODUCT)
+
+    # Add account
+    admin_user_id = keystone.get_admin_user_id()
+    admin_project_id = keystone.get_admin_tenant_id()
+
+    ACCOUNT_SQL_PRE = "INSERT INTO account VALUES"
+    ACCOUNT_SQLS = [
+        "(1, '%s', '%s', 10, 0, 'CNY', NULL, NULL)" % (admin_user_id, admin_project_id),
+    ]
+
+    for ACCOUNT in ACCOUNT_SQLS:
+        op.execute(ACCOUNT_SQL_PRE + ACCOUNT)
+
 
 def downgrade():
     op.drop_table('product')

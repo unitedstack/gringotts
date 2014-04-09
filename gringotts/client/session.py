@@ -169,7 +169,7 @@ class Session(object):
             raise exception.Timeout(msg)
         except requests.exceptions.ConnectionError:
             msg = 'Unable to establish connection to %s' % url
-            raise exception.ConnectionError(msg)
+            raise exception.ConnectionError(message=msg)
 
         _logger.debug('RESP: [%s] %s\nRESP BODY: %s\n',
                       resp.status_code, resp.headers, resp.text)

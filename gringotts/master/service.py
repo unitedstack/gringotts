@@ -11,6 +11,7 @@ from apscheduler.scheduler import Scheduler as APScheduler
 from gringotts import constants as const
 from gringotts import context
 from gringotts import worker
+from gringotts import exception
 
 from gringotts.openstack.common import log
 from gringotts.openstack.common.rpc import service as rpc_service
@@ -25,9 +26,6 @@ TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 ISO8601_UTC_TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
 OPTS = [
-    cfg.IntOpt('reserved_days',
-               default=7,
-               help='Reserved days after the resource is owed'),
     cfg.IntOpt('apscheduler_threadpool_max_threads',
                default=10,
                help='Maximum number of total threads in the pool'),
@@ -39,7 +37,15 @@ OPTS = [
                help='the topic master listen on'),
 ]
 
+OPTS_GLOBAL = [
+    cfg.BoolOpt('enable_owe',
+                default=False,
+                help='Enable owe logic or not')
+]
+
+cfg.CONF.register_opts(OPTS_GLOBAL)
 cfg.CONF.register_opts(OPTS, group="master")
+cfg.CONF.import_opt('region_name', 'gringotts.waiter.service')
 
 
 class MasterService(rpc_service.Service):
@@ -64,6 +70,30 @@ class MasterService(rpc_service.Service):
         self.date_jobs = {}
         self.lock = Lock()
         self.ctxt = context.get_admin_context()
+
+        from gringotts.services import cinder
+        from gringotts.services import glance
+        from gringotts.services import neutron
+        from gringotts.services import nova
+
+        self.DELETE_METHOD_MAP = {
+            const.RESOURCE_INSTANCE: nova.delete_server,
+            const.RESOURCE_IMAGE: glance.delete_image,
+            const.RESOURCE_SNAPSHOT: cinder.delete_snapshot,
+            const.RESOURCE_VOLUME: cinder.delete_volume,
+            const.RESOURCE_FLOATINGIP: neutron.delete_fip,
+            const.RESOURCE_ROUTER: neutron.delete_router,
+        }
+
+        self.STOP_METHOD_MAP = {
+            const.RESOURCE_INSTANCE: nova.stop_server,
+            const.RESOURCE_IMAGE: glance.stop_image,
+            const.RESOURCE_SNAPSHOT: cinder.stop_snapshot,
+            const.RESOURCE_VOLUME: cinder.stop_volume,
+            const.RESOURCE_FLOATINGIP: neutron.stop_fip,
+            const.RESOURCE_ROUTER: neutron.stop_router,
+        }
+
         super(MasterService, self).__init__(*args, **kwargs)
 
     def start(self):
@@ -74,15 +104,54 @@ class MasterService(rpc_service.Service):
         super(MasterService, self).start()
         LOG.warning('Master started successfully.')
 
+        if cfg.CONF.enable_owe:
+            self.load_date_jobs()
+
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
+
+    def load_date_jobs(self):
+        action_time = datetime.datetime.utcnow() + timedelta(minutes=1)
+        action_time = self._utc_to_local(action_time)
+        self.apsched.add_date_job(self._load_date_jobs,
+                                  action_time)
+
+    def _load_date_jobs(self):
+        states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
+        for s in states:
+            LOG.debug('Loading date jobs in %s state' % s)
+
+            orders = self.worker_api.get_orders(self.ctxt, status=s, owed=True,
+                                                region_id=cfg.CONF.region_name)
+
+            for order in orders:
+                if isinstance(order['date_time'], basestring):
+                    date_time = timeutils.parse_strtime(order['date_time'],
+                                                        fmt=ISO8601_UTC_TIME_FORMAT)
+                else:
+                    date_time = order['date_time']
+
+                danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
+                if date_time > danger_time:
+                    self._create_date_job(order['type'],
+                                          order['resource_id'],
+                                          order['region_id'],
+                                          order['date_time'])
+                else:
+                    LOG.warning('The resource(%s) is in danger time after master started'
+                                % order['resource_id'])
+                    self._delete_owed_resource(order['type'],
+                                               order['resource_id'],
+                                               order['region_id'])
+        LOG.warning('Load date jobs successfully.')
 
     def load_jobs(self):
         states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
         for s in states:
             LOG.debug('Loading jobs in %s state' % s)
 
-            orders = self.worker_api.get_orders(self.ctxt, status=s)
+            orders = self.worker_api.get_orders(self.ctxt, status=s,
+                                                region_id=cfg.CONF.region_name)
 
             for order in orders:
                 if not order['cron_time']:
@@ -106,20 +175,21 @@ class MasterService(rpc_service.Service):
                     self._create_cron_job(order['order_id'],
                                           start_date=cron_time)
 
-    def _pre_deduct(self, order_id):
-        remarks = 'Hourly Billing'
-        self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
+    def _grant_owed_role(self, user_id, project_id):
+        from gringotts.services import keystone
+        keystone.grant_owed_role(user_id, project_id)
 
-    def _destroy_resource(self, order_id):
-        """Destroy the resource
+    def _revoke_owed_role(self, user_id, project_id):
+        from gringotts.services import keystone
+        keystone.revoke_owed_role(user_id, project_id)
 
-        1. The resource will be destroyed after reserved days
-        2. The order's owed cron job must be removed
-        3. Change the order status to deleted
-        """
-        self.worker_api.destory_resource(self.ctxt, order_id)
-        self._delete_cron_job(order_id)
-        self._change_order(order_id, const.STATE_DELETED)
+    def _stop_owed_resource(self, resource_type, resource_id, region_id):
+        method = self.STOP_METHOD_MAP[resource_type]
+        return method(resource_id, region_id)
+
+    def _delete_owed_resource(self, resource_type, resource_id, region_id):
+        method = self.DELETE_METHOD_MAP[resource_type]
+        method(resource_id, region_id)
 
     def _utc_to_local(self, utc_dt):
         from_zone = tz.tzutc()
@@ -148,56 +218,134 @@ class MasterService(rpc_service.Service):
         """Delete cron job related to this subscription
         """
         job = self.cron_jobs.get(order_id)
+        if not job:
+            LOG.warning('There is no cron job for the order: %s' % order_id)
+            return
         self.apsched.unschedule_job(job)
         del self.cron_jobs[order_id]
 
-    def _create_date_job(self, order_id, action_time):
+    def _create_date_job(self, resource_type, resource_id, region_id,
+                         action_time):
+        if isinstance(action_time, basestring):
+            action_time = timeutils.parse_strtime(action_time,
+                                                  fmt=ISO8601_UTC_TIME_FORMAT)
         action_time = self._utc_to_local(action_time)
-        job = self.apsched.add_date_job(self._destroy_resource,
+        job = self.apsched.add_date_job(self._delete_owed_resource,
                                         action_time,
-                                        args=[order_id])
-        self.date_jobs[order_id] = job
+                                        args=[resource_type,
+                                              resource_id,
+                                              region_id])
+        self.date_jobs[resource_id] = job
 
-    def _delete_date_job(self, order_id):
+    def _delete_date_job(self, resource_id):
         """Delete date job related to this order
         """
-        job = self.date_jobs.get(order_id)
+        job = self.date_jobs.get(resource_id)
+        if not job:
+            LOG.warning('There is no data job for the resource: %s' % resource_id)
+            return
         self.apsched.unschedule_job(job)
-        del self.date_jobs[order_id]
+        del self.date_jobs[resource_id]
+
+    def _pre_deduct(self, order_id):
+        remarks = 'Hourly Billing'
+        result = self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
+
+        # Account is owed
+        if result['type'] == 1:
+            self._grant_owed_role(result['user_id'], result['project_id'])
+        # Order is owed
+        elif result['type'] == 2:
+            reserv = self._stop_owed_resource(result['resource_type'],
+                                              result['resource_id'],
+                                              result['region_id'])
+            if reserv:
+                self._create_date_job(result['resource_type'],
+                                      result['resource_id'],
+                                      result['region_id'],
+                                      result['date_time'])
+        # Account is charged but order is still owed
+        elif result['type'] == 3:
+            self._delete_date_job(result['resource_id'])
+
+    def _create_bill(self, ctxt, order_id, action_time, remarks):
+        result = self.worker_api.create_bill(ctxt, order_id, action_time, remarks)
+        # Account owed
+        if result['type'] == 1:
+            self._grant_owed_role(result['user_id'], result['project_id'])
+        self._create_cron_job(order_id, action_time=action_time)
+
+    def _close_bill(self, ctxt, order_id, action_time):
+        result = self.worker_api.close_bill(ctxt, order_id, action_time)
+        # Account not owed
+        if result['type'] == 1:
+            self._revoke_owed_role(result['user_id'], result['project_id'])
+        self._delete_cron_job(order_id)
+        return result
+
+    def get_cronjob_count(self, ctxt):
+        return len(self.cron_jobs)
+
+    def get_datejob_count(self, ctxt):
+        return len(self.date_jobs)
 
     def resource_created(self, ctxt, order_id, action_time, remarks):
         LOG.debug('Resource created, its order_id: %s, action_time: %s',
                   order_id, action_time)
-        self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
-        self._create_cron_job(order_id, action_time=action_time)
+        self._create_bill(ctxt, order_id, action_time, remarks)
+
+    def resource_created_again(self, ctxt, order_id, action_time, remarks):
+        LOG.debug('Resource created again, its order_id: %s, action_time: %s',
+                  order_id, action_time)
+        # Create the first bill, including remarks and action_time
+        result = self.worker_api.create_bill(ctxt, order_id, action_time, remarks)
+        # Account owed
+        if result['type'] == 1:
+            self._grant_owed_role(result['user_id'], result['project_id'])
+
+        # Pre deduct...
+        danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
+        action_time = timeutils.parse_strtime(action_time,
+                                              fmt=TIMESTAMP_TIME_FORMAT)
+        cron_time = action_time + datetime.timedelta(hours=1)
+
+        if cron_time > danger_time:
+            self._create_cron_job(order_id,
+                                  start_date=cron_time)
+        else:
+            while cron_time <= danger_time:
+                self._pre_deduct(order_id)
+                cron_time += datetime.timedelta(hours=1)
+
+        # Create cron job
+        self._create_cron_job(order_id, start_date=cron_time)
 
     def resource_deleted(self, ctxt, order_id, action_time):
         LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
                   (order_id, action_time))
-        self.worker_api.close_bill(self.ctxt, order_id, action_time)
-        self._delete_cron_job(order_id)
-        self.worker_api.change_order(self.ctxt, order_id, const.STATE_DELETED)
+        result = self._close_bill(ctxt, order_id, action_time)
+        # Delete date job of owed resource
+        if result['resource_owed']:
+            self._delete_date_job(result['resource_id'])
+        self.worker_api.change_order(ctxt, order_id, const.STATE_DELETED)
 
     def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
         LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to: %s'
                   % (order_id, action_time, change_to))
         # close the old bill
-        self.worker_api.close_bill(self.ctxt, order_id, action_time)
-        self._delete_cron_job(order_id)
+        self._close_bill(ctxt, order_id, action_time)
 
         # change the order's unit price and its active subscriptions
-        self.worker_api.change_order(self.ctxt, order_id, change_to)
+        self.worker_api.change_order(ctxt, order_id, change_to)
 
         # create a new bill for the updated order
-        self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
-        self._create_cron_job(order_id, action_time=action_time)
+        self._create_bill(ctxt, order_id, action_time, remarks)
 
     def resource_resized(self, ctxt, order_id, action_time, quantity, remarks):
         LOG.debug('Resource resized, its order_id: %s, action_time: %s, will resize to: %s'
                   % (order_id, action_time, quantity))
         # close the old bill
-        self.worker_api.close_bill(self.ctxt, order_id, action_time)
-        self._delete_cron_job(order_id)
+        self._close_bill(ctxt, order_id, action_time)
 
         # change subscirption's quantity
         self.worker_api.change_subscription(self.ctxt, order_id,
@@ -207,8 +355,7 @@ class MasterService(rpc_service.Service):
         self.worker_api.change_order(self.ctxt, order_id, const.STATE_RUNNING)
 
         # create a new bill for the updated order
-        self.worker_api.create_bill(self.ctxt, order_id, action_time, remarks)
-        self._create_cron_job(order_id, action_time=action_time)
+        self._create_bill(ctxt, order_id, action_time, remarks)
 
 
 def master():

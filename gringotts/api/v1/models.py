@@ -238,7 +238,9 @@ class Order(APIBase):
     total_price = decimal.Decimal
     type = wtypes.text
     cron_time = wtypes.text
+    date_time = wtypes.text
     created_at = wtypes.text
+    region_id = wtypes.text
 
     @classmethod
     def sample1(cls):
@@ -280,6 +282,17 @@ class BillBody(APIBase):
     order_id = wtypes.text
     action_time = datetime.datetime
     remarks = wtypes.text
+
+
+class BillResult(APIBase):
+    type = int
+    user_id = wtypes.text
+    project_id = wtypes.text
+    resource_type = wtypes.text
+    resource_id = wtypes.text
+    region_id = wtypes.text
+    resource_owed = bool
+    date_time = wtypes.text
 
 
 class Bill(APIBase):
@@ -336,6 +349,7 @@ class AdminAccount(APIBase):
     """
     balance = decimal.Decimal
     consumption = decimal.Decimal
+    level = int
     currency = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text

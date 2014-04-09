@@ -132,7 +132,7 @@ class ComputeNotificationBase(waiter_plugin.NotificationBase):
                            for topic in conf.notification_topics)),
         ]
 
-    def make_order(self, message):
+    def make_order(self, message, state=None):
         """Make an order model for one instance
         """
         resource_id = message['payload']['instance_id']
@@ -143,7 +143,7 @@ class ComputeNotificationBase(waiter_plugin.NotificationBase):
         order = Order(resource_id=resource_id,
                       resource_name=resource_name,
                       type=const.RESOURCE_INSTANCE,
-                      status=const.STATE_RUNNING,
+                      status=state if state else const.STATE_RUNNING,
                       user_id=user_id,
                       project_id=project_id)
         return order
@@ -155,17 +155,10 @@ class InstanceCreateEnd(ComputeNotificationBase):
     """
     event_types = ['compute.instance.create.end']
 
-    def process_notification(self, message):
+    def process_notification(self, message, state=None):
         LOG.debug('Do action for event: %s, resource_id: %s',
                   message['event_type'],
                   message['payload']['instance_id'])
-
-        # We only care the instance created successfully
-        if message['payload']['state'] != 'active':
-            instance_id = message['payload']['instance_id']
-            LOG.warning('The state of instance %s is not active' % instance_id)
-            raise exception.InstanceStateError(instance_id=instance_id,
-                                               state=message['payload']['state'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -177,26 +170,37 @@ class InstanceCreateEnd(ComputeNotificationBase):
         for ext in product_items.extensions:
             # disk extension is used when instance been stopped and been suspend
             if ext.name.startswith('stopped'):
-                ext.obj.create_subscription(message, order_id,
-                                            type=const.STATE_STOPPED)
+                sub = ext.obj.create_subscription(message, order_id,
+                                                  type=const.STATE_STOPPED)
+                if sub and state==const.STATE_STOPPED:
+                    p = gringutils._quantize_decimal(sub['unit_price'])
+                    unit_price += p * sub['quantity']
+                    unit = sub['unit']
             elif ext.name.startswith('suspend'):
-                ext.obj.create_subscription(message, order_id,
-                                            type=const.STATE_SUSPEND)
+                sub = ext.obj.create_subscription(message, order_id,
+                                                  type=const.STATE_SUSPEND)
+                if sub and state==const.STATE_SUSPEND:
+                    p = gringutils._quantize_decimal(sub['unit_price'])
+                    unit_price += p * sub['quantity']
+                    unit = sub['unit']
             elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
-                if sub:
+                if sub and (not state or state==const.STATE_RUNNING):
                     p = gringutils._quantize_decimal(sub['unit_price'])
                     unit_price += p * sub['quantity']
                     unit = sub['unit']
 
         # Create an order for this instance
-        self.create_order(order_id, unit_price, unit, message)
+        self.create_order(order_id, unit_price, unit, message, state=state)
 
         # Notify master
         remarks = 'Instance Has Been Created.'
         action_time = message['timestamp']
-        self.resource_created(order_id, action_time, remarks)
+        if state:
+            self.resource_created_again(order_id, action_time, remarks)
+        else:
+            self.resource_created(order_id, action_time, remarks)
 
 
 class InstanceStopEnd(ComputeNotificationBase):

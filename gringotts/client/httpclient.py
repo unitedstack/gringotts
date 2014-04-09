@@ -564,7 +564,7 @@ class HTTPClient(object):
         is_management = kwargs.pop('management', True)
 
         if is_management and self.management_url is None:
-            raise exception.AuthorizationFailure(
+            raise exception.NotAuthorized(
                 'Current authorization does not have a known management url')
 
         url_to_use = self.auth_url

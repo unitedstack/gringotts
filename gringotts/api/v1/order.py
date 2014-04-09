@@ -140,11 +140,22 @@ class ResourceController(rest.RestController):
         return models.Order.from_db_model(order)
 
 
+class CountController(rest.RestController):
+    """Get number of active order
+    """
+    @wsexpose(int, wtypes.text)
+    def get(self, region_id):
+        conn = pecan.request.db_conn
+        order_count = conn.get_active_order_count(request.context,
+                                                  region_id=region_id)
+        return order_count
+
 class OrdersController(rest.RestController):
     """The controller of resources
     """
     summary = SummaryController()
     resource = ResourceController()
+    count = CountController()
 
     @pecan.expose()
     def _lookup(self, order_id, *remainder):
@@ -154,9 +165,11 @@ class OrdersController(rest.RestController):
             return OrderController(order_id), remainder
 
     @wsexpose(models.Orders, wtypes.text, wtypes.text,
-              datetime.datetime, datetime.datetime, int, int, wtypes.text)
+              datetime.datetime, datetime.datetime, int, int, wtypes.text,
+              wtypes.text, bool)
     def get_all(self, type=None, status=None, start_time=None, end_time=None,
-                limit=None, offset=None, region_id=None):
+                limit=None, offset=None, region_id=None, project_id=None,
+                owed=None):
         """Get queried orders
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
@@ -167,10 +180,12 @@ class OrdersController(rest.RestController):
                                                  status=status,
                                                  start_time=start_time,
                                                  end_time=end_time,
+                                                 owed=owed,
                                                  limit=limit,
                                                  offset=offset,
                                                  with_count=True,
-                                                 region_id=region_id)
+                                                 region_id=region_id,
+                                                 project_id=project_id)
         orders = []
         for order in orders_db:
             price = self._get_order_price(order,

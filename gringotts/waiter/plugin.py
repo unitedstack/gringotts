@@ -84,14 +84,14 @@ class Order(object):
 class NotificationBase(plugin.NotificationBase):
 
     @abc.abstractmethod
-    def make_order(self, message):
+    def make_order(self, message, state=None):
         """Collect distinct fileds from different plugins
         """
 
-    def create_order(self, order_id, unit_price, unit, message):
+    def create_order(self, order_id, unit_price, unit, message, state=None):
         """Create an order for resource created
         """
-        order = self.make_order(message)
+        order = self.make_order(message, state=state)
 
         LOG.debug('Create order for order_id: %s' % order_id)
 
@@ -106,12 +106,26 @@ class NotificationBase(plugin.NotificationBase):
         return worker_api.get_order_by_resource_id(context.get_admin_context(),
                                                    resource_id)
 
+    def create_account(self, user_id, project_id, balance, consumption,
+                       currency, level, **kwargs):
+        worker_api.create_account(context.get_admin_context(),
+                                  user_id, project_id,
+                                  balance, consumption, currency,
+                                  level, **kwargs)
+
     def resource_created(self, order_id, action_time, remarks):
         """Notify master that resource has been created
         """
         master_api.resource_created(context.get_admin_context(),
                                     order_id,
                                     action_time, remarks)
+
+    def resource_created_again(self, order_id, action_time, remarks):
+        """Notify master that resource has been created
+        """
+        master_api.resource_created_again(context.get_admin_context(),
+                                          order_id,
+                                          action_time, remarks)
 
     def resource_deleted(self, order_id, action_time):
         """Notify master that resource has been deleted

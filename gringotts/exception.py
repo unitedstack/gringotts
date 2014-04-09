@@ -25,6 +25,7 @@ SHOULD include dedicated exception logging.
 """
 
 from oslo.config import cfg
+import itertools
 import six
 
 from gringotts.openstack.common.gettextutils import _
@@ -91,14 +92,21 @@ class GringottsException(Exception):
             return six.text_type(self)
 
 
+class ConnectionError(GringottsException):
+    """Something went wrong trying to connect to a server"""
+
+
+class Timeout(GringottsException):
+    """The request time out"""
+
+
 class NotAuthorized(GringottsException):
     message = _("Not authorized.")
     code = 403
 
 
-class NotSufficientFund(GringottsException):
-    message = _("The user %(project_id)s balance is not sufficient")
-    code = 400
+class EmptyCatalog(GringottsException):
+    message = _("The service catalog is empty.")
 
 
 class AdminRequired(NotAuthorized):
@@ -166,12 +174,39 @@ class NotFound(GringottsException):
     code = 404
 
 
+class EndpointNotFound(NotFound):
+    message = _("%(endpoint_type)s endpoint for %(service_type)s not found")
+    code = 404
+
+
 class AccountNotFound(NotFound):
     message = _("Account %(project_id)s could not be found")
 
 
 class AccountCreateFailed(GringottsException):
     message = _("Fail to create account for the project %(project_id)s")
+
+
+class NotSufficientFund(GringottsException):
+    message = _("Account: %(project_id)s is owed")
+    code = 402
+
+    def __init__(self, message=None, **kwargs):
+        self.user_id = kwargs.get('user_id')
+        self.project_id = kwargs.get('project_id')
+        self.resource_id = kwargs.get('resource_id')
+        super(NotSufficientFund, self).__init__(message, **kwargs)
+
+
+class AccountHasOwed(GringottsException):
+    message = _("Account %(project_id)s has owed")
+    code = 402
+
+    def __init__(self, message=None, **kwargs):
+        self.user_id = kwargs.get('user_id')
+        self.project_id = kwargs.get('project_id')
+        self.resource_id = kwargs.get('resource_id')
+        super(AccountHasOwed, self).__init__(message, **kwargs)
 
 
 class BillCreateFailed(GringottsException):
@@ -268,10 +303,6 @@ class CatalogNotFound(GringottsException):
                 "service catalog.")
 
 
-class ServiceUnavailable(GringottsException):
-    message = _("Connection failed")
-
-
 class HTTPException(GringottsException):
     message = _("Requested version of OpenStack Images API is not available.")
 
@@ -288,159 +319,190 @@ class ConfigNotFound(GringottsException):
     message = _("Could not find config at %(path)s")
 
 
-# The following exceptions come from novaclient.exceptions
-class UnsupportedVersion(Exception):
-    """Indicates that the user is trying to use an unsupported
-    version of the API.
+# Copy from keystoneclient.apiclient.exceptions
+class HTTPError(Exception):
+    """The base exception class for all HTTP exceptions.
     """
-    pass
+    http_status = 0
+    message = "HTTP Error"
 
-
-class CommandError(Exception):
-    pass
-
-
-class AuthorizationFailure(Exception):
-    pass
-
-
-class NoUniqueMatch(Exception):
-    pass
-
-
-class AuthSystemNotFound(Exception):
-    """When the user specify a AuthSystem but not installed."""
-    def __init__(self, auth_system):
-        self.auth_system = auth_system
-
-    def __str__(self):
-        return "AuthSystemNotFound: %s" % repr(self.auth_system)
-
-
-class NoTokenLookupException(Exception):
-    """This form of authentication does not support looking up
-       endpoints from an existing token.
-    """
-    pass
-
-
-class EndpointNotFound(Exception):
-    """Could not find Service or Region in Service Catalog."""
-    pass
-
-
-class EmptyCatalog(EndpointNotFound):
-    pass
-
-
-class AmbiguousEndpoints(Exception):
-    """Found more than one matching endpoint in Service Catalog."""
-    def __init__(self, endpoints=None):
-        self.endpoints = endpoints
-
-    def __str__(self):
-        return "AmbiguousEndpoints: %s" % repr(self.endpoints)
-
-
-class ConnectionRefused(Exception):
-    """
-    Connection refused: the server refused the connection.
-    """
-    def __init__(self, response=None):
-        self.response = response
-
-    def __str__(self):
-        return "ConnectionRefused: %s" % repr(self.response)
-
-
-class ConnectionError(Exception):
-    pass
-
-
-class SSLError(Exception):
-    pass
-
-
-class Timeout(Exception):
-    pass
-
-
-class ClientException(Exception):
-    """
-    The base exception class for all exceptions this library raises.
-    """
-    def __init__(self, code, message=None, details=None, request_id=None,
-                 url=None, method=None):
-        self.code = code
-        self.message = message or self.__class__.message
+    def __init__(self, message=None, details=None,
+                 response=None, request_id=None,
+                 url=None, method=None, http_status=None,
+                 user_id=None, project_id=None, owed=None):
+        self.http_status = http_status or self.http_status
+        self.message = message or self.message
         self.details = details
         self.request_id = request_id
+        self.response = response
         self.url = url
         self.method = method
+        self.user_id = user_id
+        self.project_id = project_id
+        self.owed = owed
+        formatted_string = "%(message)s (HTTP %(status)s)" % {
+            "message": self.message, "status": self.http_status}
+        if request_id:
+            formatted_string += " (Request-ID: %s)" % request_id
+        super(HTTPError, self).__init__(formatted_string)
 
-    def __str__(self):
-        formatted_string = "%s (HTTP %s)" % (self.message, self.code)
-        if self.request_id:
-            formatted_string += " (Request-ID: %s)" % self.request_id
 
-        return formatted_string
+class HTTPClientError(HTTPError):
+    """Client-side HTTP error.
 
-
-class BadRequest(ClientException):
+    Exception for cases in which the client seems to have erred.
     """
-    HTTP 400 - Bad request: you sent some malformed data.
+    message = "HTTP Client Error"
+
+
+class HTTPServerError(HTTPError):
+    """Server-side HTTP error.
+
+    Exception for cases in which the server is aware that it has
+    erred or is incapable of performing the request.
+    """
+    message = "HTTP Server Error"
+
+
+class BadRequest(HTTPClientError):
+    """HTTP 400 - Bad Request.
+
+    The request cannot be fulfilled due to bad syntax.
     """
     http_status = 400
-    message = "Bad request"
+    message = "Bad Request"
 
 
-class Unauthorized(ClientException):
-    """
-    HTTP 401 - Unauthorized: bad credentials.
+class Unauthorized(HTTPClientError):
+    """HTTP 401 - Unauthorized.
+
+    Similar to 403 Forbidden, but specifically for use when authentication
+    is required and has failed or has not yet been provided.
     """
     http_status = 401
     message = "Unauthorized"
 
 
-class Forbidden(ClientException):
+class PaymentRequired(HTTPClientError):
+    """HTTP 402 - Payment Required.
+
+    Reserved for future use.
     """
-    HTTP 403 - Forbidden: your credentials don't give you access to this
-    resource.
+    http_status = 402
+    message = "Payment Required"
+
+    def __init__(self, message=None, **kwargs):
+        self.user_id = kwargs.get('user_id')
+        self.project_id = kwargs.get('project_id')
+        self.owed = kwargs.get('owed')
+        super(PaymentRequired, self).__init__(message, **kwargs)
+
+
+class Forbidden(HTTPClientError):
+    """HTTP 403 - Forbidden.
+
+    The request was a valid request, but the server is refusing to respond
+    to it.
     """
     http_status = 403
-    message = "Forbidden"
+    message = "2orbidden"
 
 
-class HTTPNotFound(ClientException):
-    """
-    HTTP 404 - Not found
+class HTTPNotFound(HTTPClientError):
+    """HTTP 404 - Not Found.
+
+    The requested resource could not be found but may be available again
+    in the future.
     """
     http_status = 404
-    message = "Not found"
+    message = "Not Found"
 
 
-class MethodNotAllowed(ClientException):
-    """
-    HTTP 405 - Method Not Allowed
+class MethodNotAllowed(HTTPClientError):
+    """HTTP 405 - Method Not Allowed.
+
+    A request was made of a resource using a request method not supported
+    by that resource.
     """
     http_status = 405
     message = "Method Not Allowed"
 
 
-class Conflict(ClientException):
+class NotAcceptable(HTTPClientError):
+    """HTTP 406 - Not Acceptable.
+
+    The requested resource is only capable of generating content not
+    acceptable according to the Accept headers sent in the request.
     """
-    HTTP 409 - Conflict
+    http_status = 406
+    message = "Not Acceptable"
+
+
+class ProxyAuthenticationRequired(HTTPClientError):
+    """HTTP 407 - Proxy Authentication Required.
+
+    The client must first authenticate itself with the proxy.
+    """
+    http_status = 407
+    message = "Proxy Authentication Required"
+
+
+class RequestTimeout(HTTPClientError):
+    """HTTP 408 - Request Timeout.
+
+    The server timed out waiting for the request.
+    """
+    http_status = 408
+    message = "Request Timeout"
+
+
+class Conflict(HTTPClientError):
+    """HTTP 409 - Conflict.
+
+    Indicates that the request could not be processed because of conflict
+    in the request, such as an edit conflict.
     """
     http_status = 409
     message = "Conflict"
 
 
-class OverLimit(ClientException):
+class Gone(HTTPClientError):
+    """HTTP 410 - Gone.
+
+    Indicates that the resource requested is no longer available and will
+    not be available again.
     """
-    HTTP 413 - Over limit: you're over the API limits for this time period.
+    http_status = 410
+    message = "Gone"
+
+
+class LengthRequired(HTTPClientError):
+    """HTTP 411 - Length Required.
+
+    The request did not specify the length of its content, which is
+    required by the requested resource.
+    """
+    http_status = 411
+    message = "Length Required"
+
+
+class PreconditionFailed(HTTPClientError):
+    """HTTP 412 - Precondition Failed.
+
+    The server does not meet one of the preconditions that the requester
+    put on the request.
+    """
+    http_status = 412
+    message = "Precondition Failed"
+
+
+class RequestEntityTooLarge(HTTPClientError):
+    """HTTP 413 - Request Entity Too Large.
+
+    The request is larger than the server is willing or able to process.
     """
     http_status = 413
-    message = "Over limit"
+    message = "Request Entity Too Large"
 
     def __init__(self, *args, **kwargs):
         try:
@@ -448,73 +510,163 @@ class OverLimit(ClientException):
         except (KeyError, ValueError):
             self.retry_after = 0
 
-        super(OverLimit, self).__init__(*args, **kwargs)
+        super(RequestEntityTooLarge, self).__init__(*args, **kwargs)
 
 
-class RateLimit(OverLimit):
+class RequestUriTooLong(HTTPClientError):
+    """HTTP 414 - Request-URI Too Long.
+
+    The URI provided was too long for the server to process.
     """
-    HTTP 429 - Rate limit: you've sent too many requests for this time period.
+    http_status = 414
+    message = "Request-URI Too Long"
+
+
+class UnsupportedMediaType(HTTPClientError):
+    """HTTP 415 - Unsupported Media Type.
+
+    The request entity has a media type which the server or resource does
+    not support.
     """
-    http_status = 429
-    message = "Rate limit"
+    http_status = 415
+    message = "Unsupported Media Type"
+
+
+class RequestedRangeNotSatisfiable(HTTPClientError):
+    """HTTP 416 - Requested Range Not Satisfiable.
+
+    The client has asked for a portion of the file, but the server cannot
+    supply that portion.
+    """
+    http_status = 416
+    message = "Requested Range Not Satisfiable"
+
+
+class ExpectationFailed(HTTPClientError):
+    """HTTP 417 - Expectation Failed.
+
+    The server cannot meet the requirements of the Expect request-header field.
+    """
+    http_status = 417
+    message = "Expectation Failed"
+
+
+class UnprocessableEntity(HTTPClientError):
+    """HTTP 422 - Unprocessable Entity.
+
+    The request was well-formed but was unable to be followed due to semantic
+    errors.
+    """
+    http_status = 422
+    message = "Unprocessable Entity"
+
+
+class InternalServerError(HTTPServerError):
+    """HTTP 500 - Internal Server Error.
+
+    A generic error message, given when no more specific message is suitable.
+    """
+    http_status = 500
+    message = "Internal Server Error"
 
 
 # NotImplemented is a python keyword.
-class HTTPNotImplemented(ClientException):
-    """
-    HTTP 501 - Not Implemented: the server does not support this operation.
+class HTTPNotImplemented(HTTPServerError):
+    """HTTP 501 - Not Implemented.
+
+    The server either does not recognize the request method, or it lacks
+    the ability to fulfill the request.
     """
     http_status = 501
     message = "Not Implemented"
 
 
-# In Python 2.4 Exception is old-style and thus doesn't have a __subclasses__()
-# so we can do this:
-#     _code_map = dict((c.http_status, c)
-#                      for c in ClientException.__subclasses__())
-#
-# Instead, we have to hardcode it:
-_error_classes = [BadRequest, Unauthorized, Forbidden, HTTPNotFound,
-                  MethodNotAllowed, Conflict, OverLimit, RateLimit,
-                  HTTPNotImplemented]
-_code_map = dict((c.http_status, c) for c in _error_classes)
+class BadGateway(HTTPServerError):
+    """HTTP 502 - Bad Gateway.
 
-
-def from_response(response, body, url, method=None):
+    The server was acting as a gateway or proxy and received an invalid
+    response from the upstream server.
     """
-    Return an instance of an ClientException or subclass
-    based on an requests response.
+    http_status = 502
+    message = "Bad Gateway"
 
-    Usage::
 
-        resp, body = requests.request(...)
-        if resp.status_code != 200:
-            raise exception_from_response(resp, rest.text)
+class ServiceUnavailable(HTTPServerError):
+    """HTTP 503 - Service Unavailable.
+
+    The server is currently unavailable.
+    """
+    http_status = 503
+    message = "Service Unavailable"
+
+
+class GatewayTimeout(HTTPServerError):
+    """HTTP 504 - Gateway Timeout.
+
+    The server was acting as a gateway or proxy and did not receive a timely
+    response from the upstream server.
+    """
+    http_status = 504
+    message = "Gateway Timeout"
+
+
+class HTTPVersionNotSupported(HTTPServerError):
+    """HTTP 505 - HTTPVersion Not Supported.
+
+    The server does not support the HTTP protocol version used in the request.
+    """
+    http_status = 505
+    message = "HTTP Version Not Supported"
+
+
+_code_map = dict(
+    (cls.http_status, cls)
+    for cls in itertools.chain(HTTPClientError.__subclasses__(),
+                               HTTPServerError.__subclasses__()))
+
+
+def from_response(response, method, url):
+    """Returns an instance of :class:`HTTPError` or subclass based on response.
+
+    :param response: instance of `requests.Response` class
+    :param method: HTTP method used for request
+    :param url: URL used for request
     """
     kwargs = {
-        'code': response.status_code,
-        'method': method,
-        'url': url,
-        'request_id': None,
+        "http_status": response.status_code,
+        "response": response,
+        "method": method,
+        "url": url,
+        "request_id": response.headers.get("x-compute-request-id"),
     }
+    if "retry-after" in response.headers:
+        kwargs["retry_after"] = response.headers["retry-after"]
 
-    if response.headers:
-        kwargs['request_id'] = response.headers.get('x-compute-request-id')
+    content_type = response.headers.get("Content-Type", "")
+    if content_type.startswith("application/json"):
+        try:
+            body = response.json()
+        except ValueError:
+            pass
+        else:
+            if hasattr(body, "keys"):
+                kwargs["message"] = body.get("message")
+                kwargs["details"] = body.get("faultstring")
+    elif content_type.startswith("text/"):
+        kwargs["details"] = response.text
 
-        if 'retry-after' in response.headers:
-            kwargs['retry_after'] = response.headers.get('retry-after')
+    if response.status_code == 402:
+        kwargs['user_id'] = response.headers.get('user_id')
+        kwargs['project_id'] = response.headers.get('project_id')
+        kwargs['resource_id'] = response.headers.get('resource_id')
 
-    if body:
-        message = "n/a"
-        details = "n/a"
-
-        if hasattr(body, 'keys'):
-            error = body[list(body)[0]]
-            message = error.get('message', None)
-            details = error.get('details', None)
-
-        kwargs['message'] = message
-        kwargs['details'] = details
-
-    cls = _code_map.get(response.status_code, ClientException)
+    try:
+        cls = _code_map[response.status_code]
+    except KeyError:
+        if 500 <= response.status_code < 600:
+            cls = HTTPServerError
+        elif 400 <= response.status_code < 500:
+            cls = HTTPClientError
+        else:
+            cls = HTTPError
     return cls(**kwargs)

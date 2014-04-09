@@ -2,6 +2,7 @@ from oslo.config import cfg
 
 from gringotts import context
 from gringotts import db
+from gringotts.db import models as db_models
 from gringotts import exception
 
 from gringotts.openstack.common import log
@@ -41,9 +42,10 @@ class WorkerService(rpc_service.Service):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
         try:
-            self.db_conn.create_bill(ctxt, order_id, action_time=action_time,
-                                     remarks=remarks)
+            result = self.db_conn.create_bill(ctxt, order_id, action_time=action_time,
+                                              remarks=remarks)
             LOG.debug('Create bill for order %s successfully.' % order_id)
+            return result
         except Exception:
             LOG.exception('Fail to create bill for the order: %s' % order_id)
             raise exception.BillCreateFailed(order_id=order_id)
@@ -53,8 +55,9 @@ class WorkerService(rpc_service.Service):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
         try:
-            self.db_conn.close_bill(ctxt, order_id, action_time)
+            result = self.db_conn.close_bill(ctxt, order_id, action_time)
             LOG.debug('Close bill for order %s successfully.' % order_id)
+            return result
         except Exception:
             LOG.exception('Fail to close bill for the order: %s' % order_id)
             raise exception.BillCloseFailed(order_id=order_id)
@@ -87,11 +90,29 @@ class WorkerService(rpc_service.Service):
                       change_to=change_to)
         self.db_conn.update_order(ctxt, **kwargs)
 
-    def get_orders(self, ctxt, status=None):
-        return self.db_conn.get_orders(ctxt, status=status)
+    def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):
+        return self.db_conn.get_orders(ctxt, status=status,
+                                       project_id=project_id,
+                                       owed=owed,
+                                       region_id=region_id)
+
+    def get_active_order_count(self, ctxt, region_id=None):
+        return self.db_conn.get_active_order_count(ctxt,
+                                                   region_id=region_id)
 
     def get_order_by_resource_id(self, ctxt, resource_id):
         return self.db_conn.get_order_by_resource_id(ctxt, resource_id)
+
+    def create_account(self, ctxt, user_id, project_id, balance,
+                       consumption, currency, level, **kwargs):
+        try:
+            account = db_models.Account(user_id, project_id,
+                                        balance, consumption, currency,
+                                        level, **kwargs)
+            self.db_conn.create_account(ctxt, account)
+        except Exception:
+            LOG.exception('Fail to create account: %s' % account.as_dict())
+            raise exception.AccountCreateFailed(project_id=project_id)
 
 
 def worker():

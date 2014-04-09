@@ -15,6 +15,7 @@ python-ceilometerclient==1.0.6
 python-novaclient==2.15.0
 python-glanceclient==0.12.0
 python-cinderclient==1.0.7
+python-neutronclient==2.3.4
 python-dateutil==1.4.1
 pecan==0.3.2
 WSME==0.5b5

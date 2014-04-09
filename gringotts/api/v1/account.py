@@ -48,21 +48,24 @@ class AccountController(rest.RestController):
         """Return this product"""
         return models.UserAccount.from_db_model(self._account())
 
+    def _revoke_owed_role(self, user_id, project_id):
+        from gringotts.services import keystone
+        keystone.revoke_owed_role(user_id, project_id)
+
     @wsexpose(models.Charge, wtypes.text, body=models.Charge)
     def put(self, data):
         """Charge the account
         """
-        # check the charge value
+        # Check the charge value
         if not data.value or data.value < 0:
             raise exception.InvalidChargeValue(value=data.value)
 
         self.conn = pecan.request.db_conn
 
-        # update account
-        account = self._account()
         try:
-            account.balance += data.value
-            self.conn.update_account(request.context, account)
+           not_owed, charge = self.conn.update_account(request.context,
+                                                       self._id,
+                                                       **data.as_dict())
         except exception.NotAuthorized as e:
             LOG.exception('Fail to charge the account:%s due to not authorization' % \
                           self._id)
@@ -72,34 +75,8 @@ class AccountController(rest.RestController):
                           (self._id, data.value))
             raise exception.DBError(reason=e)
 
-        # Create a charge record
-        if not data.charge_time:
-            charge_time = datetime.datetime.utcnow()
-        else:
-            charge_time = timeutils.parse_isotime(data.charge_time)
-        try:
-            charge_in = db_models.Charge(charge_id=uuidutils.generate_uuid(),
-                                         project_id=self._id,
-                                         currency='CNY',
-                                         value=data.value,
-                                         type=data.type or None,
-                                         come_from=data.come_from or None,
-                                         charge_time=charge_time)
-            charge = self.conn.create_charge(request.context, charge_in)
-        except exception.NotAuthorized as e:
-            LOG.exception('Fail to charge the account:%s due to not authorization' % \
-                          self._id)
-            raise exception.NotAuthorized()
-        except TypeError as e:
-            error = 'Error while turning charge: %s' % data.as_dict()
-            LOG.exception(error)
-            raise exception.MissingRequiredParams(reason=error)
-        except Exception as e:
-            error = 'Error while creating charge: %s' % data.as_dict()
-            LOG.exception(error)
-            raise exception.DBError(reason=error)
-
-        charge.value = gringutils._quantize_decimal(charge.value)
+        if not_owed:
+            self._revoke_owed_role(charge.user_id, charge.project_id)
 
         return models.Charge.from_db_model(charge)
 
@@ -154,3 +131,15 @@ class AccountsController(rest.RestController):
 
         return [models.AdminAccount.from_db_model(account)
                 for account in accounts]
+
+    @wsexpose(None, body=models.AdminAccount)
+    def post(self, data):
+        """Create a new account
+        """
+        conn = pecan.request.db_conn
+        try:
+            account = db_models.Account(**data.as_dict())
+            return conn.create_account(request.context, account)
+        except Exception:
+            LOG.exception('Fail to create account: %s' % data.as_dict())
+            raise exception.AccountCreateFailed(project_id=data.project_id)

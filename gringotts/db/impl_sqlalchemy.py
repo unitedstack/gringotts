@@ -7,7 +7,10 @@ import functools
 import os
 from sqlalchemy import desc, asc
 from sqlalchemy import func
+from sqlalchemy import not_
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+
+from oslo.config import cfg
 
 from gringotts import constants as const
 from gringotts import context as gring_context
@@ -29,6 +32,7 @@ from gringotts.openstack.common import timeutils
 
 
 LOG = log.getLogger(__name__)
+cfg.CONF.import_opt('enable_owe', 'gringotts.master.service')
 
 get_session = db_session.get_session
 
@@ -198,6 +202,7 @@ class Connection(base.Connection):
                                user_id=row.user_id,
                                project_id=row.project_id,
                                region_id=row.region_id,
+                               owed=row.owed,
                                created_at=row.created_at,
                                updated_at=row.updated_at)
 
@@ -243,6 +248,8 @@ class Connection(base.Connection):
                                  balance=row.balance,
                                  consumption=row.consumption,
                                  currency=row.currency,
+                                 level=row.level,
+                                 owed=row.owed,
                                  created_at=row.created_at,
                                  updated_at=row.updated_at)
 
@@ -407,7 +414,8 @@ class Connection(base.Connection):
     @require_context
     def get_orders(self, context, start_time=None, end_time=None, type=None,
                    status=None, limit=None, offset=None, sort_key=None,
-                   sort_dir=None, with_count=False, region_id=None):
+                   sort_dir=None, with_count=False, region_id=None,
+                   project_id=None, owed=None):
         """Get orders that have bills during start_time and end_time.
         If start_time is None or end_time is None, will ignore the datetime
         range, and return all orders
@@ -420,6 +428,10 @@ class Connection(base.Connection):
             query = query.filter_by(status=status)
         if region_id:
             query = query.filter_by(region_id=region_id)
+        if project_id:
+            query = query.filter_by(project_id=project_id)
+        if owed:
+            query = query.filter_by(owed=owed)
 
         if all([start_time, end_time]):
             query = query.join(sa_models.Bill,
@@ -439,6 +451,15 @@ class Connection(base.Connection):
             return (self._row_to_db_order_model(o) for o in result), total_count
         else:
             return (self._row_to_db_order_model(o) for o in result)
+
+    @require_admin_context
+    def get_active_order_count(self, context, region_id=None):
+        query = model_query(context, sa_models.Order,
+                            func.count(sa_models.Order.id).label('count'))
+        if region_id:
+            query = query.filter_by(region_id=region_id)
+        query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
+        return query.one().count or 0
 
     @require_admin_context
     def create_subscription(self, context, **subscription):
@@ -472,7 +493,7 @@ class Connection(base.Connection):
                 unit_price=product.unit_price,
                 unit=product.unit,
                 quantity=quantity,
-                total_price=0,
+                total_price=gringutils._quantize_decimal('0'),
                 order_id=subscription['order_id'],
                 user_id=subscription['user_id'],
                 project_id=subscription['project_id'],
@@ -676,23 +697,35 @@ class Connection(base.Connection):
         return (self._row_to_db_account_model(r) for r in result)
 
     @require_admin_context
-    def update_account(self, context, account):
+    def update_account(self, context, project_id, **data):
         session = db_session.get_session()
         with session.begin():
-            query = model_query(context, sa_models.Account)
-            query = query.filter_by(project_id=account.project_id)
-            query.update(account.as_dict(), synchronize_session='fetch')
-            ref = query.one()
-        return self._row_to_db_account_model(ref)
+            account = model_query(context, sa_models.Account, session=session).\
+                filter_by(project_id=project_id).\
+                with_lockmode('update').one()
 
-    @require_admin_context
-    def create_charge(self, context, charge):
-        session = db_session.get_session()
-        with session.begin():
-            ref = sa_models.Charge()
-            ref.update(charge.as_dict())
-            session.add(ref)
-        return self._row_to_db_charge_model(ref)
+            account.balance += data['value']
+
+            if not data.get('charge_time'):
+                charge_time = datetime.datetime.utcnow()
+            else:
+                charge_time = timeutils.parse_isotime(data['charge_time'])
+
+            charge = sa_models.Charge(charge_id=uuidutils.generate_uuid(),
+                                      user_id=account.user_id,
+                                      project_id=project_id,
+                                      currency=data.get('currency') or 'CNY',
+                                      value=data['value'],
+                                      type=data.get('type'),
+                                      come_from=data.get('come_from'),
+                                      charge_time=charge_time)
+            session.add(charge)
+
+            not_owed = account.owed and account.balance > 0
+            if not_owed:
+                account.owed = False
+
+        return not_owed, self._row_to_db_charge_model(charge)
 
     @require_context
     def get_charges(self, context, project_id=None, start_time=None, end_time=None,
@@ -731,21 +764,30 @@ class Connection(base.Connection):
 
     @require_admin_context
     def create_bill(self, context, order_id, action_time=None, remarks=None):
+        """There are three type of results:
+        0, Create bill successfully, including account is owed and order is owed,
+           or account is not owed and balance is greater than 0
+        1, Suspend to create bill, but set order to owed, that is account is owed
+           and order is not owed
+        2, Create bill successfully, but set account to owed, that is account is not
+           owed and balance is less than 0
+        """
         session = db_session.get_session()
+        result = {'type': 0, 'resource_owed': False}
         with session.begin():
-            # get order
+            # Get order
             order = model_query(context, sa_models.Order, session=session).\
                 filter_by(order_id=order_id).\
                 with_lockmode('update').one()
 
             if (order.status == const.STATE_DELETED or
                 order.status == const.STATE_CHANGING):
-                return
+                return result
 
+            # Create a bill
             if not action_time:
                 action_time = order.cron_time
 
-            # Create a bill
             bill = sa_models.Bill(bill_id=uuidutils.generate_uuid(),
                                   start_time=action_time,
                                   end_time=action_time + datetime.timedelta(hours=1),
@@ -790,15 +832,67 @@ class Connection(base.Connection):
             # Update account
             account = model_query(context, sa_models.Account, session=session).\
                 filter_by(project_id=order.project_id).\
-                with_lockmode('update').\
-                one()
+                with_lockmode('update').one()
+
             account.balance -= order.unit_price
             account.consumption += order.unit_price
             account.updated_at = datetime.datetime.utcnow()
 
+            result['user_id'] = account.user_id
+            result['project_id'] = account.project_id
+            result['resource_type'] = order.type
+            result['resource_id'] = order.resource_id
+            result['region_id'] = order.region_id
+            result['resource_owed'] = False
+
+            if not cfg.CONF.enable_owe:
+                return result
+
+            # Account is owed
+            if self._check_if_account_first_owed(account):
+                account.owed = True
+                result['type'] = 1
+            # Order is owed
+            elif self._check_if_order_first_owed(account, order):
+                reserved_days = gringutils.cal_reserved_days(account.level)
+                date_time = datetime.datetime.utcnow() + datetime.timedelta(days=reserved_days)
+                order.date_time = date_time
+                order.owed = True
+                result['type'] = 2
+                result['date_time'] = date_time
+            # Account is charged but order is still owed
+            elif self._check_if_account_charged(account, order):
+                result['type'] = 3
+                order.owed = False
+                order.date_time = None
+
+            if order.owed:
+                result['resource_owed'] = True
+
+            return result
+
+    def _check_if_account_charged(self, account, order):
+        if not account.owed and order.owed:
+            return True
+        return False
+
+    def _check_if_order_first_owed(self, account, order):
+        if account.owed and not order.owed:
+            return True
+        return False
+
+    def _check_if_account_first_owed(self, account):
+        if account.level == 9:
+            return False
+        if not account.owed and account.balance <= 0:
+            return True
+        else:
+            return False
+
     @require_admin_context
     def close_bill(self, context, order_id, action_time):
         session = db_session.get_session()
+        result = {'type': 0, 'resource_owed': False}
         with session.begin():
             # get order
             order = model_query(context, sa_models.Order, session=session).\
@@ -806,9 +900,16 @@ class Connection(base.Connection):
                 with_lockmode('update').one()
 
             # Update the latest bill
-            bill = model_query(context, sa_models.Bill, session=session).\
-                filter_by(order_id=order_id).\
-                order_by(desc(sa_models.Bill.id)).all()[0]
+            try:
+                bill = model_query(context, sa_models.Bill, session=session).\
+                    filter_by(order_id=order_id).\
+                    order_by(desc(sa_models.Bill.id)).all()[0]
+            except IndexError:
+                LOG.warning('There is no latest bill for the order: %s' % order_id)
+                return result
+
+            if action_time >= bill.end_time:
+                return result
 
             delta = timeutils.delta_seconds(action_time, bill.end_time) / 3600.0
             delta = gringutils._quantize_decimal(delta)
@@ -850,3 +951,18 @@ class Connection(base.Connection):
             account.balance += more_fee
             account.consumption -= more_fee
             account.updated_at = datetime.datetime.utcnow()
+
+            if not cfg.CONF.enable_owe:
+                return result
+
+            if account.owed and account.balance > 0:
+                result['type'] = 1
+                result['user_id'] = account.user_id
+                result['project_id'] = account.project_id
+                account.owed = False
+
+            if order.owed:
+                result['resource_owed'] = True
+                result['resource_id'] = order.resource_id
+
+            return result
