@@ -109,6 +109,7 @@ class AccountController(rest.RestController):
 
         total_price, total_count = self.conn.get_charges_price_and_count(
             request.context, start_time=start_time, end_time=end_time)
+        total_price = gringutils._quantize_decimal(total_price)
 
         return models.Charges.transform(total_price=total_price,
                                         total_count=total_count,
