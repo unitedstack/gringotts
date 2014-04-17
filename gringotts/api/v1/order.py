@@ -135,8 +135,9 @@ class ResourceController(rest.RestController):
     @wsexpose(models.Order, wtypes.text)
     def get(self, resource_id):
         conn = pecan.request.db_conn
-        return conn.get_order_by_resource_id(request.context,
-                                             resource_id)
+        order = conn.get_order_by_resource_id(request.context,
+                                              resource_id)
+        return models.Order.from_db_model(order)
 
 
 class OrdersController(rest.RestController):
@@ -194,12 +195,20 @@ class OrdersController(rest.RestController):
                                          order_id=order.order_id)
         return total_price
 
-    @wsexpose(models.Order, body=models.OrderPostBody)
+    @wsexpose(None, body=models.OrderPostBody)
     def post(self, data):
         conn = pecan.request.db_conn
-        return conn.create_order(request.context, **data.as_dict())
+        try:
+            conn.create_order(request.context, **data.as_dict())
+        except Exception as e:
+            LOG.exception('Fail to create order: %s, for reason %s' %
+                           (data.as_dict(), e))
 
-    @wsexpose(models.Order, body=models.OrderPutBody)
+    @wsexpose(None, body=models.OrderPutBody)
     def put(self, data):
         conn = pecan.request.db_conn
-        return conn.update_order(request.context, **data.as_dict())
+        try:
+            conn.update_order(request.context, **data.as_dict())
+        except Exception as e:
+            LOG.exception('Fail to update order: %s, for reason %s' %
+                           (data.as_dict(), e))

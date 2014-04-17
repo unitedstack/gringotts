@@ -3,6 +3,7 @@ import decimal
 import wsme
 from wsme import types as wtypes
 from gringotts.openstack.common import log
+from gringotts.openstack.common import timeutils
 
 
 LOG = log.getLogger(__name__)
@@ -14,6 +15,12 @@ operation_kind = wtypes.Enum(str, 'lt', 'le', 'eq', 'ne', 'ge', 'gt')
 class APIBase(wtypes.Base):
     """Inherit from wsme Base class to handle complex types
     """
+    def __init__(self, **kw):
+        for k, v in kw.items():
+            if isinstance(v, datetime.datetime):
+                kw[k] = timeutils.isotime(at=v)
+        super(APIBase, self).__init__(**kw)
+
     @classmethod
     def from_db_model(cls, m):
         return cls(**(m.as_dict()))
@@ -96,8 +103,8 @@ class Product(APIBase):
     unit_price = decimal.Decimal
     unit = wtypes.text
 
-    created_at = datetime.datetime
-    updated_at = datetime.datetime
+    created_at = wtypes.text
+    updated_at = wtypes.text
 
     @classmethod
     def sample(cls):
@@ -170,8 +177,6 @@ class Sales(APIBase):
     """
     total_price = decimal.Decimal
     sales = [Sale]
-    start_time = datetime.datetime
-    end_time = datetime.datetime
 
 
 class Subscription(APIBase):
@@ -183,7 +188,7 @@ class Subscription(APIBase):
     total_price = decimal.Decimal
     user_id = wtypes.text
     project_id = wtypes.text
-    created_at =  datetime.datetime
+    created_at =  wtypes.text
 
 
 class SubscriptionPostBody(APIBase):
@@ -232,8 +237,8 @@ class Order(APIBase):
     unit_price = decimal.Decimal
     total_price = decimal.Decimal
     type = wtypes.text
-    cron_time = datetime.datetime
-    created_at = datetime.datetime
+    cron_time = wtypes.text
+    created_at = wtypes.text
 
     @classmethod
     def sample1(cls):
@@ -281,8 +286,8 @@ class Bill(APIBase):
     """Detail of an order
     """
     resource_id = wtypes.text
-    start_time = datetime.datetime
-    end_time = datetime.datetime
+    start_time = wtypes.text
+    end_time = wtypes.text
     total_price = decimal.Decimal
     unit_price = decimal.Decimal
     remarks = wtypes.text
@@ -371,8 +376,8 @@ class Summaries(APIBase):
 class Trend(APIBase):
     """Total sunsumption in one months
     """
-    start_time = datetime.datetime
-    end_time = datetime.datetime
+    start_time = wtypes.text
+    end_time = wtypes.text
     consumption = decimal.Decimal
 
 
@@ -382,7 +387,7 @@ class Charge(APIBase):
     value = decimal.Decimal
     type = wtypes.text
     come_from = wtypes.text
-    charge_time = datetime.datetime
+    charge_time = wtypes.text
 
 
 class Charges(APIBase):

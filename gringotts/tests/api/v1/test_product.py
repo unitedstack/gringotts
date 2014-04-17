@@ -36,10 +36,10 @@ class TestProducts(FunctionalTest):
         self.post_json(self.PATH, self.product_1, headers=self.headers)
         products = self.get_json(self.PATH_DETAIL, headers=self.headers)
 
-        products[0].update(unit_price='0.0600')
+        new = dict(unit_price='0.0600')
 
         put_path = self.PATH + '/' + products[0]['product_id']
-        self.put_json(put_path, products[0], headers=self.headers)
+        self.put_json(put_path, new, headers=self.headers)
 
         data = self.get_json(self.PATH_DETAIL, headers=self.headers)
         self.assertEqual('0.0600', data[0]['unit_price'])
@@ -62,10 +62,10 @@ class TestProducts(FunctionalTest):
         products = self.get_json(self.PATH_DETAIL, headers=self.headers)
 
         # Change product-1's name to product-2
-        products[1].update(name='product-2') 
+        new = dict(name='product-2')
 
         put_path = self.PATH + '/' + products[1]['product_id']
-        resp = self.put_json(put_path, products[1], expect_errors=True,
+        resp = self.put_json(put_path, new, expect_errors=True,
                              headers=self.headers)
 
         self.assertEqual(500, resp.status_int)

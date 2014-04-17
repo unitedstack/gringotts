@@ -1,7 +1,7 @@
 MYSQL_HOST=${MYSQL_HOST:-127.0.0.1}
 MYSQL_USER=${MYSQL_USER:-root}
 MYSQL_PASSWORD=${MYSQL_PASSWORD:-rachel}
-OPENRC=${OPENRC:-~/devstack/openrc}
+OPENRC=${OPENRC:-/home/suo/devstack/openrc}
 
 # Add products
 PRODUCT_SQL="USE gringotts; INSERT INTO product VALUES"
@@ -30,7 +30,7 @@ PRODUCT_SQL=$PRODUCT_SQL$P_1$P_2$P_3$P_4$P_5$P_6$P_7$P_8$P_9$P_10$P_11$P_12$P_13
 mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASSWORD -e "$PRODUCT_SQL"
 
 # Add admin account
-source $OPENRC
+source $OPENRC admin admin
 ADMIN_USER_ID=$(keystone user-list | awk "/ admin / {print \$2}")
 ADMIN_TENANT_ID=$(keystone tenant-list | awk "/ admin / {print \$2}")
 ACCOUNT_SQL="USE gringotts; INSERT INTO account VALUES(1, '$ADMIN_USER_ID', '$ADMIN_TENANT_ID', 10, 0, 'CNY', NULL, NULL);"

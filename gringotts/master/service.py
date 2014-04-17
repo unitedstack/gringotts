@@ -22,6 +22,7 @@ from gringotts.service import prepare_service
 LOG = log.getLogger(__name__)
 
 TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
+ISO8601_UTC_TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
 OPTS = [
     cfg.IntOpt('reserved_days',
@@ -88,7 +89,7 @@ class MasterService(rpc_service.Service):
                     continue
                 elif isinstance(order['cron_time'], basestring):
                     cron_time = timeutils.parse_strtime(order['cron_time'],
-                                                        fmt=timeutils._ISO8601_TIME_FORMAT)
+                                                        fmt=ISO8601_UTC_TIME_FORMAT)
                 else:
                     cron_time = order['cron_time']
 

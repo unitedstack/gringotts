@@ -120,7 +120,7 @@ class ProductController(rest.RestController):
                                                 total_price=s.total_price,
                                                 user_id=s.user_id,
                                                 project_id=s.project_id,
-                                                created_time=s.created_at)
+                                                created_at=s.created_at)
             subscriptions.append(sub)
 
         return subscriptions
@@ -129,10 +129,8 @@ class ProductController(rest.RestController):
 class SalesController(rest.RestController):
     """Sales information about all products
     """
-    @wsexpose(models.Sales, wtypes.text, wtypes.text, wtypes.text,
-              datetime.datetime, datetime.datetime)
-    def get(self, name=None, service=None, region_id=None,
-                start_time=None, end_time=None):
+    @wsexpose(models.Sales, wtypes.text, wtypes.text, wtypes.text)
+    def get(self, name=None, service=None, region_id=None):
         """Get all products's statistics
         """
         filters = {}
@@ -163,9 +161,7 @@ class SalesController(rest.RestController):
                 total_price=p.total_price))
 
         return models.Sales.transform(total_price=total_price,
-                                      sales=sales,
-                                      start_time=start_time,
-                                      end_time=end_time)
+                                      sales=sales)
 
 
 class PriceController(rest.RestController):

@@ -114,8 +114,8 @@ class SnapshotCreateEnd(SnapshotNotificationBase):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
                 if sub:
-                    __ = sub['unit_price'] * sub['quantity']
-                    unit_price += gringutils._quantize_decimal(__)
+                    p = gringutils._quantize_decimal(sub['unit_price'])
+                    unit_price += p * sub['quantity']
                     unit = sub['unit']
 
         # Create an order for this instance

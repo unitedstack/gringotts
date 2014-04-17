@@ -15,6 +15,7 @@ from gringotts.api.v1 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import timeutils
 
 
 LOG = log.getLogger(__name__)
@@ -73,13 +74,22 @@ class AccountController(rest.RestController):
 
         # Create a charge record
         if not data.charge_time:
-            data.charge_time = datetime.datetime.utcnow()
+            charge_time = datetime.datetime.utcnow()
+        else:
+            charge_time = timeutils.parse_isotime(data.charge_time)
         try:
             charge_in = db_models.Charge(charge_id=uuidutils.generate_uuid(),
                                          project_id=self._id,
                                          currency='CNY',
-                                         **data.as_dict())
+                                         value=data.value,
+                                         type=data.type or None,
+                                         come_from=data.come_from or None,
+                                         charge_time=charge_time)
             charge = self.conn.create_charge(request.context, charge_in)
+        except exception.NotAuthorized as e:
+            LOG.exception('Fail to charge the account:%s due to not authorization' % \
+                          self._id)
+            raise exception.NotAuthorized()
         except TypeError as e:
             error = 'Error while turning charge: %s' % data.as_dict()
             LOG.exception(error)
@@ -127,7 +137,7 @@ class AccountsController(rest.RestController):
 
     @wsexpose([models.AdminAccount])
     def get_all(self):
-        """Get all product
+        """Get all account
         """
         self.conn = pecan.request.db_conn
 
