@@ -695,9 +695,12 @@ class Connection(base.Connection):
         return self._row_to_db_charge_model(ref)
 
     @require_context
-    def get_charges(self, context, start_time=None, end_time=None,
+    def get_charges(self, context, project_id=None, start_time=None, end_time=None,
                     limit=None, offset=None, sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.Charge)
+
+        if project_id:
+            query = query.filter_by(project_id=project_id)
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Charge.charge_time >= start_time,
@@ -711,10 +714,14 @@ class Connection(base.Connection):
         return (self._row_to_db_charge_model(r) for r in result)
 
     @require_context
-    def get_charges_price_and_count(self, context, start_time=None, end_time=None):
+    def get_charges_price_and_count(self, context, project_id=None,
+                                    start_time=None, end_time=None):
         query = model_query(context, sa_models.Charge,
                             func.count(sa_models.Charge.id).label('count'),
                             func.sum(sa_models.Charge.value).label('sum'))
+
+        if project_id:
+            query = query.filter_by(project_id=project_id)
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Charge.charge_time >= start_time,

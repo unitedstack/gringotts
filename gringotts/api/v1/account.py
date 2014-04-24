@@ -109,6 +109,7 @@ class AccountController(rest.RestController):
         """
         self.conn = pecan.request.db_conn
         charges = self.conn.get_charges(request.context,
+                                        project_id=self._id,
                                         limit=limit,
                                         offset=offset,
                                         start_time=start_time,
@@ -118,7 +119,8 @@ class AccountController(rest.RestController):
             charges_list.append(models.Charge.from_db_model(charge))
 
         total_price, total_count = self.conn.get_charges_price_and_count(
-            request.context, start_time=start_time, end_time=end_time)
+            request.context, project_id=self._id,
+            start_time=start_time, end_time=end_time)
         total_price = gringutils._quantize_decimal(total_price)
 
         return models.Charges.transform(total_price=total_price,
