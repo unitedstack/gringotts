@@ -19,6 +19,6 @@ python-dateutil==1.4.1
 pecan==0.3.2
 WSME==0.5b5
 oslo.config==1.2.0
-python-memcached==1.43
+python-memcached
 kombu==2.4.8
 stevedore==0.11
