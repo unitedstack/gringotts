@@ -1,4 +1,3 @@
-import mock
 from oslo.config import cfg
 from keystoneclient.v3 import client
 
@@ -28,19 +27,21 @@ def force_v3_api(url):
     return url
 
 
-def get_keystoneclient():
-    os_cfg = cfg.CONF.service_credentials
-    c = client.Client(user_domain_name=os_cfg.user_domain_name,
-                      username=os_cfg.os_username,
-                      password=os_cfg.os_password,
-                      project_domain_name=os_cfg.project_domain_name,
-                      project_name=os_cfg.os_tenant_name,
-                      auth_url=os_cfg.os_auth_url)
-    c.management_url = force_v3_api(c.management_url)
-    return c
+ks_client = None
 
 
-ks_client = get_keystoneclient()
+def get_ks_client():
+    global ks_client
+    if ks_client is None:
+        os_cfg = cfg.CONF.service_credentials
+        ks_client = client.Client(user_domain_name=os_cfg.user_domain_name,
+                                  username=os_cfg.os_username,
+                                  password=os_cfg.os_password,
+                                  project_domain_name=os_cfg.project_domain_name,
+                                  project_name=os_cfg.os_tenant_name,
+                                  auth_url=os_cfg.os_auth_url)
+        ks_client.management_url = force_v3_api(ks_client.management_url)
+    return ks_client
 
 
 def _get_catalog():
@@ -53,8 +54,8 @@ def _get_catalog():
         return catalog
 
     try:
-        endpoints = ks_client.endpoints.list()
-        services = ks_client.services.list()
+        endpoints = get_ks_client().endpoints.list()
+        services = get_ks_client().services.list()
     except Exception as e:
         LOG.exception('failed to load endpoints from kesytone:%s' % e)
         return []
@@ -82,15 +83,11 @@ def _get_catalog():
 
 
 def get_admin_tenant_id():
-    if isinstance(ks_client.project_id, mock.MagicMock):
-        return 'mock_project_id'
-    return ks_client.project_id
+    return get_ks_client().project_id
 
 
 def get_admin_user_id():
-    if isinstance(ks_client.user_id, mock.MagicMock):
-        return 'mock_user_id'
-    return ks_client.user_id
+    return get_ks_client().user_id
 
 
 def get_endpoint(region_name, service_type, endpoint_type=None, project_id=None):
@@ -98,9 +95,9 @@ def get_endpoint(region_name, service_type, endpoint_type=None, project_id=None)
     Keystoneclient(havana) doesn't support multiple regions,
     so we should implement it by ourselves.
     Keystoneclient(icehouse) can do the same thing like this:
-    ks_client.service_catalog.url_for(service_type=xxx,
-                                      endpoint_type=yyy,
-                                      region_name=zzz)
+    get_ks_client().service_catalog.url_for(service_type=xxx,
+                                            endpoint_type=yyy,
+                                            region_name=zzz)
     """
     catalog = _get_catalog()
 
@@ -133,7 +130,7 @@ def get_endpoint(region_name, service_type, endpoint_type=None, project_id=None)
 
 
 def get_token():
-    return ks_client.auth_token
+    return get_ks_client().auth_token
 
 
 def _get_owed_role_id():
@@ -142,33 +139,33 @@ def _get_owed_role_id():
     role_id = cache.get(key)
     if role_id:
         return role_id
-    roles = ks_client.roles.list()
+    roles = get_ks_client().roles.list()
     for role in roles:
         if role.name == 'ower':
             role_id = role.id
             break
     if not role_id:
-        role_id = ks_client.roles.create('ower').id
+        role_id = get_ks_client().roles.create('ower').id
     cache.set(key, role_id, CACHE_SECONDS * 30)
     return role_id
 
 
 def grant_owed_role(user_id, project_id):
     role_id = _get_owed_role_id()
-    ks_client.roles.grant(role_id, user=user_id, project=project_id)
+    get_ks_client().roles.grant(role_id, user=user_id, project=project_id)
 
 
 def revoke_owed_role(user_id, project_id):
     role_id = _get_owed_role_id()
-    ks_client.roles.revoke(role_id, user=user_id, project=project_id)
+    get_ks_client().roles.revoke(role_id, user=user_id, project=project_id)
 
 
 def get_user_list():
-    return ks_client.users.list()
+    return get_ks_client().users.list()
 
 
 def get_project_list():
-    return ks_client.projects.list()
+    return get_ks_client().projects.list()
 
 
 def get_role_list(user=None, group=None, domain=None, project=None):
@@ -177,7 +174,7 @@ def get_role_list(user=None, group=None, domain=None, project=None):
 
     NOTE: Role is granted to user on particular project
     """
-    return ks_client.roles.list(user=user,
-                                group=group,
-                                domain=domain,
-                                project=project)
+    return get_ks_client().roles.list(user=user,
+                                      group=group,
+                                      domain=domain,
+                                      project=project)
