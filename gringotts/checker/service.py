@@ -101,12 +101,6 @@ class CheckerService(os_service.Service):
     def _check_resource_to_order(self, resource, resource_to_order):
         LOG.debug('Checking resource: %s' % resource.as_dict())
 
-        if resource.status == const.STATE_ERROR:
-            LOG.warn('The status of the resource(%s) is not steady or in error.' %
-                     resource.as_dict())
-            resource_to_order[resource.id]['checked'] = True
-            return
-
         try:
             order = resource_to_order[resource.id]
         except KeyError:
@@ -114,6 +108,10 @@ class CheckerService(os_service.Service):
             # TODO(suo): Create order and bills for these resources
             LOG.warn('The resource(%s) has no order' % resource.as_dict())
 
+            if resource.status == const.STATE_ERROR:
+                LOG.warn('The status of the resource(%s) is not steady or in error.' %
+                         resource.as_dict())
+                return
             if cfg.CONF.checker.try_to_fix:
                 now = datetime.datetime.utcnow()
                 created = timeutils.parse_strtime(resource.created_at,
@@ -125,7 +123,10 @@ class CheckerService(os_service.Service):
         else:
             # Situation 2: There exist resources whose status don't match with its order's status
             # TODO(suo): Change order for these resources
-            if resource.status != order['status']:
+            if resource.status == const.STATE_ERROR:
+                LOG.warn('The status of the resource(%s) is not steady or in error.' %
+                         resource.as_dict())
+            elif resource.status != order['status']:
                 LOG.warn('The status of the resource(%s) doesn\'t match with the status of the order(%s)' %
                          (resource.as_dict(), order))
 
