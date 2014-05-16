@@ -100,20 +100,25 @@ class CheckerService(os_service.Service):
 
     def _check_resource_to_order(self, resource, resource_to_order):
         LOG.debug('Checking resource: %s' % resource.as_dict())
+
+        if resource.status == const.STATE_ERROR:
+            LOG.warn('The status of the resource(%s) is not steady or in error.' %
+                     resource.as_dict())
+            resource_to_order[resource.id]['checked'] = True
+            return
+
         try:
             order = resource_to_order[resource.id]
         except KeyError:
             # Situation 1: There exist resources that are not billed
             # TODO(suo): Create order and bills for these resources
             LOG.warn('The resource(%s) has no order' % resource.as_dict())
-            if resource.status == const.STATE_ERROR:
-                LOG.warn('The status of the resource(%s) is error' % resource.as_dict())
-                return
+
             if cfg.CONF.checker.try_to_fix:
                 now = datetime.datetime.utcnow()
                 created = timeutils.parse_strtime(resource.created_at,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
-                if timeutils.delta_seconds(created, now) > 30:
+                if timeutils.delta_seconds(created, now) > 300:
                     create_cls = self.RESOURCE_CREATE_MAP[resource.resource_type]
                     create_cls.process_notification(resource.to_message(),
                                                     resource.status)
@@ -123,6 +128,23 @@ class CheckerService(os_service.Service):
             if resource.status != order['status']:
                 LOG.warn('The status of the resource(%s) doesn\'t match with the status of the order(%s)' %
                          (resource.as_dict(), order))
+
+                if cfg.CONF.checker.try_to_fix:
+                    action_time = utils.format_datetime(timeutils.strtime())
+                    self.master_api.resource_changed(self.ctxt,
+                                                     order['order_id'],
+                                                     action_time,
+                                                     change_to=resource.status,
+                                                     remarks="System Adjust")
+            # Order has created, but its bill not be created by master
+            elif not order['cron_time']:
+                LOG.warn('The order(%s) has been created, its bill not yet' % order)
+
+                if cfg.CONF.checker.try_to_fix:
+                    self.master_api.resource_created_again(self.ctxt,
+                                                           order['order_id'],
+                                                           resource.created_at,
+                                                           "Sytstem Adjust")
 
             resource_to_order[resource.id]['checked'] = True
 
@@ -147,7 +169,8 @@ class CheckerService(os_service.Service):
             projects = self.keystone_client.get_project_list()
             for project in projects:
                 # Get all active orders
-                states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
+                states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND,
+                          const.STATE_CHANGING]
                 resource_to_order = {}
                 for s in states:
                     orders = self.worker_api.get_orders(self.ctxt,
@@ -173,8 +196,6 @@ class CheckerService(os_service.Service):
                     # Situation 3: There exist active orders that their resource has been deleted
                     # TODO(suo): Close bills for these deleted resources
                     self._check_order_to_resource(resource_id, order)
-
-            LOG.warn('Checked, resources are matched with orders')
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
                           'resources match with orders or not')
@@ -186,13 +207,16 @@ class CheckerService(os_service.Service):
         LOG.warn('Checking if cronjobs match with orders')
         try:
             cronjob_count = self.master_api.get_cronjob_count(self.ctxt)
+
+            # active means including running, stopped, changing, suspend
             order_count = self.worker_api.get_active_order_count(
                 self.ctxt, self.region_name)
             if cronjob_count != order_count:
                 LOG.warn('There are %s cron jobs, but there are %s active orders' %
                          (cronjob_count, order_count))
-            LOG.warn('Checked, There are %s cron jobs, and %s active orders' %
-                      (cronjob_count, order_count))
+            else:
+                LOG.warn('Checked, There are %s cron jobs, and %s active orders' %
+                          (cronjob_count, order_count))
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
                           'cron jobs match with orders or not')
@@ -203,7 +227,7 @@ class CheckerService(os_service.Service):
         """
         LOG.warn('Checking if users match with accounts')
         try:
-            LOG.warn('Checked, users are matched with accounts')
+            pass
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
                           'users match with orders or not')
@@ -213,7 +237,7 @@ class CheckerService(os_service.Service):
         """
         LOG.warn('Checking if consumptions match with total price')
         try:
-            LOG.warn('Checked, consumptions are matched with total price')
+            pass
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
                           'consumptions match with total price or not')

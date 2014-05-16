@@ -39,6 +39,7 @@ def image_list(project_id, region_name=None):
                                       name=image.name,
                                       size=image.size,
                                       status=status,
+                                      original_status=image.status,
                                       resource_type=const.RESOURCE_IMAGE,
                                       project_id=project_id,
                                       created_at=created_at))

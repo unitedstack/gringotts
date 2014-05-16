@@ -81,6 +81,7 @@ def server_list(project_id, region_name=None, detailed=True):
                                         image_name=image.name,
                                         image_id=image.id,
                                         status=status,
+                                        original_status=server.status,
                                         resource_type=const.RESOURCE_INSTANCE,
                                         user_id=server.user_id,
                                         project_id=server.tenant_id,

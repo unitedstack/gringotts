@@ -79,6 +79,7 @@ def floatingip_list(project_id, region_name=None):
                                          project_id=fip['tenant_id'],
                                          resource_type=const.RESOURCE_FLOATINGIP,
                                          status=status,
+                                         original_status=fip['status'],
                                          created_at=created_at))
     return formatted_fips
 
@@ -98,6 +99,7 @@ def router_list(project_id, region_name=None):
                                         project_id=router['tenant_id'],
                                         resource_type=const.RESOURCE_ROUTER,
                                         status=status,
+                                        original_status=router['status'],
                                         created_at=created_at))
     return formatted_routers
 
