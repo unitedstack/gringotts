@@ -142,7 +142,7 @@ class CheckerService(os_service.Service):
 
         We do this check every one hour.
         """
-        LOG.debug('Checking if resources match with orders')
+        LOG.warn('Checking if resources match with orders')
         try:
             projects = self.keystone_client.get_project_list()
             for project in projects:
@@ -174,7 +174,7 @@ class CheckerService(os_service.Service):
                     # TODO(suo): Close bills for these deleted resources
                     self._check_order_to_resource(resource_id, order)
 
-            LOG.debug('Checked, resources are matched with orders')
+            LOG.warn('Checked, resources are matched with orders')
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
                           'resources match with orders or not')
@@ -183,7 +183,7 @@ class CheckerService(os_service.Service):
         """Check if number of cron jobs match number of orders in running and
         stopped state, we do this check every one hour.
         """
-        LOG.debug('Checking if cronjobs match with orders')
+        LOG.warn('Checking if cronjobs match with orders')
         try:
             cronjob_count = self.master_api.get_cronjob_count(self.ctxt)
             order_count = self.worker_api.get_active_order_count(
@@ -191,7 +191,7 @@ class CheckerService(os_service.Service):
             if cronjob_count != order_count:
                 LOG.warn('There are %s cron jobs, but there are %s active orders' %
                          (cronjob_count, order_count))
-            LOG.debug('Checked, There are %s cron jobs, and %s active orders' %
+            LOG.warn('Checked, There are %s cron jobs, and %s active orders' %
                       (cronjob_count, order_count))
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
@@ -201,9 +201,9 @@ class CheckerService(os_service.Service):
         """Check if users and projects in keystone match accounts in gringotts.
         We do this check every 24 hours.
         """
-        LOG.debug('Checking if users match with accounts')
+        LOG.warn('Checking if users match with accounts')
         try:
-            LOG.debug('Checked, users are matched with accounts')
+            LOG.warn('Checked, users are matched with accounts')
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
                           'users match with orders or not')
@@ -211,9 +211,9 @@ class CheckerService(os_service.Service):
     def check_if_consumptions_match_total_price(self):
         """Check if consumption of an account match sum of all orders' total_price
         """
-        LOG.debug('Checking if consumptions match with total price')
+        LOG.warn('Checking if consumptions match with total price')
         try:
-            LOG.debug('Checked, consumptions are matched with total price')
+            LOG.warn('Checked, consumptions are matched with total price')
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
                           'consumptions match with total price or not')
