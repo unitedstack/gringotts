@@ -82,8 +82,9 @@ class WorkerAPI(object):
             return body['orders']
         return []
 
-    def get_active_order_count(self, ctxt, region_id=None):
-        params = dict(region_id=region_id)
+    def get_active_order_count(self, ctxt, region_id=None, owed=None):
+        params = dict(region_id=region_id,
+                      owed=owed)
         resp, body = self.client.get('/orders/count',
                                      params=params)
         return body
@@ -104,3 +105,7 @@ class WorkerAPI(object):
                      level=level,
                      **kwargs)
         self.client.post('/accounts', body=_body)
+
+    def get_accounts(self, ctxt):
+        resp, body = self.client.get('/accounts')
+        return body

@@ -91,7 +91,7 @@ class CheckerService(os_service.Service):
         """
         interval_jobs = [(self.check_if_resources_match_orders, 1),
                          (self.check_if_cronjobs_match_orders, 1),
-                         (self.check_if_users_match_accounts, 24),
+                         (self.check_if_account_match_role, 24),
                          (self.check_if_consumptions_match_total_price, 24)]
 
         for job, period in interval_jobs:
@@ -207,8 +207,8 @@ class CheckerService(os_service.Service):
         """
         LOG.warn('Checking if cronjobs match with orders')
         try:
+            # Checking active orders
             cronjob_count = self.master_api.get_cronjob_count(self.ctxt)
-
             # active means including running, stopped, changing, suspend
             order_count = self.worker_api.get_active_order_count(
                 self.ctxt, self.region_name)
@@ -218,20 +218,62 @@ class CheckerService(os_service.Service):
             else:
                 LOG.warn('Checked, There are %s cron jobs, and %s active orders' %
                           (cronjob_count, order_count))
+
+            # Checking owed orders
+            datejob_count = self.master_api.get_datejob_count(self.ctxt)
+            owed_order_count = self.worker_api.get_active_order_count(
+                self.ctxt, self.region_name, owed=True)
+            if datejob_count != owed_order_count:
+                LOG.warn('There are %s date jobs, but there are %s owed active orders' %
+                         (datejob_count, owed_order_count))
+            else:
+                LOG.warn('Checked, There are %s date jobs, and %s owed active orders' %
+                         (datejob_count, owed_order_count))
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
                           'cron jobs match with orders or not')
 
-    def check_if_users_match_accounts(self):
-        """Check if users and projects in keystone match accounts in gringotts.
-        We do this check every 24 hours.
+    def _has_owner_role(self, roles):
+        for role in roles:
+            if role.name == 'ower':
+                return True
+        return False
+
+    def check_if_account_match_role(self):
+        """Check if accounts match with their roles
         """
-        LOG.warn('Checking if users match with accounts')
+        LOG.warn('Checking if accounts match with their roles')
         try:
-            pass
+            accounts = list(self.worker_api.get_accounts(self.ctxt))
+            projects = self.keystone_client.get_project_list()
+
+            c_accounts = len(accounts)
+            c_projects = len(projects)
+
+            if c_accounts != c_projects:
+                LOG.warn('The count(%s) of accounts is not equal to the count(%s) '
+                         'of projects' % (c_accounts, c_projects))
+
+            for account in accounts:
+                roles = self.keystone_client.get_role_list(
+                    user=account['user_id'],
+                    project=account['project_id'])
+
+                if account['owed'] and not self._has_owner_role(roles):
+                    LOG.warn('Account(%s) owed, but has no owner role' %
+                             account['project_id'])
+                    if cfg.CONF.try_to_fix:
+                        self.keystone_client.grant_owed_role(account['user_id'],
+                                                             account['project_id'])
+                elif not account['owed'] and self._has_owner_role(roles):
+                    LOG.warn('Account(%s) not owed, but has owner role' %
+                             account['project_id'])
+                    if cfg.CONF.try_to_fix:
+                        self.keystone_client.revoke_owed_role(account['user_id'],
+                                                              account['project_id'])
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether'
-                          'users match with orders or not')
+                          'accounts match with their roles or not')
 
     def check_if_consumptions_match_total_price(self):
         """Check if consumption of an account match sum of all orders' total_price

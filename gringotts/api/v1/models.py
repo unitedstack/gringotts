@@ -353,6 +353,7 @@ class AdminAccount(APIBase):
     currency = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
+    owed = bool
 
     @classmethod
     def sample1(cls):

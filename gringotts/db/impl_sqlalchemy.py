@@ -453,11 +453,13 @@ class Connection(base.Connection):
             return (self._row_to_db_order_model(o) for o in result)
 
     @require_admin_context
-    def get_active_order_count(self, context, region_id=None):
+    def get_active_order_count(self, context, region_id=None, owed=None):
         query = model_query(context, sa_models.Order,
                             func.count(sa_models.Order.id).label('count'))
         if region_id:
             query = query.filter_by(region_id=region_id)
+        if owed:
+            query = query.filter_by(owed=owed)
         query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
         return query.one().count or 0
 

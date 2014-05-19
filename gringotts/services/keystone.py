@@ -168,6 +168,14 @@ def get_project_list():
     return get_ks_client().projects.list()
 
 
+def get_user(user_id):
+    return get_ks_client().users.get(user_id)
+
+
+def get_project(project_id):
+    return get_ks_client().projects.get(project_id)
+
+
 def get_role_list(user=None, group=None, domain=None, project=None):
     """Get role list of particular user on particular project by
     given the user and project parameters.
