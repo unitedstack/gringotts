@@ -82,6 +82,16 @@ class WorkerAPI(object):
             return body['orders']
         return []
 
+    def get_active_orders(self, ctxt, project_id=None, owed=None, region_id=None):
+        params = dict(project_id=project_id,
+                      owed=owed,
+                      region_id=region_id)
+        resp, body = self.client.get('/orders/active', params=params)
+        if body:
+            return body
+        return []
+
+
     def get_active_order_count(self, ctxt, region_id=None, owed=None):
         params = dict(region_id=region_id,
                       owed=owed)

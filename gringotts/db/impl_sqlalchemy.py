@@ -463,6 +463,30 @@ class Connection(base.Connection):
         query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
         return query.one().count or 0
 
+    @require_context
+    def get_active_orders(self, context, type=None, limit=None, offset=None, sort_key=None,
+                   sort_dir=None, region_id=None, project_id=None, owed=None):
+        """Get all active orders
+        """
+        query = model_query(context, sa_models.Order)
+
+        if type:
+            query = query.filter_by(type=type)
+        if region_id:
+            query = query.filter_by(region_id=region_id)
+        if project_id:
+            query = query.filter_by(project_id=project_id)
+        if owed:
+            query = query.filter_by(owed=owed)
+
+        query = query.filter(not_(sa_models.Order.status==const.STATE_DELETED))
+
+        result = paginate_query(context, sa_models.Order,
+                                limit=limit, offset=offset,
+                                sort_key=sort_key, sort_dir=sort_dir,
+                                query=query)
+        return (self._row_to_db_order_model(o) for o in result)
+
     @require_admin_context
     def create_subscription(self, context, **subscription):
         session = db_session.get_session()

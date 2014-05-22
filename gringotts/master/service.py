@@ -242,7 +242,7 @@ class MasterService(rpc_service.Service):
         """
         job = self.date_jobs.get(resource_id)
         if not job:
-            LOG.warning('There is no data job for the resource: %s' % resource_id)
+            LOG.warning('There is no date job for the resource: %s' % resource_id)
             return
         self.apsched.unschedule_job(job)
         del self.date_jobs[resource_id]

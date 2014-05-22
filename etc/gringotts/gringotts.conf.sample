@@ -11,6 +11,8 @@ debug=True
 
 reserved_method=liner
 liner_step=1
+notification_driver=gringotts.openstack.common.notifier.rpc_notifier
+control_exchange=uos
 
 [waiter]
 queue_name=gringotts.notification
@@ -26,7 +28,11 @@ apscheduler_threadpool_core_threads=10
 protocol=local
 
 [checker]
+enable_center_jobs=True
+enable_non_center_jobs=True
 try_to_fix=False
+notifier_level=0
+days_to_owe=7
 
 [service_credentials]
 #os_username=admin

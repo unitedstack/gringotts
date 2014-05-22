@@ -151,12 +151,33 @@ class CountController(rest.RestController):
                                                   owed=owed)
         return order_count
 
+
+class ActiveController(rest.RestController):
+    """Get active orders
+    """
+    @wsexpose([models.Order], wtypes.text, int, int, wtypes.text,
+              wtypes.text, bool)
+    def get_all(self, type=None, limit=None, offset=None,
+                region_id=None, project_id=None, owed=None):
+        conn = pecan.request.db_conn
+        orders = conn.get_active_orders(request.context,
+                                        type=type,
+                                        limit=limit,
+                                        offset=offset,
+                                        region_id=region_id,
+                                        project_id=project_id,
+                                        owed=owed)
+        return [models.Order.from_db_model(order)
+                for order in orders]
+
+
 class OrdersController(rest.RestController):
     """The controller of resources
     """
     summary = SummaryController()
     resource = ResourceController()
     count = CountController()
+    active = ActiveController()
 
     @pecan.expose()
     def _lookup(self, order_id, *remainder):

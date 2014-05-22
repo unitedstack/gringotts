@@ -50,6 +50,12 @@ class LocalAPI(object):
                                         owed=owed,
                                         region_id=region_id)
 
+    def get_active_orders(self, ctxt, project_id=None, owed=None, region_id=None):
+        return self._service.get_active_orders(ctxt,
+                                               project_id=project_id,
+                                               owed=owed,
+                                               region_id=region_id)
+
     def get_active_order_count(self, ctxt, region_id=None, owed=None):
         return self._service.get_active_order_count(ctxt,
                                                     region_id=region_id,

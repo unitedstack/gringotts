@@ -9,6 +9,7 @@ from gringotts import exception
 from gringotts import context
 from gringotts import utils
 from gringotts import constants as const
+from gringotts.checker import notifier
 from gringotts.service import prepare_service
 
 from gringotts.waiter import plugins
@@ -20,12 +21,26 @@ from gringotts.openstack.common import service as os_service
 
 LOG = log.getLogger(__name__)
 TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
+ISO8601_UTC_TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
 
 OPTS = [
     cfg.BoolOpt('try_to_fix',
                 default=False,
                 help='If found some exceptio, we try to fix it or not'),
+    cfg.IntOpt('notifier_level',
+               default=1,
+               help='The level of the notifier will perform on, there are 3 levels:'
+                    '0.log  1.log&email  2.log&email&sms'),
+    cfg.IntOpt('days_to_owe',
+               default=7,
+               help='Days before user will owe'),
+    cfg.BoolOpt('enable_center_jobs',
+                default=True,
+                help='Enable the interval jobs that run in center regions'),
+    cfg.BoolOpt('enable_non_center_jobs',
+                default=True,
+                help='Enable the interval jobs that run in non center regions')
 ]
 
 cfg.CONF.register_opts(OPTS, group="checker")
@@ -43,6 +58,7 @@ class CheckerService(os_service.Service):
         self.region_name = cfg.CONF.region_name
         self.worker_api = worker.API()
         self.master_api = master.API()
+        self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
         config = {
             'apscheduler.threadpool.max_threads': 10,
             'apscheduler.threadpool.core_threads': 10,
@@ -84,19 +100,32 @@ class CheckerService(os_service.Service):
         self.load_jobs()
         self.tg.add_timer(604800, lambda: None)
 
-
     def load_jobs(self):
         """Every check point is an apscheduler job that scheduled to different time
         with different period
         """
-        interval_jobs = [(self.check_if_resources_match_orders, 1),
-                         (self.check_if_cronjobs_match_orders, 1),
-                         (self.check_if_account_match_role, 24),
-                         (self.check_if_consumptions_match_total_price, 24)]
+        non_center_jobs = [
+            (self.check_if_resources_match_orders, 1, True),
+            (self.check_if_cronjobs_match_orders, 1, True),
+        ]
 
-        for job, period in interval_jobs:
-            job()
-            self.apsched.add_interval_job(job, hours=period)
+        center_jobs = [
+            (self.check_if_account_match_role, 24, True),
+            (self.check_if_consumptions_match_total_price, 24, True),
+            (self.check_owed_accounts_and_notify, 24, False),
+        ]
+
+        if cfg.CONF.checker.enable_non_center_jobs:
+            for job, period, right_now in non_center_jobs:
+                if right_now:
+                    job()
+                self.apsched.add_interval_job(job, hours=period)
+
+        if cfg.CONF.checker.enable_center_jobs:
+            for job, period, right_now in center_jobs:
+                if right_now:
+                    job()
+                self.apsched.add_interval_job(job, hours=period)
 
     def _check_resource_to_order(self, resource, resource_to_order):
         LOG.debug('Checking resource: %s' % resource.as_dict())
@@ -198,7 +227,7 @@ class CheckerService(os_service.Service):
                     # TODO(suo): Close bills for these deleted resources
                     self._check_order_to_resource(resource_id, order)
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether'
+            LOG.exception('Some exceptions occurred when checking whether '
                           'resources match with orders or not')
 
     def check_if_cronjobs_match_orders(self):
@@ -230,10 +259,10 @@ class CheckerService(os_service.Service):
                 LOG.warn('Checked, There are %s date jobs, and %s owed active orders' %
                          (datejob_count, owed_order_count))
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether'
+            LOG.exception('Some exceptions occurred when checking whether '
                           'cron jobs match with orders or not')
 
-    def _has_owner_role(self, roles):
+    def _has_ower_role(self, roles):
         for role in roles:
             if role.name == 'ower':
                 return True
@@ -259,21 +288,97 @@ class CheckerService(os_service.Service):
                     user=account['user_id'],
                     project=account['project_id'])
 
-                if account['owed'] and not self._has_owner_role(roles):
-                    LOG.warn('Account(%s) owed, but has no owner role' %
+                if account['owed'] and not self._has_ower_role(roles):
+                    LOG.warn('Account(%s) owed, but has no ower role' %
                              account['project_id'])
-                    if cfg.CONF.try_to_fix:
+                    if cfg.CONF.checker.try_to_fix:
                         self.keystone_client.grant_owed_role(account['user_id'],
                                                              account['project_id'])
-                elif not account['owed'] and self._has_owner_role(roles):
-                    LOG.warn('Account(%s) not owed, but has owner role' %
+                elif not account['owed'] and self._has_ower_role(roles):
+                    LOG.warn('Account(%s) not owed, but has ower role' %
                              account['project_id'])
-                    if cfg.CONF.try_to_fix:
+                    if cfg.CONF.checker.try_to_fix:
                         self.keystone_client.revoke_owed_role(account['user_id'],
                                                               account['project_id'])
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether'
+            LOG.exception('Some exceptions occurred when checking whether '
                           'accounts match with their roles or not')
+
+    def check_owed_accounts_and_notify(self):
+        LOG.warn('Notify owed accounts')
+        try:
+            accounts = list(self.worker_api.get_accounts(self.ctxt))
+            for account in accounts:
+                if account['level'] == 9:
+                    continue
+
+                if not isinstance(account, dict):
+                    account = account.as_dict()
+
+                if account['owed']:
+                    orders = list(
+                        self.worker_api.get_active_orders(self.ctxt,
+                                                          project_id=account['project_id'],
+                                                          owed=True)
+                    )
+                    if not orders:
+                        continue
+
+                    contact = self.keystone_client.get_uos_user(account['user_id'])
+
+                    orders_dict = []
+
+                    for order in orders:
+                        order_d = {}
+                        order_d['order_id'] = order['order_id']
+                        order_d['region_id'] = order['region_id']
+                        order_d['resource_id'] = order['resource_id']
+                        order_d['resource_name'] = order['resource_name']
+                        order_d['type'] = order['type']
+
+                        if isinstance(order['date_time'], basestring):
+                            order['date_time'] = timeutils.parse_strtime(
+                                    order['date_time'],
+                                    fmt=ISO8601_UTC_TIME_FORMAT)
+
+                        now = datetime.datetime.utcnow()
+                        reserved_days = order['date_time'].day - now.day
+                        order_d['reserved_days'] = reserved_days
+
+                        order_d['date_time'] = timeutils.strtime(
+                                order['date_time'],
+                                fmt=ISO8601_UTC_TIME_FORMAT)
+
+                        orders_dict.append(order_d)
+
+                    reserved_days = utils.cal_reserved_days(account['level'])
+                    account['reserved_days'] = reserved_days
+                    self.notifier.notify_has_owed(self.ctxt, account, contact, orders_dict)
+                else:
+                    orders = self.worker_api.get_active_orders(self.ctxt,
+                                                               project_id=account['project_id'])
+                    if not orders:
+                        continue
+
+                    price_per_hour = 0
+                    for order in orders:
+                        price_per_hour += utils._quantize_decimal(order['unit_price'])
+
+                    price_per_day = price_per_hour * 24
+                    account_balance = utils._quantize_decimal(account['balance'])
+
+                    if price_per_day == 0:
+                        continue
+
+                    days_to_owe = int(account_balance / price_per_day)
+                    if days_to_owe > cfg.CONF.checker.days_to_owe:
+                        continue
+
+                    contact = self.keystone_client.get_uos_user(account['user_id'])
+                    self.notifier.notify_before_owed(self.ctxt, account, contact,
+                                                     str(price_per_day), days_to_owe)
+        except Exception:
+            LOG.exception('Some exceptions occurred when checking owed accounts')
 
     def check_if_consumptions_match_total_price(self):
         """Check if consumption of an account match sum of all orders' total_price
@@ -282,7 +387,7 @@ class CheckerService(os_service.Service):
         try:
             pass
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether'
+            LOG.exception('Some exceptions occurred when checking whether '
                           'consumptions match with total price or not')
 
 
