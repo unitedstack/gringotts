@@ -29,7 +29,7 @@ OPTS = [
                 default=False,
                 help='If found some exceptio, we try to fix it or not'),
     cfg.IntOpt('notifier_level',
-               default=1,
+               default=0,
                help='The level of the notifier will perform on, there are 3 levels:'
                     '0.log  1.log&email  2.log&email&sms'),
     cfg.IntOpt('days_to_owe',
