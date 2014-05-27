@@ -79,6 +79,7 @@ STATE_MAPPING = {
     'active': const.STATE_RUNNING,
     'available': const.STATE_RUNNING,
     'in-use': const.STATE_RUNNING,
+    'deprecated': const.STATE_RUNNING,
     'DOWN': const.STATE_RUNNING,
     'SHUTOFF': const.STATE_STOPPED,
     'SUSPENDED': const.STATE_SUSPEND,

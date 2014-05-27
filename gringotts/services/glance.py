@@ -26,11 +26,12 @@ class Image(Resource):
 def get_glanceclient(region_name=None):
     endpoint = ks_client.get_endpoint(region_name, 'image')
     auth_token = ks_client.get_token()
-    return glanceclient.Client('1', endpoint, token=auth_token)
+    return glanceclient.Client('2', endpoint, token=auth_token)
 
 
 def image_list(project_id, region_name=None):
-    images = get_glanceclient(region_name).images.list(owner=project_id)
+    filters = {'owner': project_id}
+    images = get_glanceclient(region_name).images.list(filters=filters)
     formatted_images = []
     for image in images:
         created_at = utils.format_datetime(image.created_at)
@@ -49,9 +50,10 @@ def image_list(project_id, region_name=None):
 @wrap_exception(exc_type='bulk')
 def delete_images(project_id, region_name=None):
     client = get_glanceclient(region_name)
-    images = client.images.list(owner=project_id)
+    filters = {'owner': project_id}
+    images = client.images.list(filters=filters)
     for image in images:
-        client.images.delete(image)
+        client.images.delete(image.id)
 
 
 @wrap_exception()
