@@ -119,3 +119,6 @@ class WorkerAPI(object):
     def get_accounts(self, ctxt):
         resp, body = self.client.get('/accounts')
         return body
+
+    def fix_order(self, ctxt, order_id):
+        raise NotImplementedError()

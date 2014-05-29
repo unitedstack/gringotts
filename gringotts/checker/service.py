@@ -112,6 +112,7 @@ class CheckerService(os_service.Service):
         center_jobs = [
             (self.check_if_account_match_role, 24, True),
             (self.check_if_consumptions_match_total_price, 24, True),
+            (self.check_if_order_over_billed, 24, True),
             (self.check_owed_accounts_and_notify, 24, False),
         ]
 
@@ -379,6 +380,25 @@ class CheckerService(os_service.Service):
                                                      str(price_per_day), days_to_owe)
         except Exception:
             LOG.exception('Some exceptions occurred when checking owed accounts')
+
+    def check_if_order_over_billed(self):
+        LOG.warn('Checking if orders are over billed')
+        try:
+            orders = self.worker_api.get_active_orders(self.ctxt)
+            for order in orders:
+                if not isinstance(order, dict):
+                    order = order.as_dict()
+                if isinstance(order['cron_time'], basestring):
+                    order['cron_time'] = timeutils.parse_strtime(
+                            order['cron_time'],
+                            fmt=ISO8601_UTC_TIME_FORMAT)
+                one_hour_later= timeutils.utcnow() + datetime.timedelta(hours=1)
+                if order['cron_time'] > one_hour_later:
+                    LOG.warn('The order(%s) is over billed' % order)
+                    if cfg.CONF.checker.try_to_fix:
+                        self.worker_api.fix_order(self.ctxt, order['order_id'])
+        except Exception:
+            LOG.exception('Some exceptions occurred when checking whether orders are over billed')
 
     def check_if_consumptions_match_total_price(self):
         """Check if consumption of an account match sum of all orders' total_price

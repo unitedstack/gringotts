@@ -73,6 +73,9 @@ class LocalAPI(object):
     def get_accounts(self, ctxt):
         return self._service.get_accounts(ctxt)
 
+    def fix_order(self, ctxt, order_id):
+        self._service.fix_order(ctxt, order_id)
+
 
 class RPCAPI(LocalAPI):
     """A rpc version of the worker API that handles all requests.

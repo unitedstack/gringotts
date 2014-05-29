@@ -814,6 +814,11 @@ class Connection(base.Connection):
             if not action_time:
                 action_time = order.cron_time
 
+            if action_time > timeutils.utcnow():
+                LOG.warn('The action_time(%s) of the order(%s) if greater than utcnow(%s)' %
+                         (action_time, order_id, timeutils.utcnow()))
+                return result
+
             bill = sa_models.Bill(bill_id=uuidutils.generate_uuid(),
                                   start_time=action_time,
                                   end_time=action_time + datetime.timedelta(hours=1),
@@ -992,3 +997,35 @@ class Connection(base.Connection):
                 result['resource_id'] = order.resource_id
 
             return result
+
+
+    @require_admin_context
+    def fix_order(self, context, order_id):
+        session = db_session.get_session()
+        with session.begin():
+            order = model_query(context, sa_models.Order, session=session).\
+                filter_by(order_id=order_id).\
+                with_lockmode('update').one()
+            bills = model_query(context, sa_models.Bill, session=session).\
+                filter_by(order_id=order_id).all()
+            account = model_query(context, sa_models.Account, session=session).\
+                filter_by(project_id=order.project_id).\
+                with_lockmode('update').one()
+
+            one_hour_later = timeutils.utcnow() + datetime.timedelta(hours=1)
+            more_fee = 0
+
+            for bill in bills:
+                if bill.end_time > one_hour_later:
+                    more_fee += bill.total_price
+                    session.delete(bill)
+
+            bill = model_query(context, sa_models.Bill, session=session).\
+                filter_by(order_id=order_id).\
+                order_by(desc(sa_models.Bill.id)).all()[0]
+
+            order.cron_time = bill.end_time
+            order.total_price -= more_fee
+
+            account.balance += more_fee
+            account.consumption -= more_fee
