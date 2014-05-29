@@ -814,9 +814,11 @@ class Connection(base.Connection):
             if not action_time:
                 action_time = order.cron_time
 
-            if action_time > timeutils.utcnow():
-                LOG.warn('The action_time(%s) of the order(%s) if greater than utcnow(%s)' %
-                         (action_time, order_id, timeutils.utcnow()))
+            now = timeutils.utcnow()
+
+            if abs(timeutils.delta_seconds(action_time, now)) > 300:
+                LOG.warn('The action_time(%s) of the order(%s) if greater than utc now(%s)' %
+                         (action_time, order_id, now))
                 return result
 
             bill = sa_models.Bill(bill_id=uuidutils.generate_uuid(),
