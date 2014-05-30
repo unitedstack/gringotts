@@ -35,6 +35,9 @@ OPTS = [
     cfg.StrOpt('master_topic',
                default='gringotts.master',
                help='the topic master listen on'),
+    cfg.IntOpt('allow_delay_seconds',
+               default=300,
+               help="The delay seconds that allows between nodes"),
 ]
 
 OPTS_GLOBAL = [

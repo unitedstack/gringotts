@@ -22,6 +22,7 @@ initial_level=3
 [master]
 apscheduler_threadpool_max_threads=10
 apscheduler_threadpool_core_threads=10
+allow_delay_seconds=300
 
 [worker]
 # There are three options: local, rpc, http, default is local

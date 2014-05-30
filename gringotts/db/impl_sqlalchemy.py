@@ -33,6 +33,7 @@ from gringotts.openstack.common import timeutils
 
 LOG = log.getLogger(__name__)
 cfg.CONF.import_opt('enable_owe', 'gringotts.master.service')
+cfg.CONF.import_opt('allow_delay_seconds', 'gringotts.master.service', group='master')
 
 get_session = db_session.get_session
 
@@ -814,9 +815,10 @@ class Connection(base.Connection):
             if not action_time:
                 action_time = order.cron_time
 
-            now = timeutils.utcnow()
+            now = timeutils.utcnow() + datetime.timedelta(
+                    seconds=cfg.CONF.master.allow_delay_seconds)
 
-            if abs(timeutils.delta_seconds(action_time, now)) > 300:
+            if action_time > now:
                 LOG.warn('The action_time(%s) of the order(%s) if greater than utc now(%s)' %
                          (action_time, order_id, now))
                 return result
