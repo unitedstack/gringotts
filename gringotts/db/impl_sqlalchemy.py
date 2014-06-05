@@ -632,6 +632,8 @@ class Connection(base.Connection):
             query = query.filter_by(type=type)
 
         if project_id:
+            if not context.is_admin:
+                raise exception.NotAuthorized()
             query = query.filter_by(project_id=project_id)
 
         query = query.filter_by(status=const.BILL_PAYED)
@@ -655,6 +657,8 @@ class Connection(base.Connection):
         if order_id:
             query = query.filter_by(order_id=order_id)
         if project_id:
+            if not context.is_admin:
+                raise exception.NotAuthorized()
             query = query.filter_by(project_id=project_id)
         if type:
             query = query.filter_by(type=type)
@@ -673,6 +677,8 @@ class Connection(base.Connection):
         if order_id:
             query = query.filter_by(order_id=order_id)
         if project_id:
+            if not context.is_admin:
+                raise exception.NotAuthorized()
             query = query.filter_by(project_id=project_id)
         if type:
             query = query.filter_by(type=type)
@@ -694,6 +700,8 @@ class Connection(base.Connection):
         if order_id:
             query = query.filter_by(order_id=order_id)
         if project_id:
+            if not context.is_admin:
+                raise exception.NotAuthorized()
             query = query.filter_by(project_id=project_id)
         if type:
             query = query.filter_by(type=type)

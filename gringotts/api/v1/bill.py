@@ -184,9 +184,9 @@ class BillsController(rest.RestController):
     detail = DetailController()
 
     @wsexpose(models.Bills, datetime.datetime, datetime.datetime,
-              wtypes.text, wtypes.text, int, int)
+              wtypes.text, wtypes.text)
     def get_all(self, start_time=None, end_time=None, type=None,
-                project_id=None, limit=None, offset=None):
+                project_id=None):
         """Get all bills, filter by type, start time, and end time
         """
         conn = pecan.request.db_conn
