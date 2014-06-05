@@ -624,12 +624,15 @@ class Connection(base.Connection):
 
     @require_context
     def get_bills(self, context, start_time=None, end_time=None,
-                  type=None, limit=None, offset=None, sort_key=None,
-                  sort_dir=None):
+                  project_id=None, type=None, limit=None, offset=None,
+                  sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.Bill)
 
         if type:
             query = query.filter_by(type=type)
+
+        if project_id:
+            query = query.filter_by(project_id=project_id)
 
         query = query.filter_by(status=const.BILL_PAYED)
 
@@ -645,12 +648,14 @@ class Connection(base.Connection):
         return (self._row_to_db_bill_model(b) for b in result)
 
     @require_context
-    def get_bills_count(self, context, order_id=None, type=None,
-                        start_time=None, end_time=None):
+    def get_bills_count(self, context, order_id=None, project_id=None,
+                        type=None, start_time=None, end_time=None):
         query = model_query(context, sa_models.Bill,
                             func.count(sa_models.Bill.id).label('count'))
         if order_id:
             query = query.filter_by(order_id=order_id)
+        if project_id:
+            query = query.filter_by(project_id=project_id)
         if type:
             query = query.filter_by(type=type)
 
@@ -662,11 +667,13 @@ class Connection(base.Connection):
 
     @require_context
     def get_bills_sum(self, context, region_id=None, start_time=None, end_time=None,
-                      order_id=None, type=None):
+                      order_id=None, project_id=None, type=None):
         query = model_query(context, sa_models.Bill,
                             func.sum(sa_models.Bill.total_price).label('sum'))
         if order_id:
             query = query.filter_by(order_id=order_id)
+        if project_id:
+            query = query.filter_by(project_id=project_id)
         if type:
             query = query.filter_by(type=type)
         if region_id:
@@ -679,13 +686,15 @@ class Connection(base.Connection):
         return query.one().sum or 0
 
     @require_context
-    def get_bills_count_and_sum(self, context, order_id=None, type=None,
-                                start_time=None, end_time=None):
+    def get_bills_count_and_sum(self, context, order_id=None, project_id=None,
+                                type=None, start_time=None, end_time=None):
         query = model_query(context, sa_models.Bill,
                             func.count(sa_models.Bill.id).label('count'),
                             func.sum(sa_models.Bill.total_price).label('sum'))
         if order_id:
             query = query.filter_by(order_id=order_id)
+        if project_id:
+            query = query.filter_by(project_id=project_id)
         if type:
             query = query.filter_by(type=type)
 

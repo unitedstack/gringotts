@@ -3,7 +3,7 @@ from gringotts.tests.api.v1 import FunctionalTest
 
 
 class TestBills(FunctionalTest):
-    PATH = '/bills'
+    PATH = '/bills/detail'
 
     def setUp(self):
         super(TestBills, self).setUp()
@@ -64,7 +64,7 @@ class TestBills(FunctionalTest):
 
     def test_get_bill_trends(self):
         self.useFixture(db_fixtures.GenerateFakeData(self.conn))
-        path = self.PATH + '/trends'
+        path = '/bills/trends'
         data = self.get_json(path, headers=self.headers)
 
         self.assertEqual(12, len(data))

@@ -142,20 +142,18 @@ class TrendsController(rest.RestController):
         return bills_sum
 
 
-class BillsController(rest.RestController):
-    """The controller of resources
+class DetailController(rest.RestController):
+    """Get detail of bills
     """
-    trends = TrendsController()
-
     @wsexpose(models.Bills, datetime.datetime, datetime.datetime,
-              wtypes.text, int, int)
+              wtypes.text, wtypes.text, int, int)
     def get_all(self, start_time=None, end_time=None, type=None,
-                limit=None, offset=None):
-        """Get all bills, filter by type, start time, and end time
-        """
+                project_id=None, limit=None, offset=None):
+
         conn = pecan.request.db_conn
 
         bills_db = list(conn.get_bills(request.context,
+                                       project_id=project_id,
                                        start_time=start_time,
                                        end_time=end_time,
                                        type=type,
@@ -163,6 +161,7 @@ class BillsController(rest.RestController):
                                        offset=offset))
         total_count, total_price = conn.get_bills_count_and_sum(
             request.context,
+            project_id=project_id,
             start_time=start_time,
             end_time=end_time,
             type=type)
@@ -176,6 +175,28 @@ class BillsController(rest.RestController):
         return models.Bills.transform(total_price=total_price,
                                       total_count=total_count,
                                       bills=bills)
+
+
+class BillsController(rest.RestController):
+    """The controller of resources
+    """
+    trends = TrendsController()
+    detail = DetailController()
+
+    @wsexpose(models.Bills, datetime.datetime, datetime.datetime,
+              wtypes.text, wtypes.text, int, int)
+    def get_all(self, start_time=None, end_time=None, type=None,
+                project_id=None, limit=None, offset=None):
+        """Get all bills, filter by type, start time, and end time
+        """
+        conn = pecan.request.db_conn
+        total_price = conn.get_bills_sum(request.context,
+                                         project_id=project_id,
+                                         start_time=start_time,
+                                         end_time=end_time,
+                                         type=type)
+        return models.Bills.transform(
+            total_price=gringutils._quantize_decimal(total_price))
 
     @wsexpose(models.BillResult, body=models.BillBody)
     def post(self, data):
