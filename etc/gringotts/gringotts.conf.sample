@@ -14,6 +14,10 @@ liner_step=1
 notification_driver=gringotts.openstack.common.notifier.rpc_notifier
 control_exchange=uos
 
+alert_url=http://localhost:8080
+alert_to=all
+alert_priority=1
+
 [waiter]
 queue_name=gringotts.notification
 initial_balance=10

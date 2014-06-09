@@ -11,6 +11,7 @@ from gringotts import utils
 from gringotts import constants as const
 from gringotts.checker import notifier
 from gringotts.service import prepare_service
+from gringotts.services import alert
 
 from gringotts.waiter import plugins
 
@@ -81,6 +82,8 @@ class CheckerService(os_service.Service):
             cinder.volume_list,
             neutron.floatingip_list,
             neutron.router_list,
+            neutron.network_list,
+            neutron.port_list
         ]
 
         self.RESOURCE_CREATE_MAP = {
@@ -128,7 +131,7 @@ class CheckerService(os_service.Service):
                     job()
                 self.apsched.add_interval_job(job, hours=period)
 
-    def _check_resource_to_order(self, resource, resource_to_order):
+    def _check_resource_to_order(self, resource, resource_to_order, bad_resources):
         LOG.debug('Checking resource: %s' % resource.as_dict())
 
         try:
@@ -136,12 +139,18 @@ class CheckerService(os_service.Service):
         except KeyError:
             # Situation 1: There exist resources that are not billed
             # TODO(suo): Create order and bills for these resources
-            LOG.warn('The resource(%s) has no order' % resource.as_dict())
+            if resource.is_bill:
+                LOG.warn('The resource(%s) has no order' % resource.as_dict())
 
             if resource.status == const.STATE_ERROR:
                 LOG.warn('The status of the resource(%s) is not steady or in error.' %
                          resource.as_dict())
+                bad_resources.append(resource)
                 return
+
+            if not resource.is_bill:
+                return
+
             if cfg.CONF.checker.try_to_fix:
                 now = datetime.datetime.utcnow()
                 created = timeutils.parse_strtime(resource.created_at,
@@ -156,6 +165,7 @@ class CheckerService(os_service.Service):
             if resource.status == const.STATE_ERROR:
                 LOG.warn('The status of the resource(%s) is not steady or in error.' %
                          resource.as_dict())
+                bad_resources.append(resource)
             elif resource.status != order['status']:
                 LOG.warn('The status of the resource(%s) doesn\'t match with the status of the order(%s)' %
                          (resource.as_dict(), order))
@@ -196,6 +206,7 @@ class CheckerService(os_service.Service):
         We do this check every one hour.
         """
         LOG.warn('Checking if resources match with orders')
+        bad_resources = []
         try:
             projects = self.keystone_client.get_project_list()
             for project in projects:
@@ -219,7 +230,8 @@ class CheckerService(os_service.Service):
                     resources = method(project.id, region_name=self.region_name)
                     for resource in resources:
                         self._check_resource_to_order(resource,
-                                                      resource_to_order)
+                                                      resource_to_order,
+                                                      bad_resources)
                 # Check order to resource
                 for resource_id, order in resource_to_order.items():
                     if order['checked']:
@@ -230,6 +242,9 @@ class CheckerService(os_service.Service):
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether '
                           'resources match with orders or not')
+        finally:
+            if bad_resources:
+                alert.alert_bad_resources(bad_resources)
 
     def check_if_cronjobs_match_orders(self):
         """Check if number of cron jobs match number of orders in running and
