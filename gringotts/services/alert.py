@@ -1,3 +1,4 @@
+import os
 import json
 import requests
 
@@ -39,7 +40,8 @@ def alert_bad_resources(resources):
     tags = 'resource;report'
     priority = cfg.CONF.alert_priority
 
-    with open("gringotts/services/alert.html") as f:
+    alert_path = "%s/alert.html" % os.path.split(os.path.realpath(__file__))[0]
+    with open(alert_path) as f:
         body = f.read().replace("\n", "")
 
     trs = ""
