@@ -36,6 +36,10 @@ def alert_client():
 def alert_bad_resources(resources):
     to = cfg.CONF.alert_to
     subject = "[Alert] There are some bad resources in ustack cloud"
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 1ffdbb3... Add checker alert
     tags = None
     priority = cfg.CONF.alert_priority
 
@@ -44,11 +48,29 @@ def alert_bad_resources(resources):
            "<tr><th>Resource ID</th><th>Resource Name</th>"\
            "<th>Resource Type</th><th>Tenant ID</th><th>Status</th>"\
            "</tr>%s</table></body></html>"
+<<<<<<< HEAD
+=======
+=======
+    tags = 'resource;report'
+    priority = cfg.CONF.alert_priority
+
+    with open("gringotts/services/alert.html") as f:
+        body = f.read().replace("\n", "")
+>>>>>>> 4c97ff3... Add checker alert
+>>>>>>> 1ffdbb3... Add checker alert
     trs = ""
     for resource in resources:
         tr = "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % \
              (resource.id, resource.name, resource.resource_type,
+<<<<<<< HEAD
               resource.project_id,resource.original_status)
+=======
+<<<<<<< HEAD
+              resource.project_id,resource.original_status)
+=======
+              resource.original_status,resource.project_id)
+>>>>>>> 4c97ff3... Add checker alert
+>>>>>>> 1ffdbb3... Add checker alert
         trs += tr
     body = body % trs
 

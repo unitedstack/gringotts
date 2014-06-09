@@ -42,14 +42,6 @@ class Router(Resource):
         return msg
 
 
-class Network(Resource):
-    pass
-
-
-class Port(Resource):
-    pass
-
-
 def get_neutronclient(region_name=None):
     endpoint = ks_client.get_endpoint(region_name, 'network')
     auth_token = ks_client.get_token()
@@ -66,40 +58,9 @@ def subnet_list(project_id, region_name=None):
 
 def port_list(project_id, region_name=None, device_id=None):
     client = get_neutronclient(region_name)
-    if device_id:
-        ports = client.list_ports(tenant_id=project_id,
-                                  device_id=device_id).get('ports')
-    else:
-        ports = client.list_ports(tenant_id=project_id).get('ports')
-
-    formatted_ports = []
-    for port in ports:
-        status = utils.transform_status(port['status'])
-        formatted_ports.append(Port(id=port['id'],
-                                    name=port['name'],
-                                    is_bill=False,
-                                    resource_type='port',
-                                    status=status,
-                                    project_id=port['tenant_id'],
-                                    original_status=port['status']))
-
-    return formatted_ports
-
-
-def network_list(project_id, region_name=None):
-    client = get_neutronclient(region_name)
-    networks = client.list_networks(tenant_id=project_id).get('networks')
-    formatted_networks = []
-    for network in networks:
-        status = utils.transform_status(network['status'])
-        formatted_networks.append(Network(id=network['id'],
-                                          name=network['name'],
-                                          is_bill=False,
-                                          resource_type='network',
-                                          status=status,
-                                          project_id=network['tenant_id'],
-                                          original_status=network['status']))
-    return formatted_networks
+    ports = client.list_ports(tenant_id=project_id,
+                              device_id=device_id).get('ports')
+    return ports
 
 
 def floatingip_list(project_id, region_name=None):

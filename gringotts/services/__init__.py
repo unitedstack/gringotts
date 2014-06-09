@@ -60,14 +60,13 @@ wrap_exception = functools.partial(wrap_exception, exc_type='single')
 
 
 class Resource(object):
-    def __init__(self, id, name, resource_type, is_bill=True, **kwargs):
+    def __init__(self, id, name, resource_type, **kwargs):
         self.id = id
         self.name = name
         self.resource_type = resource_type
-        self.is_bill = is_bill
 
         self.fields = list(kwargs)
-        self.fields.extend(['id', 'name', 'resource_type', 'is_bill'])
+        self.fields.extend(['id', 'name', 'resource_type'])
 
         for k, v in kwargs.iteritems():
             setattr(self, k, v)
