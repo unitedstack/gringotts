@@ -41,7 +41,10 @@ OPTS = [
                 help='Enable the interval jobs that run in center regions'),
     cfg.BoolOpt('enable_non_center_jobs',
                 default=True,
-                help='Enable the interval jobs that run in non center regions')
+                help='Enable the interval jobs that run in non center regions'),
+    cfg.ListOpt('ignore_tenants',
+                default=[],
+                help="A list of tenant that should not to check")
 ]
 
 cfg.CONF.register_opts(OPTS, group="checker")
@@ -210,6 +213,8 @@ class CheckerService(os_service.Service):
         try:
             projects = self.keystone_client.get_project_list()
             for project in projects:
+                if project.id in cfg.CONF.checker.ignore_tenants:
+                    continue
                 # Get all active orders
                 states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND,
                           const.STATE_CHANGING]
@@ -227,7 +232,7 @@ class CheckerService(os_service.Service):
 
                 # Check resource to order
                 for method in self.RESOURCE_LIST_METHOD:
-                    resources = method(project.id, region_name=self.region_name)
+                    resources = method(project.id, region_name=self.region_name, project_name=project.name)
                     for resource in resources:
                         self._check_resource_to_order(resource,
                                                       resource_to_order,

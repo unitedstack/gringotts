@@ -13,8 +13,11 @@ OPTS = [
                default='all',
                help="Alert to who"),
     cfg.IntOpt('alert_priority',
-               default=1,
-               help="Priority of alert")
+               default=2,
+               help="Priority of alert"),
+    cfg.BoolOpt('enable_alert',
+                default=True,
+                help="Enable the alert or not")
 ]
 cfg.CONF.register_opts(OPTS)
 
@@ -36,7 +39,7 @@ def alert_client():
 
 def alert_bad_resources(resources):
     to = cfg.CONF.alert_to
-    subject = "[Alert] There are some bad resources in ustack cloud"
+    subject = "[Alert in Region: %s] There are some bad resources in ustack cloud" % cfg.CONF.region_name
     tags = 'resource;report'
     priority = cfg.CONF.alert_priority
 
@@ -46,9 +49,9 @@ def alert_bad_resources(resources):
 
     trs = ""
     for resource in resources:
-        tr = "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % \
+        tr = "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % \
              (resource.id, resource.name, resource.resource_type,
-              resource.original_status,resource.project_id)
+              resource.original_status,resource.project_id, resource.project_name)
         trs += tr
     body = body % trs
 
@@ -59,6 +62,10 @@ def alert_bad_resources(resources):
         'alert_content': body,
         'alert_group': to
     }
+
+    if not cfg.CONF.enable_alert:
+        LOG.warn(content)
+        return
 
     if to == 'all':
         for recip in RECIPIENTS:

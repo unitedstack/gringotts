@@ -29,7 +29,7 @@ def get_glanceclient(region_name=None):
     return glanceclient.Client('2', endpoint, token=auth_token)
 
 
-def image_list(project_id, region_name=None):
+def image_list(project_id, region_name=None, project_name=None):
     filters = {'owner': project_id}
     images = get_glanceclient(region_name).images.list(filters=filters)
     formatted_images = []
@@ -43,6 +43,7 @@ def image_list(project_id, region_name=None):
                                       original_status=image.status,
                                       resource_type=const.RESOURCE_IMAGE,
                                       project_id=project_id,
+                                      project_name=project_name,
                                       created_at=created_at))
     return formatted_images
 

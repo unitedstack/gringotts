@@ -64,7 +64,7 @@ def subnet_list(project_id, region_name=None):
     return subnets
 
 
-def port_list(project_id, region_name=None, device_id=None):
+def port_list(project_id, region_name=None, device_id=None, project_name=None):
     client = get_neutronclient(region_name)
     if device_id:
         ports = client.list_ports(tenant_id=project_id,
@@ -81,12 +81,13 @@ def port_list(project_id, region_name=None, device_id=None):
                                     resource_type='port',
                                     status=status,
                                     project_id=port['tenant_id'],
+                                    project_name=project_name,
                                     original_status=port['status']))
 
     return formatted_ports
 
 
-def network_list(project_id, region_name=None):
+def network_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     networks = client.list_networks(tenant_id=project_id).get('networks')
     formatted_networks = []
@@ -98,11 +99,12 @@ def network_list(project_id, region_name=None):
                                           resource_type='network',
                                           status=status,
                                           project_id=network['tenant_id'],
+                                          project_name=project_name,
                                           original_status=network['status']))
     return formatted_networks
 
 
-def floatingip_list(project_id, region_name=None):
+def floatingip_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     if project_id:
         fips = client.list_floatingips(tenant_id=project_id).get('floatingips')
@@ -116,6 +118,7 @@ def floatingip_list(project_id, region_name=None):
                                          name=fip['uos:name'],
                                          size=fip['rate_limit'],
                                          project_id=fip['tenant_id'],
+                                         project_name=project_name,
                                          resource_type=const.RESOURCE_FLOATINGIP,
                                          status=status,
                                          original_status=fip['status'],
@@ -123,7 +126,7 @@ def floatingip_list(project_id, region_name=None):
     return formatted_fips
 
 
-def router_list(project_id, region_name=None):
+def router_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     if project_id:
         routers = client.list_routers(tenant_id=project_id).get('routers')
@@ -136,6 +139,7 @@ def router_list(project_id, region_name=None):
         formatted_routers.append(Router(id=router['id'],
                                         name=router['name'],
                                         project_id=router['tenant_id'],
+                                        project_name=project_name,
                                         resource_type=const.RESOURCE_ROUTER,
                                         status=status,
                                         original_status=router['status'],

@@ -64,7 +64,7 @@ def image_get(region_name, image_id):
         images.get(image_id)
 
 
-def server_list(project_id, region_name=None, detailed=True):
+def server_list(project_id, region_name=None, detailed=True, project_name=None):
     search_opts = {'all_tenants': 1,
                    'project_id': project_id}
     servers = get_novaclient(region_name).servers.list(detailed, search_opts)
@@ -85,6 +85,7 @@ def server_list(project_id, region_name=None, detailed=True):
                                         resource_type=const.RESOURCE_INSTANCE,
                                         user_id=server.user_id,
                                         project_id=server.tenant_id,
+                                        project_name=project_name,
                                         created_at=created_at))
     return formatted_servers
 

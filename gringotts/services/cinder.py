@@ -54,7 +54,7 @@ def get_cinderclient(region_name=None):
     return c
 
 
-def volume_list(project_id, region_name=None, detailed=True):
+def volume_list(project_id, region_name=None, detailed=True, project_name=None):
     """To see all volumes in the cloud as admin.
     """
     c_client = get_cinderclient(region_name)
@@ -75,11 +75,12 @@ def volume_list(project_id, region_name=None, detailed=True):
                                         resource_type=const.RESOURCE_VOLUME,
                                         user_id = None,
                                         project_id = project_id,
+                                        project_name=project_name,
                                         created_at=created_at))
     return formatted_volumes
 
 
-def snapshot_list(project_id, region_name=None, detailed=True):
+def snapshot_list(project_id, region_name=None, detailed=True, project_name=None):
     """To see all snapshots in the cloud as admin
     """
     c_client = get_cinderclient(region_name)
@@ -100,6 +101,7 @@ def snapshot_list(project_id, region_name=None, detailed=True):
                                        resource_type=const.RESOURCE_SNAPSHOT,
                                        user_id=None,
                                        project_id=project_id,
+                                       project_name=project_name,
                                        created_at=created_at))
     return formatted_snap
 
