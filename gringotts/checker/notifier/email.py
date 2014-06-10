@@ -12,7 +12,7 @@ class EmailNotifier(notifier.Notifier):
 
     @staticmethod
     def notify_has_owed(context, account, contact, orders):
-        account_name = account['email'].split('@')[0]
+        account_name = contact['email'].split('@')[0]
         resources = 'resources' if len(orders) > 1 else 'resource'
         subject = _('Hello, %s, you have %s %s overdue bills') \
                 % (account_name, len(orders), resources)
@@ -36,7 +36,7 @@ class EmailNotifier(notifier.Notifier):
 
     @staticmethod
     def notify_before_owed(context, account, contact, price_per_day, days_to_owe):
-        subject = _('Hello, %s, your balance is not enough') % account['email'].split('@')[0]
+        subject = _('Hello, %s, your balance is not enough') % contact['email'].split('@')[0]
         payload = {
             'actions': {
                 'email': {
