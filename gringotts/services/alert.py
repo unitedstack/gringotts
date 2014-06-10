@@ -3,6 +3,10 @@ import json
 import requests
 
 from oslo.config import cfg
+from gringotts.openstack.common import log
+
+
+LOG = log.getLogger(__name__)
 
 
 OPTS = [
