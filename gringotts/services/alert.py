@@ -21,7 +21,7 @@ cfg.CONF.register_opts(OPTS)
 
 ALERT_CLIENT = None
 alert_api = lambda url: "%s/v1/%s" % (cfg.CONF.alert_url, url)
-RECIPIENTS = ['product', 'storage', 'network', 'devops']
+RECIPIENTS = ['devops', 'product', 'storage', 'network']
 
 
 def alert_client():
