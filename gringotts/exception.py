@@ -29,10 +29,7 @@ import itertools
 import six
 
 from gringotts.openstack.common.gettextutils import _
-from gringotts.openstack.common import log as logging
 
-
-LOG = logging.getLogger(__name__)
 
 exc_log_opts = [
     cfg.BoolOpt('fatal_exception_format_errors',
@@ -73,10 +70,6 @@ class GringottsException(Exception):
             except Exception as e:
                 # kwargs doesn't match a variable in the message
                 # log the issue and the kwargs
-                LOG.exception(_('Exception in string format operation'))
-                for name, value in kwargs.iteritems():
-                    LOG.error("%s: %s" % (name, value))
-
                 if CONF.fatal_exception_format_errors:
                     raise e
                 else:
@@ -374,6 +367,16 @@ class BadRequest(HTTPClientError):
 
 
 class Unauthorized(HTTPClientError):
+    """HTTP 401 - Unauthorized.
+
+    Similar to 403 Forbidden, but specifically for use when authentication
+    is required and has failed or has not yet been provided.
+    """
+    http_status = 401
+    message = "Unauthorized"
+
+
+class AuthorizationFailure(HTTPClientError):
     """HTTP 401 - Unauthorized.
 
     Similar to 403 Forbidden, but specifically for use when authentication

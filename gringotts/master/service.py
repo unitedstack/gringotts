@@ -178,14 +178,6 @@ class MasterService(rpc_service.Service):
                     self._create_cron_job(order['order_id'],
                                           start_date=cron_time)
 
-    def _grant_owed_role(self, user_id, project_id):
-        from gringotts.services import keystone
-        keystone.grant_owed_role(user_id, project_id)
-
-    def _revoke_owed_role(self, user_id, project_id):
-        from gringotts.services import keystone
-        keystone.revoke_owed_role(user_id, project_id)
-
     def _stop_owed_resource(self, resource_type, resource_id, region_id):
         method = self.STOP_METHOD_MAP[resource_type]
         return method(resource_id, region_id)
@@ -254,11 +246,8 @@ class MasterService(rpc_service.Service):
         remarks = 'Hourly Billing'
         result = self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
 
-        # Account is owed
-        if result['type'] == 1:
-            self._grant_owed_role(result['user_id'], result['project_id'])
         # Order is owed
-        elif result['type'] == 2:
+        if result['type'] == 2:
             reserv = self._stop_owed_resource(result['resource_type'],
                                               result['resource_id'],
                                               result['region_id'])
@@ -273,16 +262,10 @@ class MasterService(rpc_service.Service):
 
     def _create_bill(self, ctxt, order_id, action_time, remarks):
         result = self.worker_api.create_bill(ctxt, order_id, action_time, remarks)
-        # Account owed
-        if result['type'] == 1:
-            self._grant_owed_role(result['user_id'], result['project_id'])
         self._create_cron_job(order_id, action_time=action_time)
 
     def _close_bill(self, ctxt, order_id, action_time):
         result = self.worker_api.close_bill(ctxt, order_id, action_time)
-        # Account not owed
-        if result['type'] == 1:
-            self._revoke_owed_role(result['user_id'], result['project_id'])
         self._delete_cron_job(order_id)
         return result
 
@@ -302,9 +285,6 @@ class MasterService(rpc_service.Service):
                   order_id, action_time)
         # Create the first bill, including remarks and action_time
         result = self.worker_api.create_bill(ctxt, order_id, action_time, remarks)
-        # Account owed
-        if result['type'] == 1:
-            self._grant_owed_role(result['user_id'], result['project_id'])
 
         # Pre deduct...
         danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)

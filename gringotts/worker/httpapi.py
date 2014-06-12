@@ -120,5 +120,11 @@ class WorkerAPI(object):
         resp, body = self.client.get('/accounts')
         return body
 
+    def get_account(self, ctxt, project_id):
+        params = dict(project_id=project_id)
+        resp, body = self.client.get('/account',
+                                     params=params)
+        return body
+
     def fix_order(self, ctxt, order_id):
         raise NotImplementedError()

@@ -765,11 +765,7 @@ class Connection(base.Connection):
                                       charge_time=charge_time)
             session.add(charge)
 
-            not_owed = account.owed and account.balance > 0
-            if not_owed:
-                account.owed = False
-
-        return not_owed, self._row_to_db_charge_model(charge)
+        return self._row_to_db_charge_model(charge)
 
     @require_context
     def get_charges(self, context, project_id=None, start_time=None, end_time=None,

@@ -48,10 +48,6 @@ class AccountController(rest.RestController):
         """Return this product"""
         return models.UserAccount.from_db_model(self._account())
 
-    def _revoke_owed_role(self, user_id, project_id):
-        from gringotts.services import keystone
-        keystone.revoke_owed_role(user_id, project_id)
-
     @wsexpose(models.Charge, wtypes.text, body=models.Charge)
     def put(self, data):
         """Charge the account
@@ -63,9 +59,9 @@ class AccountController(rest.RestController):
         self.conn = pecan.request.db_conn
 
         try:
-           not_owed, charge = self.conn.update_account(request.context,
-                                                       self._id,
-                                                       **data.as_dict())
+           charge = self.conn.update_account(request.context,
+                                             self._id,
+                                             **data.as_dict())
         except exception.NotAuthorized as e:
             LOG.exception('Fail to charge the account:%s due to not authorization' % \
                           self._id)
@@ -74,9 +70,6 @@ class AccountController(rest.RestController):
             LOG.exception('Fail to charge the account:%s, charge value: %s' % \
                           (self._id, data.value))
             raise exception.DBError(reason=e)
-
-        if not_owed:
-            self._revoke_owed_role(charge.user_id, charge.project_id)
 
         return models.Charge.from_db_model(charge)
 

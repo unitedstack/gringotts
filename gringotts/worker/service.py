@@ -124,6 +124,9 @@ class WorkerService(rpc_service.Service):
     def get_accounts(self, ctxt):
         return self.db_conn.get_accounts(ctxt)
 
+    def get_account(self, ctxt):
+        return self.db_conn.get_account(ctxt, project_id)
+
     def fix_order(self, ctxt, order_id):
         self.db_conn.fix_order(ctxt, order_id)
 
