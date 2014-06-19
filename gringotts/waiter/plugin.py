@@ -147,3 +147,9 @@ class NotificationBase(plugin.NotificationBase):
         master_api.resource_changed(context.get_admin_context(),
                                     order_id,
                                     action_time, change_to, remarks)
+
+    def instance_stopped(self, order_id, action_time):
+        """Notify master that instance has been stopped
+        """
+        master_api.instance_stopped(context.get_admin_context(),
+                                    order_id, action_time)

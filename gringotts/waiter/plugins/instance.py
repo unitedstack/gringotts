@@ -207,19 +207,16 @@ class InstanceStopEnd(ComputeNotificationBase):
     """Handle the events that instances be stopped, for now,
     it will only handle one product: volume.size.
     """
-    event_types = ['compute.instance.power_off.end']
+
+    #NOTE(suo): 'compute.instance.shutdown2.end' is sent out
+    #           by soft shutdown operation
+    event_types = ['compute.instance.power_off.end',
+                   'compute.instance.shutdown2.end']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s, resource_id: %s',
                   message['event_type'],
                   message['payload']['instance_id'])
-
-        # We only care the instance stopped successfully
-        if message['payload']['state'] != 'stopped':
-            instance_id = message['payload']['instance_id']
-            LOG.warning('The state of instance %s is not stopped' % instance_id)
-            raise exception.InstanceStateError(instance_id=instance_id,
-                                               state=message['payload']['state'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
@@ -227,9 +224,7 @@ class InstanceStopEnd(ComputeNotificationBase):
 
         # Notify master
         action_time = message['timestamp']
-        change_to = const.STATE_STOPPED
-        remarks = 'Instance Has Been Stopped.'
-        self.resource_changed(order['order_id'], action_time, change_to, remarks)
+        self.instance_stopped(order['order_id'], action_time)
 
 
 class InstanceStartEnd(ComputeNotificationBase):
@@ -242,13 +237,6 @@ class InstanceStartEnd(ComputeNotificationBase):
         LOG.debug('Do action for event: %s, resource_id: %s',
                   message['event_type'],
                   message['payload']['instance_id'])
-
-        # We only care the instance started successfully
-        if message['payload']['state'] != 'active':
-            instance_id = message['payload']['instance_id']
-            LOG.warning('The state of instance %s is not stopped' % instance_id)
-            raise exception.InstanceStateError(instance_id=instance_id,
-                                               state=message['payload']['state'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
@@ -281,13 +269,6 @@ class InstanceDeleteEnd(ComputeNotificationBase):
         LOG.debug('Do action for event: %s, resource_id: %s',
                   message['event_type'],
                   message['payload']['instance_id'])
-
-        # We only care the instance deleted successfully
-        if message['payload']['state'] != 'deleted':
-            instance_id = message['payload']['instance_id']
-            LOG.warning('The state of instance %s is not stopped' % instance_id)
-            raise exception.InstanceStateError(instance_id=instance_id,
-                                               state=message['payload']['state'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']

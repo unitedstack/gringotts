@@ -160,5 +160,7 @@ class BillingProtocol(object):
         # try config from paste-deploy first
         if name in self.conf:
             return self.conf[name]
-        else:
+        try:
             return cfg.CONF.keystone_authtoken[name]
+        except cfg.NoSuchOptError:
+            return None

@@ -380,13 +380,17 @@ class Connection(base.Connection):
                 unit = sub.unit
 
             # update the order
+            a_order = dict(unit_price=unit_price,
+                           unit=unit,
+                           status=kwargs['change_to'],
+                           updated_at=datetime.datetime.utcnow())
+            if kwargs['cron_time']:
+                a_order.update(cron_time=kwargs['cron_time'])
+
             order = model_query(context, sa_models.Order, session=session).\
                 filter_by(order_id=kwargs['order_id']).\
                 with_lockmode('update').\
-                update(dict(unit_price=unit_price,
-                            unit=unit,
-                            status=kwargs['change_to'],
-                            updated_at=datetime.datetime.utcnow()))
+                update(a_order)
 
     @require_context
     def get_order_by_resource_id(self, context, resource_id):

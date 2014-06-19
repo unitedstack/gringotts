@@ -85,9 +85,10 @@ class WorkerService(rpc_service.Service):
                      **kwargs)
         self.db_conn.create_order(ctxt, **order)
 
-    def change_order(self, ctxt, order_id, change_to):
+    def change_order(self, ctxt, order_id, change_to, cron_time=None):
         kwargs = dict(order_id=order_id,
-                      change_to=change_to)
+                      change_to=change_to,
+                      cron_time=cron_time)
         self.db_conn.update_order(ctxt, **kwargs)
 
     def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):

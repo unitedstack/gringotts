@@ -40,8 +40,8 @@ class LocalAPI(object):
         self._service.create_order(ctxt, order_id, region_id,
                                    unit_price, unit, **kwargs)
 
-    def change_order(self, ctxt, order_id, change_to):
-        self._service.change_order(ctxt, order_id, change_to)
+    def change_order(self, ctxt, order_id, change_to, cron_time=None):
+        self._service.change_order(ctxt, order_id, change_to, cron_time=cron_time)
 
     def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):
         return self._service.get_orders(ctxt,

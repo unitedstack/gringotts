@@ -60,3 +60,9 @@ class MasterAPI(proxy.RpcProxy):
                                        action_time=action_time,
                                        quantity=quantity,
                                        remarks=remarks))
+
+    def instance_stopped(self, ctxt, order_id, action_time):
+        return self.cast(ctxt,
+                         self.make_msg('instance_stopped',
+                                       order_id=order_id,
+                                       action_time=action_time))

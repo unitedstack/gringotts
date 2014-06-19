@@ -340,6 +340,28 @@ class MasterService(rpc_service.Service):
         # create a new bill for the updated order
         self._create_bill(ctxt, order_id, action_time, remarks)
 
+    def instance_stopped(self, ctxt, order_id, action_time):
+        """Instance stopped for a month continuously will not be charged
+        """
+        LOG.debug("Instance stopped, its order_id: %s, action_time: %s"
+                  % (order_id, action_time))
+
+        # close the old bill
+        self._close_bill(ctxt, order_id, action_time)
+
+        # Caculate cron_time after 30 days from now
+        action_time = timeutils.parse_strtime(action_time,
+                                              fmt=TIMESTAMP_TIME_FORMAT)
+        cron_time = action_time + datetime.timedelta(days=30)
+
+        # change the order's unit price and its active subscriptions
+        self.worker_api.change_order(ctxt, order_id,
+                                     const.STATE_STOPPED,
+                                     cron_time=cron_time)
+
+        # create a cron job that will execute after one month
+        self._create_cron_job(order_id, start_date=cron_time)
+
 
 def master():
     prepare_service()

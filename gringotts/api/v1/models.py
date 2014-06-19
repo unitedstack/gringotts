@@ -225,6 +225,7 @@ class OrderPostBody(APIBase):
 class OrderPutBody(APIBase):
     order_id = wtypes.text
     change_to = wtypes.text
+    cron_time = datetime.datetime
 
 
 class Order(APIBase):

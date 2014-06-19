@@ -46,7 +46,7 @@ class TestWaiterService(db_test_base.DBTestBase):
 
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def test_instance_stop_end(self):
-        with mock.patch('gringotts.master.api.API.resource_changed') as resource_changed:
+        with mock.patch('gringotts.master.api.API.instance_stopped') as instance_stopped:
             self.srv.process_notification(fake_data.NOTICE_INSTANCE_1_CREATED)
             self.srv.process_notification(fake_data.NOTICE_INSTANCE_1_STOPPED)
 
@@ -54,12 +54,9 @@ class TestWaiterService(db_test_base.DBTestBase):
                                                        fake_data.INSTANCE_ID_1)
 
             action_time = fake_data.INSTANCE_1_STOPPED_TIME
-            remarks = 'Instance Has Been Stopped.'
             change_to = const.STATE_STOPPED
 
-            resource_changed.assert_called_with(self.ctxt, order.order_id,
-                                                action_time, change_to,
-                                                remarks)
+            instance_stopped.assert_called_with(self.ctxt, order.order_id, action_time)
 
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def test_instance_start_end(self):
