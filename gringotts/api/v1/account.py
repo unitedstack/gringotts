@@ -119,7 +119,11 @@ class AccountController(rest.RestController):
             return -1
 
         price_per_day = price_per_hour * 24
-        days_to_owe = int(account.balance / price_per_day)
+        days_to_owe_d = account.balance / price_per_day
+        days_to_owe = round(days_to_owe_d)
+        LOG.warn("%s %s %s" % (price_per_day, account.balance, days_to_owe))
+        if days_to_owe < days_to_owe_d:
+            days_to_owe = days_to_owe + 1
         if days_to_owe > 7:
             return -1
         return days_to_owe
