@@ -9,7 +9,7 @@ from gringotts import exception
 
 OPTS = [
     cfg.BoolOpt('enable_billing',
-                default=True,
+                default=False,
                 help="Open the billing or not")
 ]
 

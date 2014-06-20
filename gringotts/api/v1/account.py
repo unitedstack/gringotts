@@ -101,6 +101,9 @@ class AccountController(rest.RestController):
     def estimate(self):
         self.conn = pecan.request.db_conn
 
+        if not cfg.CONF.enable_owe:
+            return -1
+
         account = self._account()
         if account.balance < 0:
             return -2
