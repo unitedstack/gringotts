@@ -470,7 +470,7 @@ class Connection(base.Connection):
 
     @require_context
     def get_active_orders(self, context, type=None, limit=None, offset=None, sort_key=None,
-                   sort_dir=None, region_id=None, project_id=None, owed=None):
+                   sort_dir=None, region_id=None, project_id=None, owed=None, within_one_hour=None):
         """Get all active orders
         """
         query = model_query(context, sa_models.Order)
@@ -484,8 +484,9 @@ class Connection(base.Connection):
         if owed:
             query = query.filter_by(owed=owed)
 
-        one_hour_later = timeutils.utcnow() + datetime.timedelta(hours=1)
-        query = query.filter(sa_models.Order.cron_time < one_hour_later)
+        if within_one_hour:
+            one_hour_later = timeutils.utcnow() + datetime.timedelta(hours=1)
+            query = query.filter(sa_models.Order.cron_time < one_hour_later)
 
         query = query.filter(not_(sa_models.Order.status==const.STATE_DELETED))
 

@@ -97,17 +97,17 @@ class AccountController(rest.RestController):
         return models.Charges.transform(total_price=total_price,
                                         total_count=total_count,
                                         charges=charges_list)
-    @wsexpose(int, wtypes.text)
-    def estimate(self, balance=None):
+    @wsexpose(int)
+    def estimate(self):
         self.conn = pecan.request.db_conn
 
-        if not balance:
-            account_balance = self._account().balance
-        else:
-            account_balance = gringutils._quantize_decimal(balance)
+        account = self._account()
+        if account.balance < 0:
+            return -2
 
         orders = self.conn.get_active_orders(request.context,
-                                             project_id=self._id)
+                                             project_id=self._id,
+                                             within_one_hour=True)
         if not orders:
             return -1
 
@@ -119,7 +119,7 @@ class AccountController(rest.RestController):
             return -1
 
         price_per_day = price_per_hour * 24
-        days_to_owe = int(account_balance / price_per_day)
+        days_to_owe = int(account.balance / price_per_day)
         if days_to_owe > 7:
             return -1
         return days_to_owe

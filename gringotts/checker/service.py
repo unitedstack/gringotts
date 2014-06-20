@@ -116,9 +116,6 @@ class CheckerService(os_service.Service):
         ]
 
         center_jobs = [
-            (self.check_if_account_match_role, 24, True),
-            (self.check_if_consumptions_match_total_price, 24, True),
-            (self.check_if_order_over_billed, 24, True),
             (self.check_owed_accounts_and_notify, 24, False),
         ]
 
@@ -216,19 +213,15 @@ class CheckerService(os_service.Service):
                 if project.id in cfg.CONF.checker.ignore_tenants:
                     continue
                 # Get all active orders
-                states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND,
-                          const.STATE_CHANGING]
                 resource_to_order = {}
-                for s in states:
-                    orders = self.worker_api.get_orders(self.ctxt,
-                                                        status=s,
-                                                        region_id=self.region_name,
-                                                        project_id=project.id)
-                    for order in orders:
-                        if not isinstance(order, dict):
-                            order = order.as_dict()
-                        order['checked'] = False
-                        resource_to_order[order['resource_id']] = order
+                orders = self.worker_api.get_active_orders(self.ctxt,
+                                                           region_id=self.region_name,
+                                                           project_id=project.id)
+                for order in orders:
+                    if not isinstance(order, dict):
+                        order = order.as_dict()
+                    order['checked'] = False
+                    resource_to_order[order['resource_id']] = order
 
                 # Check resource to order
                 for method in self.RESOURCE_LIST_METHOD:
@@ -283,20 +276,13 @@ class CheckerService(os_service.Service):
             LOG.exception('Some exceptions occurred when checking whether '
                           'cron jobs match with orders or not')
 
-    def _has_ower_role(self, roles):
-        for role in roles:
-            if role.name == 'ower':
-                return True
-        return False
-
-    def check_if_account_match_role(self):
-        """Check if accounts match with their roles
-        """
-        LOG.warn('Checking if accounts match with their roles')
+    def check_owed_accounts_and_notify(self):
+        LOG.warn('Notifying owed accounts')
         try:
             accounts = list(self.worker_api.get_accounts(self.ctxt))
             projects = self.keystone_client.get_project_list()
 
+            # Check if number of account is equal to number of projects
             c_accounts = len(accounts)
             c_projects = len(projects)
 
@@ -304,31 +290,6 @@ class CheckerService(os_service.Service):
                 LOG.warn('The count(%s) of accounts is not equal to the count(%s) '
                          'of projects' % (c_accounts, c_projects))
 
-            for account in accounts:
-                roles = self.keystone_client.get_role_list(
-                    user=account['user_id'],
-                    project=account['project_id'])
-
-                if account['owed'] and not self._has_ower_role(roles):
-                    LOG.warn('Account(%s) owed, but has no ower role' %
-                             account['project_id'])
-                    if cfg.CONF.checker.try_to_fix:
-                        self.keystone_client.grant_owed_role(account['user_id'],
-                                                             account['project_id'])
-                elif not account['owed'] and self._has_ower_role(roles):
-                    LOG.warn('Account(%s) not owed, but has ower role' %
-                             account['project_id'])
-                    if cfg.CONF.checker.try_to_fix:
-                        self.keystone_client.revoke_owed_role(account['user_id'],
-                                                              account['project_id'])
-        except Exception:
-            LOG.exception('Some exceptions occurred when checking whether '
-                          'accounts match with their roles or not')
-
-    def check_owed_accounts_and_notify(self):
-        LOG.warn('Notify owed accounts')
-        try:
-            accounts = list(self.worker_api.get_accounts(self.ctxt))
             for account in accounts:
                 if account['level'] == 9:
                     continue
@@ -400,35 +361,6 @@ class CheckerService(os_service.Service):
                                                      str(price_per_day), days_to_owe)
         except Exception:
             LOG.exception('Some exceptions occurred when checking owed accounts')
-
-    def check_if_order_over_billed(self):
-        LOG.warn('Checking if orders are over billed')
-        try:
-            orders = self.worker_api.get_active_orders(self.ctxt)
-            for order in orders:
-                if not isinstance(order, dict):
-                    order = order.as_dict()
-                if isinstance(order['cron_time'], basestring):
-                    order['cron_time'] = timeutils.parse_strtime(
-                            order['cron_time'],
-                            fmt=ISO8601_UTC_TIME_FORMAT)
-                one_hour_later= timeutils.utcnow() + datetime.timedelta(hours=1)
-                if order['cron_time'] > one_hour_later:
-                    LOG.warn('The order(%s) is over billed' % order)
-                    if cfg.CONF.checker.try_to_fix:
-                        self.worker_api.fix_order(self.ctxt, order['order_id'])
-        except Exception:
-            LOG.exception('Some exceptions occurred when checking whether orders are over billed')
-
-    def check_if_consumptions_match_total_price(self):
-        """Check if consumption of an account match sum of all orders' total_price
-        """
-        LOG.warn('Checking if consumptions match with total price')
-        try:
-            pass
-        except Exception:
-            LOG.exception('Some exceptions occurred when checking whether '
-                          'consumptions match with total price or not')
 
 
 def checker():
