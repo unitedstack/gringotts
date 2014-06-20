@@ -64,6 +64,7 @@ def image_get(region_name, image_id):
         images.get(image_id)
 
 
+@wrap_exception(exc_type='list')
 def server_list(project_id, region_name=None, detailed=True, project_name=None):
     search_opts = {'all_tenants': 1,
                    'project_id': project_id}

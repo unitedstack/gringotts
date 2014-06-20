@@ -47,11 +47,16 @@ def wrap_exception(exc_type=None):
                 return f(uuid, *args, **kwargs)
             except Exception as e:
                 msg = None
+                result = True
                 if exc_type == 'single':
                     msg = 'Fail to delete the resource: %s, reason: %s' % (uuid, e)
                 elif exc_type == 'bulk':
                     msg = 'Fail to delete resources that belong to: %s, reason: %s' % (uuid, e)
+                elif exc_type == 'list':
+                    msg = 'Fail to execute %s for account: %s, reason: %s' % (f.__name__, uuid, e)
+                    result = []
                 LOG.error(msg)
+                return result
         return functools.wraps(f)(wrapped)
     return inner
 

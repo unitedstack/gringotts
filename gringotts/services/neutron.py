@@ -58,12 +58,14 @@ def get_neutronclient(region_name=None):
     return c
 
 
+@wrap_exception(exc_type='list')
 def subnet_list(project_id, region_name=None):
     client = get_neutronclient(region_name)
     subnets = client.list_subnets(tenant_id=project_id).get('subnets')
     return subnets
 
 
+@wrap_exception(exc_type='list')
 def port_list(project_id, region_name=None, device_id=None, project_name=None):
     client = get_neutronclient(region_name)
     if device_id:
@@ -87,6 +89,7 @@ def port_list(project_id, region_name=None, device_id=None, project_name=None):
     return formatted_ports
 
 
+@wrap_exception(exc_type='list')
 def network_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     networks = client.list_networks(tenant_id=project_id).get('networks')
@@ -104,6 +107,7 @@ def network_list(project_id, region_name=None, project_name=None):
     return formatted_networks
 
 
+@wrap_exception(exc_type='list')
 def floatingip_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     if project_id:
@@ -126,6 +130,7 @@ def floatingip_list(project_id, region_name=None, project_name=None):
     return formatted_fips
 
 
+@wrap_exception(exc_type='list')
 def router_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     if project_id:

@@ -54,6 +54,7 @@ def get_cinderclient(region_name=None):
     return c
 
 
+@wrap_exception(exc_type='list')
 def volume_list(project_id, region_name=None, detailed=True, project_name=None):
     """To see all volumes in the cloud as admin.
     """
@@ -80,6 +81,7 @@ def volume_list(project_id, region_name=None, detailed=True, project_name=None):
     return formatted_volumes
 
 
+@wrap_exception(exc_type='list')
 def snapshot_list(project_id, region_name=None, detailed=True, project_name=None):
     """To see all snapshots in the cloud as admin
     """

@@ -29,6 +29,7 @@ def get_glanceclient(region_name=None):
     return glanceclient.Client('2', endpoint, token=auth_token)
 
 
+@wrap_exception(exc_type='list')
 def image_list(project_id, region_name=None, project_name=None):
     filters = {'owner': project_id}
     images = get_glanceclient(region_name).images.list(filters=filters)
