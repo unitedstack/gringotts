@@ -119,7 +119,7 @@ class AccountController(rest.RestController):
             return -1
 
         price_per_day = price_per_hour * 24
-        days_to_owe_d = account.balance / price_per_day
+        days_to_owe_d = float(account.balance / price_per_day)
         days_to_owe = round(days_to_owe_d)
         if days_to_owe < days_to_owe_d:
             days_to_owe = days_to_owe + 1
