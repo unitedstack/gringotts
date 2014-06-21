@@ -1,7 +1,6 @@
 import datetime
 
 from datetime import timedelta
-from dateutil import tz
 
 from oslo.config import cfg
 from eventlet.green.threading import Lock
@@ -12,6 +11,7 @@ from gringotts import constants as const
 from gringotts import context
 from gringotts import worker
 from gringotts import exception
+from gringotts import utils
 
 from gringotts.openstack.common import log
 from gringotts.openstack.common.rpc import service as rpc_service
@@ -115,7 +115,7 @@ class MasterService(rpc_service.Service):
 
     def load_date_jobs(self):
         action_time = datetime.datetime.utcnow() + timedelta(minutes=1)
-        action_time = self._utc_to_local(action_time)
+        action_time = utils.utc_to_local(action_time)
         self.apsched.add_date_job(self._load_date_jobs,
                                   action_time)
 
@@ -186,11 +186,6 @@ class MasterService(rpc_service.Service):
         method = self.DELETE_METHOD_MAP[resource_type]
         method(resource_id, region_id)
 
-    def _utc_to_local(self, utc_dt):
-        from_zone = tz.tzutc()
-        to_zone = tz.tzlocal()
-        return utc_dt.replace(tzinfo=from_zone).astimezone(to_zone).replace(tzinfo=None)
-
     def _create_cron_job(self, order_id, action_time=None, start_date=None):
         """For now, we only support hourly cron job
         """
@@ -199,7 +194,7 @@ class MasterService(rpc_service.Service):
                                                   fmt=TIMESTAMP_TIME_FORMAT)
             start_date = action_time + timedelta(hours=1)
 
-        start_date = self._utc_to_local(start_date)
+        start_date = utils.utc_to_local(start_date)
 
         job = self.apsched.add_interval_job(self._pre_deduct,
                                             hours=1,
@@ -224,7 +219,7 @@ class MasterService(rpc_service.Service):
         if isinstance(action_time, basestring):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=ISO8601_UTC_TIME_FORMAT)
-        action_time = self._utc_to_local(action_time)
+        action_time = utils.utc_to_local(action_time)
         job = self.apsched.add_date_job(self._delete_owed_resource,
                                         action_time,
                                         args=[resource_type,

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import calendar
+from dateutil import tz
 from decimal import Decimal, ROUND_HALF_UP
 from oslo.config import cfg
 from gringotts import constants as const
@@ -92,3 +93,9 @@ def transform_status(status):
         return STATE_MAPPING[status]
     except KeyError:
         return const.STATE_ERROR
+
+
+def utc_to_local(utc_dt):
+    from_zone = tz.tzutc()
+    to_zone = tz.tzlocal()
+    return utc_dt.replace(tzinfo=from_zone).astimezone(to_zone).replace(tzinfo=None)

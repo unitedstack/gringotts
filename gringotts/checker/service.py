@@ -50,12 +50,6 @@ OPTS = [
 cfg.CONF.register_opts(OPTS, group="checker")
 
 
-def _utc_to_local(utc_dt):
-    from_zone = tz.tzutc()
-    to_zone = tz.tzlocal()
-    return utc_dt.replace(tzinfo=from_zone).astimezone(to_zone).replace(tzinfo=None)
-
-
 class CheckerService(os_service.Service):
 
     def __init__(self, *args, **kwargs):
@@ -129,7 +123,19 @@ class CheckerService(os_service.Service):
             for job, period, right_now in center_jobs:
                 if right_now:
                     job()
-                self.apsched.add_interval_job(job, hours=period)
+                start_date = utils.utc_to_local(self._absolute_9_clock())
+                self.apsched.add_interval_job(job,
+                                              hours=period,
+                                              start_date=start_date)
+
+    def _absolute_9_clock(self):
+        nowutc = datetime.datetime.utcnow()
+        nowutc_time = nowutc.time()
+        nowutc_date = nowutc.date()
+        clock = datetime.time(1, 0, 0)
+        if nowutc_time > clock:
+            nowutc_date = nowutc_date + datetime.timedelta(hours=24)
+        return datetime.datetime.combine(nowutc_date, clock)
 
     def _check_resource_to_order(self, resource, resource_to_order, bad_resources):
         LOG.debug('Checking resource: %s' % resource.as_dict())
