@@ -65,14 +65,18 @@ wrap_exception = functools.partial(wrap_exception, exc_type='single')
 
 
 class Resource(object):
-    def __init__(self, id, name, resource_type, is_bill=True, **kwargs):
+    def __init__(self, id, name, resource_type, is_bill=True,
+                 status=None, original_status=None, **kwargs):
         self.id = id
         self.name = name
         self.resource_type = resource_type
         self.is_bill = is_bill
+        self.status = status
+        self.original_status = original_status
 
         self.fields = list(kwargs)
-        self.fields.extend(['id', 'name', 'resource_type', 'is_bill'])
+        self.fields.extend(['id', 'name', 'resource_type', 'is_bill',
+                            'status', 'original_status'])
 
         for k, v in kwargs.iteritems():
             setattr(self, k, v)
@@ -92,3 +96,6 @@ class Resource(object):
 
     def __repr__(self):
         return '%s: %s: %s' % (self.resource_type, self.name, self.id)
+
+    def __eq__(self, other):
+        return self.id == other.id and self.original_status == other.original_status

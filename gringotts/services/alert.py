@@ -53,6 +53,8 @@ def alert_bad_resources(resources):
 
     trs = ""
     for resource in resources:
+        LOG.warn('The resource(%s) is in bad status for a certain time.' %
+                 resource.as_dict())
         tr = "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % \
              (resource.id, resource.name, resource.resource_type,
               resource.original_status,resource.project_id, resource.project_name)
@@ -68,7 +70,6 @@ def alert_bad_resources(resources):
     }
 
     if not cfg.CONF.enable_alert:
-        LOG.warn(content)
         return
 
     if to == 'all':
@@ -79,3 +80,4 @@ def alert_bad_resources(resources):
     else:
         alert_client().post(alert_api('alerts'),
                             data=json.dumps(content))
+    LOG.warn('Send alert emails successfully')

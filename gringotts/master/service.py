@@ -294,9 +294,7 @@ class MasterService(rpc_service.Service):
             while cron_time <= danger_time:
                 self._pre_deduct(order_id)
                 cron_time += datetime.timedelta(hours=1)
-
-        # Create cron job
-        self._create_cron_job(order_id, start_date=cron_time)
+            self._create_cron_job(order_id, start_date=cron_time)
 
     def resource_deleted(self, ctxt, order_id, action_time):
         LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %

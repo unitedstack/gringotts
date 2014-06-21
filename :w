@@ -181,31 +181,47 @@ class CheckerService(os_service.Service):
         try:
             order = resource_to_order[resource.id]
         except KeyError:
-            # Situation 1: There may exist resources that have no orders
+            # Situation 1: There exist resources that are not billed
+            if resource.is_bill:
+                LOG.warn('The resource(%s) has no order' % resource.as_dict())
+
             if resource.status == const.STATE_ERROR:
+                LOG.warn('The status of the resource(%s) is not steady or in error.' %
+                         resource.as_dict())
                 bad_resources.append(resource)
                 return
+
             if not resource.is_bill:
                 return
+
             try_to_fix['1'].append(resource)
         else:
-            # Situation 2: There may exist resource whose status doesn't match with its order's
+            # Situation 2: There exist resources whose status don't match with its order's status
             if resource.status == const.STATE_ERROR:
+                LOG.warn('The status of the resource(%s) is not steady or in error.' %
+                         resource.as_dict())
                 bad_resources.append(resource)
             elif resource.status != order['status']:
+                LOG.warn('The status of the resource(%s) doesn\'t match with the status of the order(%s)' %
+                         (resource.as_dict(), order))
+
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
                                                       action_time,
                                                       resource.status))
-            # Situation 3: Resource's order has been created,
-            # but its bill not be created by master
+            # Situation 3: Resource's order has been created, but its bill not be created by master
             elif not order['cron_time']:
+                LOG.warn('The order(%s) has been created, its bill not yet' % order)
+
                 try_to_fix['3'].append(Situation3Item(order['order_id'],
                                                       resource.created_at))
+
             resource_to_order[resource.id]['checked'] = True
 
     def _check_order_to_resource(self, resource_id, order, try_to_fix):
         # Situation 4: The resource of the order has been deleted
+        LOG.warn('The resource of the order(%s) has been deleted.' % order)
+
         deleted_at = utils.format_datetime(timeutils.strtime())
         try_to_fix['4'].append(Situation4Item(order['order_id'],
                                               deleted_at))
@@ -257,11 +273,8 @@ class CheckerService(os_service.Service):
         try_to_fix_1 = {'1': [], '2': [], '3': [], '4': []}
         try_to_fix_2 = {'1': [], '2': [], '3': [], '4': []}
         try:
-            LOG.warn('checking first time...')
             self._check_if_resources_match_orders(bad_resources_1, try_to_fix_1)
-            LOG.warn('waiting 30 seconds...')
-            time.sleep(30)
-            LOG.warn('checking second time...')
+            time.sleep(10)
             self._check_if_resources_match_orders(bad_resources_2, try_to_fix_2)
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether '
@@ -278,34 +291,27 @@ class CheckerService(os_service.Service):
             try_to_fix_situ_3 = [x for x in try_to_fix_2['3'] if x in try_to_fix_1['3']]
             try_to_fix_situ_4 = [x for x in try_to_fix_2['4'] if x in try_to_fix_1['4']]
 
-            ## Situation 1
-            for resource in try_to_fix_situ_1:
-                LOG.warn('Situation 1: The resource(%s) has no order' % resource)
-                if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
+                # Situation 1
+                for resource in try_to_fix_situ_1:
                     create_cls = self.RESOURCE_CREATE_MAP[resource.resource_type]
                     create_cls.process_notification(resource.to_message(),
                                                     resource.status)
-            ## Situation 2
-            for item in try_to_fix_situ_2:
-                LOG.warn('Situation 2: The order(%s) and its resource\'s status doesn\'t match' % item.order_id)
-                if cfg.CONF.checker.try_to_fix:
+                # Situation 2
+                for item in try_to_fix_situ_2:
                     self.master_api.resource_changed(self.ctxt,
                                                      item.order_id,
                                                      item.action_time,
                                                      change_to=item.change_to,
                                                      remarks="System Adjust")
-            ## Situation 3
-            for item in try_to_fix_situ_3:
-                LOG.warn('Situation 3: The order(%s) has no bills' % item.order_id)
-                if cfg.CONF.checker.try_to_fix:
+                # Situation 3
+                for item in try_to_fix_situ_3:
                     self.master_api.resource_created_again(self.ctxt,
                                                            item.order_id,
                                                            item.resource_created_at,
                                                            "Sytstem Adjust")
-            ## Situation 4
-            for item in try_to_fix_situ_4:
-                LOG.warn('Situation 4: The resource of the order(%s) has been deleted.' % item.order_id)
-                if cfg.CONF.checker.try_to_fix:
+                # Situation 4
+                for item in try_to_fix_situ_4:
                     self.master_api.resource_deleted(self.ctxt,
                                                      item.order_id,
                                                      item.deleted_at)
@@ -316,8 +322,11 @@ class CheckerService(os_service.Service):
         """
         LOG.warn('Checking if cronjobs match with orders')
         try:
-            order_count = self.worker_api.get_active_order_count(self.ctxt, self.region_name)
+            # Checking active orders
             cronjob_count = self.master_api.get_cronjob_count(self.ctxt)
+            # active means including running, stopped, changing, suspend
+            order_count = self.worker_api.get_active_order_count(
+                self.ctxt, self.region_name)
             if cronjob_count != order_count:
                 LOG.warn('There are %s cron jobs, but there are %s active orders' %
                          (cronjob_count, order_count))
