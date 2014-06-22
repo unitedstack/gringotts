@@ -4,6 +4,8 @@ from gringotts import utils
 from gringotts import constants as const
 
 from novaclient.v1_1 import client as nova_client
+from novaclient.exceptions import NotFound
+
 from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception
 from gringotts.services import Resource
@@ -62,6 +64,20 @@ def flavor_get(region_name, flavor_id):
 def image_get(region_name, image_id):
     return get_novaclient(region_name=region_name).\
         images.get(image_id)
+
+
+@wrap_exception(exc_type='get')
+def server_get(instance_id, region_name=None):
+    try:
+        server = get_novaclient(region_name).servers.get(instance_id)
+    except NotFound:
+        return None
+    status = utils.transform_status(server.status)
+    return Server(id=server.id,
+                  name=server.name,
+                  status=status,
+                  original_status=server.status,
+                  resource_type=const.RESOURCE_INSTANCE)
 
 
 @wrap_exception(exc_type='list')

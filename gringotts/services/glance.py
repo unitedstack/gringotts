@@ -1,5 +1,6 @@
 from oslo.config import cfg
 import  glanceclient
+from glanceclient.exc import NotFound
 
 from gringotts import utils
 from gringotts import constants as const
@@ -27,6 +28,20 @@ def get_glanceclient(region_name=None):
     endpoint = ks_client.get_endpoint(region_name, 'image')
     auth_token = ks_client.get_token()
     return glanceclient.Client('2', endpoint, token=auth_token)
+
+
+@wrap_exception(exc_type='get')
+def image_get(image_id, region_name=None):
+    try:
+        image = get_glanceclient(region_name).images.get(image_id)
+    except NotFound:
+        return None
+    status = utils.transform_status(image.status)
+    return Image(id=image.id,
+                 name=image.name,
+                 status=status,
+                 original_status=image.status,
+                 resource_type=const.RESOURCE_IMAGE)
 
 
 @wrap_exception(exc_type='list')

@@ -6,6 +6,7 @@ from gringotts import constants as const
 from gringotts.services import wrap_exception
 from gringotts.services import Resource
 from cinderclient.v1 import client as cinder_client
+from cinderclient.exceptions import NotFound
 from gringotts.services import keystone as ks_client
 
 
@@ -53,6 +54,35 @@ def get_cinderclient(region_name=None):
     c.client.management_url = endpoint
     return c
 
+@wrap_exception(exc_type='get')
+def volume_get(volume_id, region_name=None):
+    c_client = get_cinderclient(region_name)
+    try:
+        volume = c_client.volumes.get(volume_id)
+    except NotFound:
+        return None
+    status = utils.transform_status(volume.status)
+    return Volume(id=volume.id,
+                  name=volume.display_name,
+                  status=status,
+                  original_status=volume.status,
+                  resource_type=const.RESOURCE_VOLUME)
+
+
+@wrap_exception(exc_type='get')
+def snapshot_get(snapshot_id, region_name=None):
+    c_client = get_cinderclient(region_name)
+    try:
+        sp = c_client.volume_snapshots.get(snapshot_id)
+    except NotFound:
+        return None
+    status = utils.transform_status(sp.status)
+    return Snapshot(id=sp.id,
+                    name=sp.display_name,
+                    status=status,
+                    original_status=sp.status,
+                    resource_type=const.RESOURCE_SNAPSHOT)
+
 
 @wrap_exception(exc_type='list')
 def volume_list(project_id, region_name=None, detailed=True, project_name=None):
@@ -99,7 +129,7 @@ def snapshot_list(project_id, region_name=None, detailed=True, project_name=None
                                        name=sp.display_name,
                                        size=sp.size,
                                        status=status,
-                                       original_stauts=sp.status,
+                                       original_status=sp.status,
                                        resource_type=const.RESOURCE_SNAPSHOT,
                                        user_id=None,
                                        project_id=project_id,

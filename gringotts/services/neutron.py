@@ -7,6 +7,7 @@ from gringotts.services import wrap_exception
 from gringotts.services import Resource
 from gringotts.services import keystone as ks_client
 from neutronclient.v2_0 import client as neutron_client
+from neutronclient.common.exceptions import NeutronClientException
 
 
 class FloatingIp(Resource):
@@ -105,6 +106,35 @@ def network_list(project_id, region_name=None, project_name=None):
                                           project_name=project_name,
                                           original_status=network['status']))
     return formatted_networks
+
+
+@wrap_exception(exc_type='get')
+def floatingip_get(fip_id, region_name=None):
+    try:
+        fip = get_neutronclient(region_name).show_floatingip(fip_id).get('floatingip')
+    except NeutronClientException:
+        return None
+    status = utils.transform_status(fip['status'])
+    return FloatingIp(id=fip['id'],
+                      name=fip['uos:name'],
+                      resource_type=const.RESOURCE_FLOATINGIP,
+                      status=status,
+                      original_status=fip['status'],
+                      is_reserved=False)
+
+
+@wrap_exception(exc_type='get')
+def router_get(router_id, region_name=None):
+    try:
+        router = get_neutronclient(region_name).show_router(router_id).get('router')
+    except NeutronClientException:
+        return None
+    status = utils.transform_status(router['status'])
+    return Router(id=router['id'],
+                  name=router['name'],
+                  resource_type=const.RESOURCE_ROUTER,
+                  status=status,
+                  original_status=router['status'])
 
 
 @wrap_exception(exc_type='list')

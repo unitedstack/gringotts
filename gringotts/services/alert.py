@@ -20,7 +20,7 @@ OPTS = [
                default=2,
                help="Priority of alert"),
     cfg.BoolOpt('enable_alert',
-                default=True,
+                default=False,
                 help="Enable the alert or not")
 ]
 cfg.CONF.register_opts(OPTS)

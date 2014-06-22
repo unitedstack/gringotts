@@ -55,6 +55,9 @@ def wrap_exception(exc_type=None):
                 elif exc_type == 'list':
                     msg = 'Fail to execute %s for account: %s, reason: %s' % (f.__name__, uuid, e)
                     result = []
+                elif exc_type == 'get':
+                    msg = 'Fail to get the resource: %s, reason: %s' % (uuid, e)
+                    result = None
                 LOG.error(msg)
                 return result
         return functools.wraps(f)(wrapped)

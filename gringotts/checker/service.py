@@ -130,6 +130,33 @@ class CheckerService(os_service.Service):
             const.RESOURCE_VOLUME: plugins.volume.VolumeCreateEnd()
         }
 
+        self.RESOURCE_GET_MAP = {
+            const.RESOURCE_INSTANCE: (nova.server_get, const.STATE_STOPPED),
+            const.RESOURCE_SNAPSHOT: (cinder.snapshot_get, const.STATE_RUNNING),
+            const.RESOURCE_VOLUME: (cinder.volume_get, const.STATE_RUNNING),
+            const.RESOURCE_IMAGE: (glance.image_get, const.STATE_RUNNING),
+            const.RESOURCE_FLOATINGIP: (neutron.floatingip_get, const.STATE_RUNNING),
+            const.RESOURCE_ROUTER: (neutron.router_get, const.STATE_RUNNING),
+        }
+
+        self.DELETE_METHOD_MAP = {
+            const.RESOURCE_INSTANCE: nova.delete_server,
+            const.RESOURCE_IMAGE: glance.delete_image,
+            const.RESOURCE_SNAPSHOT: cinder.delete_snapshot,
+            const.RESOURCE_VOLUME: cinder.delete_volume,
+            const.RESOURCE_FLOATINGIP: neutron.delete_fip,
+            const.RESOURCE_ROUTER: neutron.delete_router,
+        }
+
+        self.STOP_METHOD_MAP = {
+            const.RESOURCE_INSTANCE: nova.stop_server,
+            const.RESOURCE_IMAGE: glance.stop_image,
+            const.RESOURCE_SNAPSHOT: cinder.stop_snapshot,
+            const.RESOURCE_VOLUME: cinder.stop_volume,
+            const.RESOURCE_FLOATINGIP: neutron.stop_fip,
+            const.RESOURCE_ROUTER: neutron.stop_router,
+        }
+
         super(CheckerService, self).__init__(*args, **kwargs)
 
     def start(self):
@@ -144,6 +171,7 @@ class CheckerService(os_service.Service):
         """
         non_center_jobs = [
             (self.check_if_resources_match_orders, 1, True),
+            (self.check_if_owed_resources_match_owed_orders, 1, True),
             (self.check_if_cronjobs_match_orders, 1, True),
         ]
 
@@ -309,6 +337,73 @@ class CheckerService(os_service.Service):
                     self.master_api.resource_deleted(self.ctxt,
                                                      item.order_id,
                                                      item.deleted_at)
+
+    def _check_if_owed_resources_match_owed_orders(self,
+                                                   should_stop_resources,
+                                                   should_delete_resources):
+        accounts = list(self.worker_api.get_accounts(self.ctxt))
+        for account in accounts:
+            if account['level'] == 9:
+                continue
+            if not isinstance(account, dict):
+                account = account.as_dict()
+            if not account['owed']:
+                continue
+
+            orders = list(self.worker_api.get_active_orders(self.ctxt,
+                                                            project_id=account['project_id'],
+                                                            owed=True))
+            if not orders:
+                continue
+            for order in orders:
+                if isinstance(order['date_time'], basestring):
+                    order['date_time'] = timeutils.parse_strtime(
+                            order['date_time'],
+                            fmt=ISO8601_UTC_TIME_FORMAT)
+                resource = self.RESOURCE_GET_MAP[order['type']][0](order['resource_id'],
+                                                                   region_name=self.region_name)
+                now = datetime.datetime.utcnow()
+                if order['date_time'] < now:
+                    if resource:
+                        should_delete_resources.append(resource)
+                else:
+                    if not resource:
+                        LOG.warn('The resource of the order(%s) not exists' % order)
+                        continue
+                    if order['type'] == const.RESOURCE_FLOATINGIP and not resource.is_reserved:
+                        should_delete_resources.append(resource)
+                    elif resource.status != self.RESOURCE_GET_MAP[order['type']][1]:
+                        should_stop_resources.append(resource)
+
+    def check_if_owed_resources_match_owed_orders(self):
+        LOG.warn('Checking if owed resources match with owed orders')
+        should_stop_resources_1 = []
+        should_stop_resources_2 = []
+        should_delete_resources_1 = []
+        should_delete_resources_2 = []
+        try:
+            LOG.warn('checking first time......')
+            self._check_if_owed_resources_match_owed_orders(should_stop_resources_1,
+                                                            should_delete_resources_1)
+            LOG.warn('waiting 30 seconds......')
+            time.sleep(30)
+            LOG.warn('checking second time......')
+            self._check_if_owed_resources_match_owed_orders(should_stop_resources_2,
+                                                            should_delete_resources_2)
+        except Exception:
+            LOG.exception('Some exceptions occurred when checking whether '
+                          'owed resources match with owed orders or not.')
+        finally:
+            should_stop_resources = [x for x in should_stop_resources_2 if x in should_stop_resources_1]
+            should_delete_resources = [x for x in should_delete_resources_2 if x in should_delete_resources_1]
+            for resource in should_stop_resources:
+                LOG.warn("The resource(%s) is owed, should be stopped" % resource)
+                if cfg.CONF.checker.try_to_fix:
+                    self.STOP_METHOD_MAP[resource.resource_type](resource.id, self.region_name)
+            for resource in should_delete_resources:
+                LOG.warn("The resource(%s) is reserved for its full days, should be deleted" % resource)
+                if cfg.CONF.checker.try_to_fix:
+                    self.DELETE_METHOD_MAP[resource.resource_type](resource.id, self.region_name)
 
     def check_if_cronjobs_match_orders(self):
         """Check if number of cron jobs match number of orders in running and
