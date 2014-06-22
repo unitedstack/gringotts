@@ -183,6 +183,10 @@ class MasterService(rpc_service.Service):
         return method(resource_id, region_id)
 
     def _delete_owed_resource(self, resource_type, resource_id, region_id):
+        try:
+            del self.date_jobs[resource_id]
+        except IndexError:
+            pass
         method = self.DELETE_METHOD_MAP[resource_type]
         method(resource_id, region_id)
 
