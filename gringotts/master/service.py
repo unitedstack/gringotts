@@ -183,10 +183,6 @@ class MasterService(rpc_service.Service):
         return method(resource_id, region_id)
 
     def _delete_owed_resource(self, resource_type, resource_id, region_id):
-        try:
-            del self.date_jobs[resource_id]
-        except IndexError:
-            pass
         method = self.DELETE_METHOD_MAP[resource_type]
         method(resource_id, region_id)
 
@@ -215,8 +211,14 @@ class MasterService(rpc_service.Service):
         if not job:
             LOG.warning('There is no cron job for the order: %s' % order_id)
             return
-        self.apsched.unschedule_job(job)
-        del self.cron_jobs[order_id]
+        try:
+            self.apsched.unschedule_job(job)
+        except KeyError:
+            pass
+        try:
+            del self.cron_jobs[order_id]
+        except KeyError:
+            pass
 
     def _create_date_job(self, resource_type, resource_id, region_id,
                          action_time):
@@ -238,8 +240,14 @@ class MasterService(rpc_service.Service):
         if not job:
             LOG.warning('There is no date job for the resource: %s' % resource_id)
             return
-        self.apsched.unschedule_job(job)
-        del self.date_jobs[resource_id]
+        try:
+            self.apsched.unschedule_job(job)
+        except KeyError:
+            pass
+        try:
+            del self.date_jobs[resource_id]
+        except  KeyError:
+            pass
 
     def _pre_deduct(self, order_id):
         remarks = 'Hourly Billing'
