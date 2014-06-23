@@ -127,5 +127,11 @@ class WorkerAPI(object):
                                      params=params)
         return body
 
+    def charge_account(self, ctxt, project_id, value, type, come_from):
+        _body = dict(value=value,
+                     type=type,
+                     come_from=come_from)
+        self.client.put('/accounts/%s' % project_id, body=_body)
+
     def fix_order(self, ctxt, order_id):
         raise NotImplementedError()

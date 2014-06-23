@@ -54,16 +54,21 @@ class UserRegisterEnd(RegisterNotificationBase):
     def process_notification(self, message):
         LOG.debug('Do action for event: %s, tenant_id: %s',
                   message['event_type'], message['payload']['project_id'])
-
         try:
+            # create account
             user_id = message['payload']['user_id']
             project_id = message['payload']['project_id']
-            balance = cfg.CONF.waiter.initial_balance
+            balance = '0'
             consumption = '0'
             currency = 'CNY'
             level = cfg.CONF.waiter.initial_level
             self.create_account(user_id, project_id, balance,
                                 consumption, currency, level)
+            # charge account
+            type = 'bonus'
+            come_from = 'system'
+            initial_balance = cfg.CONF.waiter.initial_balance
+            self.charge_account(project_id, initial_balance, type, come_from)
         except Exception:
             LOG.exception('Fail to create account for the project: %s' %
                           project_id)

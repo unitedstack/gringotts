@@ -76,6 +76,9 @@ class LocalAPI(object):
     def get_account(self, ctxt, project_id):
         return self._service.get_account(ctxt, project_id)
 
+    def charge_account(self, ctxt, project_id, value, type, come_from):
+        self._service.charge_account(ctxt, project_id, value, type, come_from)
+
     def fix_order(self, ctxt, order_id):
         self._service.fix_order(ctxt, order_id)
 

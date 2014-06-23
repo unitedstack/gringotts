@@ -2,6 +2,7 @@ from oslo.config import cfg
 
 from gringotts import context
 from gringotts import db
+from gringotts import utils
 from gringotts.db import models as db_models
 from gringotts import exception
 
@@ -125,8 +126,19 @@ class WorkerService(rpc_service.Service):
     def get_accounts(self, ctxt):
         return self.db_conn.get_accounts(ctxt)
 
-    def get_account(self, ctxt):
+    def get_account(self, ctxt, project_id):
         return self.db_conn.get_account(ctxt, project_id)
+
+    def charge_account(self, ctxt, project_id, value, type, come_from):
+        if isinstance(value, basestring):
+            value = utils._quantize_decimal(value)
+        try:
+            self.db_conn.update_account(ctxt, project_id,
+                                        value=value,
+                                        type=type,
+                                        come_from=come_from)
+        except Exception:
+            LOG.exception('Fail to charge the account: %s, charge(%s, %s, %s)' % (project_id, value, type, come_from))
 
     def fix_order(self, ctxt, order_id):
         self.db_conn.fix_order(ctxt, order_id)

@@ -153,3 +153,9 @@ class NotificationBase(plugin.NotificationBase):
         """
         master_api.instance_stopped(context.get_admin_context(),
                                     order_id, action_time)
+
+    def charge_account(self, project_id, value, type, come_from):
+        """Charge the account
+        """
+        worker_api.charge_account(context.get_admin_context(),
+                                  project_id, value, type, come_from)
