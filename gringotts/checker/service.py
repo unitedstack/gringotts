@@ -371,9 +371,8 @@ class CheckerService(os_service.Service):
                     if not resource:
                         LOG.warn('The resource of the order(%s) not exists' % order)
                         continue
-                    if order['type'] == const.RESOURCE_FLOATINGIP and not resource.is_reserved:
-                        if order['cron_time'] < now:
-                            should_delete_resources.append(resource)
+                    if order['type'] == const.RESOURCE_FLOATINGIP and not resource.is_reserved and order['owed']:
+                        should_delete_resources.append(resource)
                     elif resource.status != self.RESOURCE_GET_MAP[order['type']][1]:
                         should_stop_resources.append(resource)
 
