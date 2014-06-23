@@ -247,17 +247,20 @@ def stop_fip(fip_id, region_name=None):
 def delete_router(router_id, region_name=None):
     client = get_neutronclient(region_name)
 
-    # Remove gateway
-    client.remove_gateway_router(router_id)
+    try:
+        # Remove gateway
+        client.remove_gateway_router(router_id)
 
-    # Get interfaces of this router
-    ports = client.list_ports(device_id=router_id).get('ports')
+        # Get interfaces of this router
+        ports = client.list_ports(device_id=router_id).get('ports')
 
-    # Clear these interfaces from this router
-    body = {}
-    for port in ports:
-        body['port_id'] = port['id']
-        client.remove_interface_router(router_id, body)
+        # Clear these interfaces from this router
+        body = {}
+        for port in ports:
+            body['port_id'] = port['id']
+            client.remove_interface_router(router_id, body)
+    except Exception:
+        pass
 
     # And then delete this router
     client.delete_router(router_id)
