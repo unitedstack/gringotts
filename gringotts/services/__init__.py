@@ -49,14 +49,14 @@ def wrap_exception(exc_type=None):
                 msg = None
                 result = True
                 if exc_type == 'single':
-                    msg = 'Fail to delete the resource: %s, reason: %s' % (uuid, e)
+                    msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
                 elif exc_type == 'bulk':
-                    msg = 'Fail to delete resources that belong to: %s, reason: %s' % (uuid, e)
+                    msg = 'Fail to do %s for account: %s, reason: %s' % (f.__name__, uuid, e)
                 elif exc_type == 'list':
-                    msg = 'Fail to execute %s for account: %s, reason: %s' % (f.__name__, uuid, e)
+                    msg = 'Fail to do %s for account: %s, reason: %s' % (f.__name__, uuid, e)
                     result = []
                 elif exc_type == 'get':
-                    msg = 'Fail to get the resource: %s, reason: %s' % (uuid, e)
+                    msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
                     result = None
                 LOG.error(msg)
                 return result

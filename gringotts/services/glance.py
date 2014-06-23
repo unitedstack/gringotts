@@ -75,7 +75,11 @@ def delete_images(project_id, region_name=None):
 
 @wrap_exception()
 def delete_image(image_id, region_name=None):
-    client = get_glanceclient(region_name)
+    endpoint = ks_client.get_endpoint(region_name, 'image')
+    if endpoint[-1] != '/':
+        endpoint += '/'
+    auth_token = ks_client.get_token()
+    client = glanceclient.Client('2', endpoint, token=auth_token)
     client.images.delete(image_id)
 
 

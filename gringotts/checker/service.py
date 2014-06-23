@@ -285,11 +285,8 @@ class CheckerService(os_service.Service):
         try_to_fix_1 = {'1': [], '2': [], '3': [], '4': []}
         try_to_fix_2 = {'1': [], '2': [], '3': [], '4': []}
         try:
-            LOG.warn('checking first time...')
             self._check_if_resources_match_orders(bad_resources_1, try_to_fix_1)
-            LOG.warn('waiting 30 seconds...')
             time.sleep(30)
-            LOG.warn('checking second time...')
             self._check_if_resources_match_orders(bad_resources_2, try_to_fix_2)
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether '
@@ -360,6 +357,10 @@ class CheckerService(os_service.Service):
                     order['date_time'] = timeutils.parse_strtime(
                             order['date_time'],
                             fmt=ISO8601_UTC_TIME_FORMAT)
+                if isinstance(order['cron_time'], basestring):
+                    order['cron_time'] = timeutils.parse_strtime(
+                            order['cron_time'],
+                            fmt=ISO8601_UTC_TIME_FORMAT)
                 resource = self.RESOURCE_GET_MAP[order['type']][0](order['resource_id'],
                                                                    region_name=self.region_name)
                 now = datetime.datetime.utcnow()
@@ -371,7 +372,8 @@ class CheckerService(os_service.Service):
                         LOG.warn('The resource of the order(%s) not exists' % order)
                         continue
                     if order['type'] == const.RESOURCE_FLOATINGIP and not resource.is_reserved:
-                        should_delete_resources.append(resource)
+                        if order['cron_time'] < now:
+                            should_delete_resources.append(resource)
                     elif resource.status != self.RESOURCE_GET_MAP[order['type']][1]:
                         should_stop_resources.append(resource)
 
@@ -382,12 +384,9 @@ class CheckerService(os_service.Service):
         should_delete_resources_1 = []
         should_delete_resources_2 = []
         try:
-            LOG.warn('checking first time......')
             self._check_if_owed_resources_match_owed_orders(should_stop_resources_1,
                                                             should_delete_resources_1)
-            LOG.warn('waiting 30 seconds......')
             time.sleep(30)
-            LOG.warn('checking second time......')
             self._check_if_owed_resources_match_owed_orders(should_stop_resources_2,
                                                             should_delete_resources_2)
         except Exception:
