@@ -214,11 +214,11 @@ class MasterService(rpc_service.Service):
         try:
             self.apsched.unschedule_job(job)
         except KeyError:
-            pass
+            LOG.warn('Fail to unschedule cron job: %s' % job)
         try:
             del self.cron_jobs[order_id]
         except KeyError:
-            pass
+            LOG.warn('Fail to delete cron job of resource: %s' % resource_id)
 
     def _create_date_job(self, resource_type, resource_id, region_id,
                          action_time):
@@ -243,11 +243,11 @@ class MasterService(rpc_service.Service):
         try:
             self.apsched.unschedule_job(job)
         except KeyError:
-            pass
+            LOG.warn('Fail to unschedule date job: %s' % job)
         try:
             del self.date_jobs[resource_id]
         except  KeyError:
-            pass
+            LOG.warn('Fail to delete date job of resource: %s' % resource_id)
 
     def _pre_deduct(self, order_id):
         remarks = 'Hourly Billing'
