@@ -758,6 +758,9 @@ class Connection(base.Connection):
 
             account.balance += data['value']
 
+            if account.balance >= 0:
+                account.owed = False
+
             if not data.get('charge_time'):
                 charge_time = datetime.datetime.utcnow()
             else:
