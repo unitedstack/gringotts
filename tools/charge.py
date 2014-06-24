@@ -11,6 +11,9 @@ for account in accounts:
     value = float(account['consumption'])
     if value <= 0:
         continue
+    balance = float(account['balance'])
+    if balance > 0:
+        continue
     body = dict(value=account['consumption'],
                 type='bonus',
                 come_from='system')
