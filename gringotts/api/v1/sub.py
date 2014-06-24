@@ -17,7 +17,6 @@ from gringotts import utils as gringutils
 from gringotts.api.v1 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
-from gringotts.openstack.common import memorycache
 from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import uuidutils
 

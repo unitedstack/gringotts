@@ -51,7 +51,7 @@ def _get_catalog():
 
     # Read from cache first
     cache = _get_cache()
-    key = 'gring-keystone-catalog'
+    key = str('gring-keystone-catalog')
     catalog = cache.get(key)
     if catalog:
         return catalog
@@ -138,7 +138,7 @@ def get_token():
 
 def _get_owed_role_id():
     cache = _get_cache()
-    key = "gring-owed-role-id"
+    key = str("gring-owed-role-id")
     role_id = cache.get(key)
     if role_id:
         return role_id

@@ -47,9 +47,9 @@ def reset_cache():
 
 def _make_cache_key(region_id, project_id, start_time, end_time):
     if region_id:
-        return "%s-%s-%s-%s" % (project_id, region_id, start_time, end_time)
+        return str("%s-%s-%s-%s" % (project_id, region_id, start_time, end_time))
     else:
-        return "%s-%s-%s" % (project_id, start_time, end_time)
+        return str("%s-%s-%s" % (project_id, start_time, end_time))
 
 
 class TrendsController(rest.RestController):
