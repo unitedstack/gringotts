@@ -26,7 +26,7 @@ LOG = log.getLogger(__name__)
 
 # NOTE(suo): The bill sum in the past will not change forever, so
 #            we can cache them a little longer.
-BILL_CACHE_SECONDS = 60 * 60 * 24
+BILL_CACHE_SECONDS = 60 * 60 * 24 * 30
 MC = None
 
 
