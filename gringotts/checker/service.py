@@ -508,7 +508,9 @@ class CheckerService(os_service.Service):
                     if price_per_day == 0:
                         continue
 
-                    days_to_owe = int(account_balance / price_per_day)
+                    days_to_owe_d = float(account_balance / price_per_day)
+                    days_to_owe = round(days_to_owe_d)
+
                     if days_to_owe > cfg.CONF.checker.days_to_owe:
                         continue
 
