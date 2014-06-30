@@ -1,3 +1,4 @@
+import time
 from oslo.config import cfg
 
 from gringotts import utils
@@ -154,15 +155,16 @@ def delete_volumes(project_id, region_name=None):
 
 
 @wrap_exception(exc_type='bulk')
-def delete_snapshots(project_id, region_name=None):
+def delete_snapshots(project_id, region_name=None, volume_id=None):
     """Delete all snapshots that belong to project_id
     """
     client = get_cinderclient(region_name)
     search_opts = {'all_tenants': 1,
                    'project_id': project_id}
+    if volume_id:
+        search_opts.update(volume_id=volume_id)
     snaps = client.volume_snapshots.list(detailed=False,
                                          search_opts=search_opts)
-
     for snap in snaps:
         client.volume_snapshots.delete(snap)
 
@@ -170,8 +172,22 @@ def delete_snapshots(project_id, region_name=None):
 @wrap_exception()
 def delete_volume(volume_id, region_name=None):
     client = get_cinderclient(region_name)
+
+    # delete all snapshots first that rely on this volume
+    search_opts = {'all_tenants': 1,
+                   'volume_id': volume_id}
+    snaps = client.volume_snapshots.list(detailed=False,
+                                         search_opts=search_opts)
+    for snap in snaps:
+        client.volume_snapshots.delete(snap)
+
+    # detach volume from instance
     client.volumes.detach(volume_id)
+
+    # wait 10 seconds to delete this volume
+    time.wait(10)
     client.volumes.delete(volume_id)
+
 
 @wrap_exception()
 def stop_volume(volume_id, region_name=None):

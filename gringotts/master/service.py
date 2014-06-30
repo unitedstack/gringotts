@@ -183,8 +183,16 @@ class MasterService(rpc_service.Service):
         return method(resource_id, region_id)
 
     def _delete_owed_resource(self, resource_type, resource_id, region_id):
+        # delete the resource first
         method = self.DELETE_METHOD_MAP[resource_type]
         method(resource_id, region_id)
+
+        # delete date job from self.date_jobs
+        job = self.date_jobs.get(resource_id)
+        if not job:
+            LOG.warning('There is no date job for the resource: %s' % resource_id)
+            return
+        del self.date_jobs[resource_id]
 
     def _create_cron_job(self, order_id, action_time=None, start_date=None):
         """For now, we only support hourly cron job
@@ -228,6 +236,7 @@ class MasterService(rpc_service.Service):
         action_time = utils.utc_to_local(action_time)
         job = self.apsched.add_date_job(self._delete_owed_resource,
                                         action_time,
+                                        name=resource_id,
                                         args=[resource_type,
                                               resource_id,
                                               region_id])
@@ -255,14 +264,13 @@ class MasterService(rpc_service.Service):
 
         # Order is owed
         if result['type'] == 2:
-            reserv = self._stop_owed_resource(result['resource_type'],
-                                              result['resource_id'],
-                                              result['region_id'])
-            if reserv:
-                self._create_date_job(result['resource_type'],
-                                      result['resource_id'],
-                                      result['region_id'],
-                                      result['date_time'])
+            self._stop_owed_resource(result['resource_type'],
+                                     result['resource_id'],
+                                     result['region_id'])
+            self._create_date_job(result['resource_type'],
+                                  result['resource_id'],
+                                  result['region_id'],
+                                  result['date_time'])
         # Account is charged but order is still owed
         elif result['type'] == 3:
             self._delete_date_job(result['resource_id'])

@@ -1020,7 +1020,7 @@ class Connection(base.Connection):
                 result['project_id'] = account.project_id
                 account.owed = False
 
-            if order.owed:
+            if order.owed and action_time < order.date_time:
                 result['resource_owed'] = True
                 result['resource_id'] = order.resource_id
 
