@@ -185,7 +185,7 @@ def delete_volume(volume_id, region_name=None):
     client.volumes.detach(volume_id)
 
     # wait 10 seconds to delete this volume
-    time.wait(10)
+    time.sleep(10)
     client.volumes.delete(volume_id)
 
 
