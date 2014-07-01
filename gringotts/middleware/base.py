@@ -92,16 +92,31 @@ class BillingProtocol(object):
 
         self.LOG.debug('Checking if the account(%s) is owed' % project_id)
 
+        retry = False
+
         try:
             self.make_billing_client()
             if self.check_if_owed(project_id):
                 return self._reject_request(env, start_response, 402)
         except AuthorizationFailure:
-            return self._reject_request(env, start_response, 401)
+            retry = True
         except AccountNotFound:
             return self._reject_request(env, start_response, 404)
         except ServiceError:
             return self._reject_request(env, start_response, 500)
+
+        if retry:
+            try:
+                self.make_billing_client(refresh=True)
+                if self.check_if_owed(project_id):
+                    return self._reject_request(env, start_response, 402)
+            except AuthorizationFailure:
+                return self._reject_request(env, start_response, 401)
+            except AccountNotFound:
+                return self._reject_request(env, start_response, 404)
+            except ServiceError:
+                return self._reject_request(env, start_response, 500)
+
         return self.app(env, start_response)
 
     def check_if_in_blacklist(self, method, path_info, body):
@@ -110,9 +125,9 @@ class BillingProtocol(object):
                 return True
         return False
 
-    def make_billing_client(self):
+    def make_billing_client(self, refresh=False):
         try:
-            if not self.client:
+            if not self.client or refresh:
                 self.client = client.Client(username=self.admin_user,
                                             password=self.admin_password,
                                             project_name=self.admin_tenant_name,
