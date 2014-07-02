@@ -8,13 +8,11 @@ client = client.Client(username='admin',
 __, accounts = client.get('/accounts')
 
 for account in accounts:
-    value = float(account['consumption'])
-    if value <= 0:
-        continue
     balance = float(account['balance'])
-    if balance > 0:
+    if balance > 20:
         continue
-    body = dict(value=account['consumption'],
+    value = str(float(account['consumption']) + 10)
+    body = dict(value=value,
                 type='bonus',
                 come_from='system')
     client.put('/accounts/%s' % account['project_id'], body=body)
