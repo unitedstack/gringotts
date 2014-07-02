@@ -247,23 +247,33 @@ def stop_fip(fip_id, region_name=None):
 def delete_router(router_id, region_name=None):
     client = get_neutronclient(region_name)
 
-    try:
-        # Remove gateway
-        client.remove_gateway_router(router_id)
+    router = client.show_router(router_id).get('router')
 
-        # Get interfaces of this router
-        ports = client.list_ports(device_id=router_id).get('ports')
+    # Delete VPNs of this router
+    vpns = client.list_pptpconnections(router_id=router_id).get('pptpconnections')
+    for vpn in vpns:
+        client.delete_pptpconnection(vpn['id'])
 
-        # Clear these interfaces from this router
+    # Remove subnets of this router
+    ports = client.list_ports(device_id=router_id).get('ports')
+    for port in ports:
         body = {}
-        for port in ports:
-            body['port_id'] = port['id']
+        if port['device_owner'] == 'network:router_interface':
+            body['subnet_id'] = port['fixed_ips'][0]['subnet_id']
             client.remove_interface_router(router_id, body)
-    except Exception:
-        pass
 
+    # Remove floatingips of this router
+    project_id = router['tenant_id']
+    fips = client.list_floatingips(tenant_id=project_id).get('floatingips')
+    update_dict = {'port_id': None}
+    for fip in fips:
+        client.update_floatingip(fip['id'],
+                                 {'floatingip': update_dict})
+
+    time.sleep(5)
     # And then delete this router
     client.delete_router(router_id)
+
 
 @wrap_exception()
 def stop_router(router_id, region_name=None):
