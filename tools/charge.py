@@ -9,10 +9,16 @@ __, accounts = client.get('/accounts')
 
 for account in accounts:
     balance = float(account['balance'])
-    if balance > 20:
-        continue
-    value = str(float(account['consumption']) + 10)
-    body = dict(value=value,
+
+    # fill balance to 0
+    if balance < 0:
+        body = dict(value=-balance,
+                    type='bonus',
+                    come_from='system')
+        client.put('/accounts/%s' % account['project_id'], body=body)
+
+    # charge 20RMB
+    body = dict(value=20,
                 type='bonus',
                 come_from='system')
     client.put('/accounts/%s' % account['project_id'], body=body)
