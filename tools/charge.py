@@ -8,6 +8,10 @@ client = client.Client(username='admin',
 __, accounts = client.get('/accounts')
 
 for account in accounts:
+
+    if account['project_id'] == '6366f4fe38f54c3a96c62e90c088490a':
+        continue
+
     balance = float(account['balance'])
 
     # fill balance to 0
