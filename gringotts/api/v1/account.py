@@ -17,6 +17,15 @@ from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
 
+OPTS = [
+    cfg.BoolOpt('enable_bonus',
+               default=False,
+               help='Enable bouns or not'),
+]
+
+CONF = cfg.CONF
+CONF.register_opts(OPTS)
+
 
 LOG = log.getLogger(__name__)
 
@@ -63,6 +72,12 @@ class AccountController(rest.RestController):
            charge = self.conn.update_account(request.context,
                                              self._id,
                                              **data.as_dict())
+           if cfg.CONF.enable_bonus:
+               data['type'] = 'bonus'
+               data['come_from'] = 'system'
+               charge = self.conn.update_account(request.context,
+                                                 self._id,
+                                                 **data.as_dict())
         except exception.NotAuthorized as e:
             LOG.exception('Fail to charge the account:%s due to not authorization' % \
                           self._id)
