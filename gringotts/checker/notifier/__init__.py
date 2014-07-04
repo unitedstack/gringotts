@@ -34,6 +34,10 @@ class NotifierService(object):
         for notifier in self.notifiers:
             notifier.notify_has_owed(context, account, contact, orders)
 
+    def notify_account_charged(self, context, account, contact, value, bonus=None):
+        for notifier in self.notifiers:
+            notifier.notify_account_charged(context, account, contact, value, bonus=bonus)
+
 
 class Notifier(object):
     """Base class for notifier"""
@@ -48,4 +52,9 @@ class Notifier(object):
     @abc.abstractmethod
     def notify_before_owed(context, account, contact, price_per_day, days_to_owe):
         """Notify account who will owe in days_to_owe
+        """
+
+    @abc.abstractmethod
+    def notify_account_charged(context, account, contact, value, bonus=None):
+        """Notify account has charged successfully
         """

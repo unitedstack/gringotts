@@ -55,3 +55,46 @@ class EmailNotifier(notifier.Notifier):
         }
         notify = gring_notifier.get_notifier(service='checker')
         notify.info(context, 'uos.account.will_owed', payload)
+
+    @staticmethod
+    def notify_account_charged(context, account, contact, value, bonus=None):
+        # Notify user
+        subject = u"[UnitedStack] 您好, %s, 您已充值成功" % contact['email'].split('@')[0]
+        payload = {
+            'actions': {
+                'email': {
+                    'template': 'account_charged_to_user',
+                    'context': {
+                        'value': str(value),
+                        'balance': str(account['balance']),
+                        'bonus': str(bonus),
+                    },
+                    'subject': subject,
+                    'from': 'noreply@unitedstack.com',
+                    'to': contact['email']
+                }
+            }
+        }
+        notify = gring_notifier.get_notifier(service='checker')
+        notify.info(context, 'uos.account.charged', payload)
+
+        # Notify us
+        subject = u"[UnitedStack] 账户[%s]充值[￥%s]" % (contact['email'].split('@')[0], value)
+        payload = {
+            'actions': {
+                'email': {
+                    'template': 'account_charged_to_admin',
+                    'context': {
+                        'email': contact['email'],
+                        'value': str(value),
+                        'balance': str(account['balance']),
+                        'bonus': str(bonus),
+                    },
+                    'subject': subject,
+                    'from': 'noreply@unitedstack.com',
+                    'to': 'guangyu@unitedstack.com'
+                }
+            }
+        }
+        notify = gring_notifier.get_notifier(service='checker')
+        notify.info(context, 'uos.account.charged', payload)

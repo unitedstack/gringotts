@@ -13,6 +13,8 @@ from gringotts import exception
 from gringotts import utils as gringutils
 from gringotts.api.v1 import models
 from gringotts.db import models as db_models
+from gringotts.services import keystone
+from gringotts.checker import notifier
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
@@ -21,11 +23,14 @@ OPTS = [
     cfg.BoolOpt('enable_bonus',
                default=False,
                help='Enable bouns or not'),
+    cfg.BoolOpt('notify_account_charged',
+                default=False,
+                help="Notify user when he/she charges"),
 ]
 
 CONF = cfg.CONF
 CONF.register_opts(OPTS)
-
+CONF.import_opt('notifier_level', 'gringotts.checker.service', group='checker')
 
 LOG = log.getLogger(__name__)
 
@@ -69,15 +74,15 @@ class AccountController(rest.RestController):
         self.conn = pecan.request.db_conn
 
         try:
-           charge = self.conn.update_account(request.context,
+            charge = self.conn.update_account(request.context,
                                              self._id,
                                              **data.as_dict())
-           if cfg.CONF.enable_bonus:
-               data['type'] = 'bonus'
-               data['come_from'] = 'system'
-               charge = self.conn.update_account(request.context,
-                                                 self._id,
-                                                 **data.as_dict())
+            if cfg.CONF.enable_bonus:
+                data['type'] = 'bonus'
+                data['come_from'] = 'system'
+                bonus = self.conn.update_account(request.context,
+                                                    self._id,
+                                                    **data.as_dict())
         except exception.NotAuthorized as e:
             LOG.exception('Fail to charge the account:%s due to not authorization' % \
                           self._id)
@@ -86,7 +91,17 @@ class AccountController(rest.RestController):
             LOG.exception('Fail to charge the account:%s, charge value: %s' % \
                           (self._id, data.value))
             raise exception.DBError(reason=e)
-
+        else:
+            # Notifier account
+            if cfg.CONF.notify_account_charged:
+                account = self.conn.get_account(request.context, self._id).as_dict()
+                contact = keystone.get_uos_user(account['user_id'])
+                self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
+                self.notifier.notify_account_charged(request.context,
+                                                     account,
+                                                     contact,
+                                                     charge.value,
+                                                     bonus = bonus.value if cfg.CONF.enable_bonus else None)
         return models.Charge.from_db_model(charge)
 
     @wsexpose(models.Charges, datetime.datetime, datetime.datetime, int, int)
