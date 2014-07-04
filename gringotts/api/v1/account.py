@@ -77,7 +77,7 @@ class AccountController(rest.RestController):
             charge = self.conn.update_account(request.context,
                                              self._id,
                                              **data.as_dict())
-            if cfg.CONF.enable_bonus:
+            if cfg.CONF.enable_bonus and data['type'] != 'bonus':
                 data['type'] = 'bonus'
                 data['come_from'] = 'system'
                 bonus = self.conn.update_account(request.context,
