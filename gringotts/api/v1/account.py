@@ -75,14 +75,16 @@ class AccountController(rest.RestController):
 
         try:
             charge = self.conn.update_account(request.context,
-                                             self._id,
-                                             **data.as_dict())
+                                              self._id,
+                                              **data.as_dict())
+            has_bonus = False
             if cfg.CONF.enable_bonus and data['type'] != 'bonus':
                 data['type'] = 'bonus'
                 data['come_from'] = 'system'
                 bonus = self.conn.update_account(request.context,
-                                                    self._id,
-                                                    **data.as_dict())
+                                                 self._id,
+                                                 **data.as_dict())
+                has_bonus = True
         except exception.NotAuthorized as e:
             LOG.exception('Fail to charge the account:%s due to not authorization' % \
                           self._id)
@@ -93,7 +95,7 @@ class AccountController(rest.RestController):
             raise exception.DBError(reason=e)
         else:
             # Notifier account
-            if cfg.CONF.notify_account_charged:
+            if cfg.CONF.notify_account_charged and charge['type'] != 'bonus':
                 account = self.conn.get_account(request.context, self._id).as_dict()
                 contact = keystone.get_uos_user(account['user_id'])
                 self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
@@ -101,7 +103,7 @@ class AccountController(rest.RestController):
                                                      account,
                                                      contact,
                                                      charge.value,
-                                                     bonus = bonus.value if cfg.CONF.enable_bonus else None)
+                                                     bonus = bonus.value if has_bonus else None)
         return models.Charge.from_db_model(charge)
 
     @wsexpose(models.Charges, datetime.datetime, datetime.datetime, int, int)
