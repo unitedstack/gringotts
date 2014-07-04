@@ -10,6 +10,14 @@ from gringotts.services import keystone as ks_client
 from neutronclient.v2_0 import client as neutron_client
 from neutronclient.common.exceptions import NeutronClientException
 
+OPTS = [
+    cfg.BoolOpt('reserve_fip',
+                default=True,
+                help="Reserve floating ip or not when account owed")
+]
+
+cfg.CONF.register_opts(OPTS)
+
 
 class FloatingIp(Resource):
     def to_message(self):
@@ -236,6 +244,8 @@ def delete_fip(fip_id, region_name=None):
 
 @wrap_exception()
 def stop_fip(fip_id, region_name=None):
+    if cfg.CONF.reserve_fip:
+        return True
     client = get_neutronclient(region_name)
     update_dict = {'port_id': None}
     client.update_floatingip(fip_id,

@@ -20,6 +20,9 @@ alert_url=http://localhost:8080
 alert_to=all
 alert_priority=2
 
+reserve_fip=True
+enable_bonus=False
+
 [waiter]
 queue_name=gringotts.notification
 initial_balance=10
