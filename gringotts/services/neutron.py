@@ -129,7 +129,7 @@ def floatingip_get(fip_id, region_name=None):
                       resource_type=const.RESOURCE_FLOATINGIP,
                       status=status,
                       original_status=fip['status'],
-                      is_reserved=False)
+                      is_reserved=True)
 
 
 @wrap_exception(exc_type='get')
