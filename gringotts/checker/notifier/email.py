@@ -63,7 +63,7 @@ class EmailNotifier(notifier.Notifier):
         payload = {
             'actions': {
                 'email': {
-                    'template': 'account_charged_to_user',
+                    'template': 'charge_to_user',
                     'context': {
                         'value': str(value),
                         'balance': str(account['balance']),
@@ -83,7 +83,7 @@ class EmailNotifier(notifier.Notifier):
         payload = {
             'actions': {
                 'email': {
-                    'template': 'account_charged_to_admin',
+                    'template': 'charge_to_admin',
                     'context': {
                         'email': contact['email'],
                         'value': str(value),
@@ -92,7 +92,7 @@ class EmailNotifier(notifier.Notifier):
                     },
                     'subject': subject,
                     'from': 'noreply@unitedstack.com',
-                    'to': 'guangyu@unitedstack.com'
+                    'to': 'feedback@unitedstack.com'
                 }
             }
         }
