@@ -375,6 +375,29 @@ class MasterService(rpc_service.Service):
         # create a cron job that will execute after one month
         self._create_cron_job(order_id, start_date=cron_time)
 
+    def instance_resized(self, ctxt, order_id, action_time,
+                         new_flavor, old_flavor,
+                         service, region_id, remarks):
+        """Instance resized, update the flavor subscription, and change order
+        """
+        LOG.debug("Instance resized, its order_id: %s, action_time: %s"
+                  % (order_id, action_time))
+
+        # close the old bill
+        self._close_bill(ctxt, order_id, action_time)
+
+        # change subscirption's quantity
+        self.worker_api.change_flavor_subscription(self.ctxt, order_id,
+                                                   new_flavor, old_flavor,
+                                                   service, region_id,
+                                                   const.STATE_RUNNING)
+
+        # change the order's unit price and its active subscriptions
+        self.worker_api.change_order(self.ctxt, order_id, const.STATE_RUNNING)
+
+        # create a new bill for the updated order
+        self._create_bill(ctxt, order_id, action_time, remarks)
+
 
 def master():
     prepare_service()

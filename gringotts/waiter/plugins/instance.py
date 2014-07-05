@@ -252,12 +252,35 @@ class InstanceStartEnd(ComputeNotificationBase):
 class InstanceResizeEnd(ComputeNotificationBase):
     """Handle the events that instances be changed
     """
-    event_types = ['compute.instance.resize.end']
+    event_types = ['compute.instance.local_resize.end']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s, resource_id: %s',
                   message['event_type'],
                   message['payload']['instance_id'])
+
+        # Get the order of this resource
+        resource_id = message['payload']['instance_id']
+        order = self.get_order_by_resource_id(resource_id)
+
+        new_flavor = message['payload']['instance_type']
+        old_flavor = message['payload']['old_instance_type']
+
+        if new_flavor == old_flavor:
+            return
+
+        new_flavor = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
+                                new_flavor)
+        old_flavor = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
+                                old_flavor)
+        service = const.SERVICE_COMPUTE
+        region_id = cfg.CONF.region_name
+
+        action_time = message['timestamp']
+        remarks = 'Instance Has Been Resized'
+        self.instance_resized(order['order_id'], action_time,
+                              new_flavor, old_flavor,
+                              service, region_id, remarks)
 
 
 class InstanceDeleteEnd(ComputeNotificationBase):

@@ -78,6 +78,17 @@ class WorkerService(rpc_service.Service):
                       change_to=change_to)
         self.db_conn.update_subscription(ctxt, **kwargs)
 
+    def change_flavor_subscription(self, ctxt, order_id,
+                                   new_flavor, old_flavor,
+                                   service, region_id, change_to):
+        kwargs = dict(order_id=order_id,
+                      new_flavor=new_flavor,
+                      old_flavor=old_flavor,
+                      service=service,
+                      region_id=region_id,
+                      change_to=change_to)
+        self.db_conn.update_flavor_subscription(ctxt, **kwargs)
+
     def create_order(self, ctxt, order_id, region_id, unit_price, unit, **kwargs):
         order = dict(order_id=order_id,
                      region_id=region_id,

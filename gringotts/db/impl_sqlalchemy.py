@@ -553,6 +553,47 @@ class Connection(base.Connection):
             for sub in subs:
                 sub.quantity = kwargs['quantity']
 
+    def update_flavor_subscription(self, context, **kwargs):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                old_product = model_query(context, sa_models.Product, session=session).\
+                        filter_by(name=kwargs['old_flavor']).\
+                        filter_by(service=kwargs['service']).\
+                        filter_by(region_id=kwargs['region_id']).\
+                        filter_by(deleted=False).\
+                        with_lockmode('update').one()
+                new_product = model_query(context, sa_models.Product, session=session).\
+                        filter_by(name=kwargs['new_flavor']).\
+                        filter_by(service=kwargs['service']).\
+                        filter_by(region_id=kwargs['region_id']).\
+                        filter_by(deleted=False).\
+                        with_lockmode('update').one()
+            except NoResultFound:
+                msg = "Product with name(%s/%s) within service(%s) in region_id(%s) not found" % \
+                       (kwargs['old_flavor'], kwargs['new_flavor'], kwargs['service'], kwargs['region_id'])
+                LOG.error(msg)
+                return None
+            except MultipleResultsFound:
+                msg = "Duplicated products with name(%s/%s) within service(%s) in region_id(%s)" % \
+                       (kwargs['old_flavor'], kwargs['new_flavor'], kwargs['service'], kwargs['region_id'])
+                LOG.error(msg)
+                raise exception.DuplicatedProduct(reason=msg)
+
+            try:
+                sub = model_query(context, sa_models.Subscription, session=session).\
+                    filter_by(order_id=kwargs['order_id']).\
+                    filter_by(product_id=old_product.product_id).\
+                    filter_by(type=kwargs['change_to']).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                msg = "Subscription with order_id(%s), product_id(%s), type(%s) not found" % \
+                        (kwargs['order_id'], old_product.product_id, kwargs['change_to'])
+                LOG.error(msg)
+                return None
+            sub.unit_price = new_product.unit_price
+            sub.product_id = new_product.product_id
+
     @require_context
     def get_subscriptions_by_order_id(self, context, order_id, type=None):
         query = model_query(context, sa_models.Subscription).\

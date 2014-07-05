@@ -40,5 +40,9 @@ class SubsController(rest.RestController):
     @wsexpose(None, body=models.SubscriptionPutBody)
     def put(self, data):
         conn = pecan.request.db_conn
-        conn.update_subscription(request.context,
-                                 **data.as_dict())
+        if data.quantity != wtypes.Unset:
+            conn.update_subscription(request.context,
+                                     **data.as_dict())
+        elif data.new_flavor != wtypes.Unset and data.old_flavor != wtypes.Unset:
+            conn.update_flavor_subscription(request.context,
+                                            **data.as_dict())

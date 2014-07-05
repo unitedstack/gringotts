@@ -205,6 +205,11 @@ class SubscriptionPostBody(APIBase):
 class SubscriptionPutBody(APIBase):
     order_id = wtypes.text
     quantity = int
+    change_to = wtypes.text
+    new_flavor = wtypes.text
+    old_flavor = wtypes.text
+    service = wtypes.text
+    region_id = wtypes.text
 
 
 class OrderPostBody(APIBase):

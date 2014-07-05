@@ -154,6 +154,16 @@ class NotificationBase(plugin.NotificationBase):
         master_api.instance_stopped(context.get_admin_context(),
                                     order_id, action_time)
 
+    def instance_resized(self, order_id, action_time,
+                         new_flavor, old_flavor, service, region_id,
+                         remarks):
+        """Notify master that instance has been resized
+        """
+        master_api.instance_resized(context.get_admin_context(),
+                                    order_id, action_time,
+                                    new_flavor, old_flavor,
+                                    service, region_id, remarks)
+
     def charge_account(self, project_id, value, type, come_from):
         """Charge the account
         """

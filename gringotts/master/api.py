@@ -57,6 +57,13 @@ class LocalAPI(object):
     def instance_stopped(self, ctxt, order_id, action_time):
         self._service.instance_stopped(ctxt, order_id, action_time)
 
+    def instance_resized(self, ctxt, order_id, action_time,
+                         new_flavor, old_flavor,
+                         service, region_id, remarks):
+        self._service.instance_resized(ctxt, order_id, action_time,
+                                       new_flavor, old_flavor,
+                                       service, region_id, remarks)
+
 
 class API(LocalAPI):
     """Master API that handles requests via RPC to the MasterService

@@ -36,6 +36,13 @@ class LocalAPI(object):
     def change_subscription(self, ctxt, order_id, quantity, change_to):
         self._service.change_subscription(ctxt, order_id, quantity, change_to)
 
+    def change_flavor_subscription(self, ctxt, order_id,
+                                   new_flavor, old_flavor,
+                                   service, region_id, change_to):
+        self._service.change_flavor_subscription(ctxt, order_id,
+                                                 new_flavor, old_flavor,
+                                                 service, region_id, change_to)
+
     def create_order(self, ctxt, order_id, region_id, unit_price, unit, **kwargs):
         self._service.create_order(ctxt, order_id, region_id,
                                    unit_price, unit, **kwargs)

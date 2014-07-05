@@ -59,6 +59,16 @@ class WorkerAPI(object):
                      change_to=change_to)
         self.client.put('/subs', body=_body)
 
+    def change_flavor_subscription(self, ctxt, order_id, new_flavor, old_flavor,
+                                   service, region_id, change_to):
+        _body = dict(order_id=order_id,
+                     new_flavor=new_flavor,
+                     old_flavor=old_flavor,
+                     servcie=service,
+                     region_id=region_id,
+                     change_to=change_to)
+        self.client.put('/subs', body=body)
+
     def create_order(self, ctxt, order_id, region_id, unit_price, unit, **kwargs):
         _body = dict(order_id=order_id,
                      region_id=region_id,

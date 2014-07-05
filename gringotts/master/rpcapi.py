@@ -66,3 +66,16 @@ class MasterAPI(proxy.RpcProxy):
                          self.make_msg('instance_stopped',
                                        order_id=order_id,
                                        action_time=action_time))
+
+    def instance_resized(self, ctxt, order_id, action_time,
+                         new_flavor, old_flavor,
+                         service, region_id, remarks):
+        return self.cast(ctxt,
+                         self.make_msg('instance_resized',
+                                       order_id=order_id,
+                                       action_time=action_time,
+                                       new_flavor=new_flavor,
+                                       old_flavor=old_flavor,
+                                       service=service,
+                                       region_id=region_id,
+                                       remarks=remarks))
