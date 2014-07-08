@@ -170,7 +170,7 @@ class NotificationBase(plugin.NotificationBase):
         # change the order's unit price and its active subscriptions
         worker_api.change_order(context.get_admin_context(),
                                 order_id,
-                                const.STATE_RUNNING)
+                                const.STATE_STOPPED)
 
     def charge_account(self, project_id, value, type, come_from):
         """Charge the account
