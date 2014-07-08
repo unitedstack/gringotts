@@ -379,6 +379,12 @@ class MasterService(rpc_service.Service):
                          new_flavor, old_flavor,
                          service, region_id, remarks):
         """Instance resized, update the flavor subscription, and change order
+
+        NOTE(suo): This method will not use right now, because only stopped
+                   instance can executes resize command, and stopped instance
+                   is not charged for a month. So, just change subscription and
+                   order in waiter is enough, should not close/create bill for the
+                   resource in master
         """
         LOG.debug("Instance resized, its order_id: %s, action_time: %s"
                   % (order_id, action_time))

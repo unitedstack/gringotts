@@ -3,6 +3,7 @@ import copy
 
 from oslo.config import cfg
 
+from gringotts import constants as const
 from gringotts import context
 from gringotts import db
 from gringotts import plugin
@@ -159,10 +160,17 @@ class NotificationBase(plugin.NotificationBase):
                          remarks):
         """Notify master that instance has been resized
         """
-        master_api.instance_resized(context.get_admin_context(),
-                                    order_id, action_time,
-                                    new_flavor, old_flavor,
-                                    service, region_id, remarks)
+        # change subscirption's quantity
+        worker_api.change_flavor_subscription(context.get_admin_context(),
+                                              order_id,
+                                              new_flavor, old_flavor,
+                                              service, region_id,
+                                              const.STATE_RUNNING)
+
+        # change the order's unit price and its active subscriptions
+        worker_api.change_order(context.get_admin_context(),
+                                order_id,
+                                const.STATE_RUNNING)
 
     def charge_account(self, project_id, value, type, come_from):
         """Charge the account
