@@ -77,10 +77,12 @@ class WorkerAPI(object):
                      **kwargs)
         self.client.post('/orders', body=_body)
 
-    def change_order(self, ctxt, order_id, change_to, cron_time=None):
+    def change_order(self, ctxt, order_id, change_to, cron_time=None,
+                     change_order_status=True):
         _body = dict(order_id=order_id,
                      change_to=change_to,
-                     cron_time=cron_time)
+                     cron_time=cron_time,
+                     change_order_status=change_order_status)
         self.client.put('/orders', body=_body)
 
     def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):

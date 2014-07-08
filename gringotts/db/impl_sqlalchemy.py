@@ -382,8 +382,10 @@ class Connection(base.Connection):
             # update the order
             a_order = dict(unit_price=unit_price,
                            unit=unit,
-                           status=kwargs['change_to'],
                            updated_at=datetime.datetime.utcnow())
+
+            if kwargs['change_order_status']:
+                a_order.update(status=kwargs['change_to'])
             if kwargs['cron_time']:
                 a_order.update(cron_time=kwargs['cron_time'])
 
