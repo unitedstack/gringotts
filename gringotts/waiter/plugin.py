@@ -160,18 +160,12 @@ class NotificationBase(plugin.NotificationBase):
                          remarks):
         """Notify master that instance has been resized
         """
-        # change subscirption's quantity
+        # change subscirption's product
         worker_api.change_flavor_subscription(context.get_admin_context(),
                                               order_id,
                                               new_flavor, old_flavor,
                                               service, region_id,
                                               const.STATE_RUNNING)
-
-        # change the order's unit price and its active subscriptions
-        worker_api.change_order(context.get_admin_context(),
-                                order_id,
-                                const.STATE_RUNNING,
-                                change_order_status=False)
 
     def charge_account(self, project_id, value, type, come_from):
         """Charge the account
