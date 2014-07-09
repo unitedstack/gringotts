@@ -48,7 +48,7 @@ def setup_app(config, extra_hooks=None):
         config.app.root,
         static_root=config.app.static_root,
         template_path=config.app.template_path,
-        debug=CONF.debug,
+        debug=False,
         force_canonical=getattr(config.app, 'force_canonical', True),
         hooks=app_hooks,
         wrap_app=middleware.FaultWrapperMiddleware,
