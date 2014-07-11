@@ -265,14 +265,6 @@ def delete_router(router_id, region_name=None):
     for vpn in vpns:
         client.delete_pptpconnection(vpn['id'])
 
-    # Remove subnets of this router
-    ports = client.list_ports(device_id=router_id).get('ports')
-    for port in ports:
-        body = {}
-        if port['device_owner'] == 'network:router_interface':
-            body['subnet_id'] = port['fixed_ips'][0]['subnet_id']
-            client.remove_interface_router(router_id, body)
-
     # Remove floatingips of this router
     project_id = router['tenant_id']
     fips = client.list_floatingips(tenant_id=project_id).get('floatingips')
@@ -280,6 +272,14 @@ def delete_router(router_id, region_name=None):
     for fip in fips:
         client.update_floatingip(fip['id'],
                                  {'floatingip': update_dict})
+
+    # Remove subnets of this router
+    ports = client.list_ports(device_id=router_id).get('ports')
+    for port in ports:
+        body = {}
+        if port['device_owner'] == 'network:router_interface':
+            body['subnet_id'] = port['fixed_ips'][0]['subnet_id']
+            client.remove_interface_router(router_id, body)
 
     time.sleep(5)
     # And then delete this router
