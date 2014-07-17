@@ -6,6 +6,7 @@ from dateutil import tz
 from decimal import Decimal, ROUND_HALF_UP
 from oslo.config import cfg
 from gringotts import constants as const
+from random import Random
 
 
 OPTS = [
@@ -99,3 +100,13 @@ def utc_to_local(utc_dt):
     from_zone = tz.tzutc()
     to_zone = tz.tzlocal()
     return utc_dt.replace(tzinfo=from_zone).astimezone(to_zone).replace(tzinfo=None)
+
+
+def random_str(randomlength=16):
+    str = ''
+    chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789'
+    length = len(chars) - 1
+    random = Random()
+    for i in range(randomlength):
+        str+=chars[random.randint(0, length)]
+    return str

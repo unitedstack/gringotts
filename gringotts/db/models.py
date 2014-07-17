@@ -257,3 +257,20 @@ class Region(Model):
             description=description,
             created_at=created_at,
             updated_at=updated_at)
+
+
+class PreCharge(Model):
+    """The precharge model
+    """
+    def __init__(self, code, price, used, dispatched, user_id, project_id,
+                 created_at=None, expired_at=None, remarks=None):
+        Model.__init__(self,
+                       code=code,
+                       price=price,
+                       used=used,
+                       dispatched=dispatched,
+                       user_id=user_id,
+                       project_id=project_id,
+                       created_at=created_at,
+                       expired_at=expired_at,
+                       remarks=remarks)

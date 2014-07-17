@@ -417,3 +417,30 @@ class Charges(APIBase):
     total_price = decimal.Decimal
     total_count = int
     charges = [Charge]
+
+
+class PreChargeBody(APIBase):
+    number = int
+    price = decimal.Decimal
+    expired_at = datetime.datetime
+
+
+class PreChargeDispatched(APIBase):
+    remarks = wtypes.text
+
+
+class PreChargeUsed(APIBase):
+    user_id = wtypes.text
+    project_id = wtypes.text
+
+
+class PreCharge(APIBase):
+    code = wtypes.text
+    price = decimal.Decimal
+    used = bool
+    dispatched = bool
+    user_id = wtypes.text
+    project_id = wtypes.text
+    created_at = wtypes.text
+    expired_at = wtypes.text
+    remarks = wtypes.text

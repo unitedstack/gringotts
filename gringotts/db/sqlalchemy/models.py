@@ -246,3 +246,26 @@ class Region(Base):
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
+
+
+class PreCharge(Base):
+
+    __tablename__ = 'precharge'
+
+    id = Column(Integer, primary_key=True)
+
+    code = Column(String(64))
+    price = Column(DECIMAL(20,4))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    expired_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+
+    used = Column(Boolean, default=False)
+    dispatched = Column(Boolean, default=False)
+    deleted = Column(Boolean, default=False)
+
+    user_id = Column(String(255))
+    project_id = Column(String(255))
+
+    remarks = Column(String(255))

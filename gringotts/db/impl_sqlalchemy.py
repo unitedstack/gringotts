@@ -24,6 +24,7 @@ from gringotts.db.sqlalchemy import migration
 from gringotts.db.sqlalchemy import models as sa_models
 from gringotts.db.sqlalchemy.models import Base
 
+from gringotts.openstack.common.db import exception as db_exception
 from gringotts.openstack.common.db.sqlalchemy import session as db_session
 from gringotts.openstack.common.db.sqlalchemy import utils as db_utils
 from gringotts.openstack.common import log
@@ -274,6 +275,18 @@ class Connection(base.Connection):
                                 description=row.description,
                                 created_at=row.created_at,
                                 updated_at=row.updated_at)
+
+    @staticmethod
+    def _row_to_db_precharge_model(row):
+        return db_models.PreCharge(code=row.code,
+                                   price=row.price,
+                                   used=row.used,
+                                   dispatched=row.dispatched,
+                                   user_id=row.user_id,
+                                   project_id=row.project_id,
+                                   created_at=row.created_at,
+                                   expired_at=row.expired_at,
+                                   remarks=row.remarks)
 
     @require_admin_context
     def create_product(self, context, product):
@@ -1100,3 +1113,119 @@ class Connection(base.Connection):
 
             account.balance += more_fee
             account.consumption -= more_fee
+
+
+    @require_admin_context
+    def create_precharge(self, context, **kwargs):
+        session = db_session.get_session()
+        with session.begin():
+            for i in xrange(kwargs['number']):
+                while True:
+                    try:
+                        session.add(sa_models.PreCharge(code=gringutils.random_str(),
+                                                        price=kwargs['price'],
+                                                        expired_at=kwargs['expired_at']))
+                    except db_exception.DBDuplicateEntry:
+                        continue
+                    else:
+                        break
+
+    @require_context
+    def use_precharge(self, context, **kwargs):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                precharge = model_query(context, sa_models.PreCharge, session=session).\
+                        filter_by(code=kwargs['code']).\
+                        filter_by(deleted=False).\
+                        with_lockmode('update').one()
+            except NoResultFound:
+                LOG.warning('The precharge %s not found' % kwargs['code'])
+                raise exception.PreChargeNotFound(precharge_code=kwargs['code'])
+
+    @require_context
+    def get_precharges(self, context, project_id, limit=None, offset=None,
+                       sort_key=None, sort_dir=None):
+        query = model_query(context, sa_models.PreCharge).\
+                filter_by(deleted=False)
+
+        if project_id:
+            query = query.filter_by(project_id=project_id)
+
+        result = paginate_query(context, sa_models.PreCharge,
+                                limit=limit, offset=offset,
+                                sort_key=sort_key, sort_dir=sort_dir,
+                                query=query)
+
+        return (self._row_to_db_precharge_model(r) for r in result)
+
+    @require_context
+    def get_precharge_by_code(self, context, code):
+        try:
+            precharge = model_query(context, sa_models.PreCharge).\
+                    filter_by(deleted=False).\
+                    filter_by(code=code).one()
+        except NoResultFound:
+            LOG.warning('The precharge %s not found' % kwargs['code'])
+            raise exception.PreChargeNotFound(precharge_code=kwargs['code'])
+        return self._row_to_db_precharge_model(precharge)
+
+    @require_admin_context
+    def dispatch_precharge(self, context, code, remarks=None):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                precharge = model_query(context, sa_models.PreCharge, session=session).\
+                        filter_by(deleted=False).\
+                        filter_by(code=code).one()
+            except NoResultFound:
+                raise exception.PreChargeNotFound(precharge_code=code)
+            precharge.dispatched = True
+            precharge.remarks = remarks
+
+        return self._row_to_db_precharge_model(precharge)
+
+    @require_context
+    def use_precharge(self, context, code, user_id=None, project_id=None):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                precharge = session.query(sa_models.PreCharge).\
+                        filter_by(deleted=False).\
+                        filter_by(code=code).one()
+            except NoResultFound:
+                raise exception.PreChargeNotFound(precharge_code=code)
+
+            if precharge.used:
+                raise exception.PreChargeHasUsed(precharge_code=code)
+
+            # Update account
+            try:
+                account = model_query(context, sa_models.Account, session=session).\
+                    filter_by(project_id=project_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.AccountNotFound(project_id=project_id)
+
+            account.balance += precharge.price
+            if account.balance >= 0:
+                account.owed = False
+
+            # Add charge records
+            charge_time = datetime.datetime.utcnow()
+            charge = sa_models.Charge(charge_id=uuidutils.generate_uuid(),
+                                      user_id=account.user_id,
+                                      project_id=project_id,
+                                      currency='CNY',
+                                      value=precharge.price,
+                                      type='bonus',
+                                      come_from="system",
+                                      charge_time=charge_time)
+            session.add(charge)
+
+            # Update precharge
+            precharge.used = True
+            precharge.user_id = user_id
+            precharge.project_id = project_id
+
+        return self._row_to_db_precharge_model(precharge)

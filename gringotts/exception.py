@@ -93,6 +93,20 @@ class Timeout(GringottsException):
     """The request time out"""
 
 
+class PreChargeException(GringottsException):
+    """PreCharge failed
+    """
+
+class PreChargeHasDispatched(GringottsException):
+    message = _("Precharge %(precharge_code)s has been dispatched")
+    code = 400
+
+
+class PreChargeHasUsed(GringottsException):
+    message = _("Precharge %(precharge_code)s has been used")
+    code = 400
+
+
 class NotAuthorized(GringottsException):
     message = _("Not authorized.")
     code = 403
@@ -174,6 +188,10 @@ class EndpointNotFound(NotFound):
 
 class AccountNotFound(NotFound):
     message = _("Account %(project_id)s could not be found")
+
+
+class PreChargeNotFound(NotFound):
+    message = _("Precharge %(precharge_code)s not found")
 
 
 class AccountCreateFailed(GringottsException):

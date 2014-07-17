@@ -3,6 +3,7 @@ from gringotts.api.v1 import order
 from gringotts.api.v1 import account
 from gringotts.api.v1 import bill
 from gringotts.api.v1 import sub
+from gringotts.api.v1 import precharge
 
 
 class V1Controller(object):
@@ -13,3 +14,4 @@ class V1Controller(object):
     orders = order.OrdersController()
     bills = bill.BillsController()
     subs = sub.SubsController()
+    precharge = precharge.PrechargesController()
