@@ -444,3 +444,8 @@ class PreCharge(APIBase):
     created_at = wtypes.text
     expired_at = wtypes.text
     remarks = wtypes.text
+
+
+class PreChargeSimple(APIBase):
+    price = decimal.Decimal
+    ret_code = int

@@ -7,6 +7,7 @@ from wsmeext.pecan import wsexpose
 from wsme import types as wtypes
 
 from gringotts import exception
+from gringotts import utils
 from gringotts.api.v1 import models
 from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import log
@@ -60,30 +61,33 @@ class PrechargeController(rest.RestController):
 
         return models.PreCharge.from_db_model(precharge)
 
-    @wsexpose(models.PreCharge)
+    @wsexpose(models.PreChargeSimple)
     def used(self):
         conn = pecan.request.db_conn
         user_id = pecan.request.context.user_id
         project_id = pecan.request.context.project_id
+
+        price = utils._quantize_decimal('0')
+        ret_code = 0
+
         try:
             precharge = conn.use_precharge(pecan.request.context,
                                            self.code,
                                            user_id=user_id,
                                            project_id=project_id)
+            price = precharge.price
         except exception.PreChargeNotFound:
             LOG.error('The precharge %s not found' % self.code)
-            raise exception.PreChargeNotFound(precharge_code=self.code)
-        except exception.AccountNotFound:
-            LOG.error('The account %s not found' % project_id)
-            raise exception.AccountNotFound(project_id=project_id)
+            ret_code = 1
         except exception.PreChargeHasUsed:
             LOG.error('The precharge %s has been used' % self.code)
-            raise exception.PreChargeHasUsed(precharge_code=self.code)
+            ret_code = 2
         except Exception as e:
             LOG.error('Fail to use precharge(%s), for reason: %s' % (self.code, e))
             raise exception.PreChargeException()
 
-        return models.PreCharge.from_db_model(precharge)
+        return models.PreChargeSimple.transform(price=price,
+                                                ret_code=ret_code)
 
 
 class PrechargesController(rest.RestController):
