@@ -5,11 +5,19 @@
 # filename   : hooks.py
 # created at : 2013-07-01 21:05:45
 
+import re
 from oslo.config import cfg
 from pecan import hooks
 
+from gringotts import exception
+from gringotts.openstack.common import log
+from gringotts.openstack.common import memorycache
 from gringotts.context import RequestContext
 from gringotts.api import acl
+
+
+LOG = log.getLogger(__name__)
+_CACHE_CLIENT = memorycache.get_client()
 
 
 class ConfigHook(hooks.PecanHook):
@@ -49,3 +57,69 @@ class ContextHook(hooks.PecanHook):
             project_id=project_id,
             is_admin=is_admin,
             is_staff=is_staff)
+
+
+class LimitHook(hooks.PecanHook):
+
+    CACHE_PREFIX = "gringotts:limit"
+    LIMITS = [
+        {'path': r"/v1/precharge/.*/used",
+         'method': 'PUT',
+         'limit': '5/h',
+         'custom_exception': exception.PreChargeOverlimit}
+    ]
+
+    def _in_rule(self, request):
+        for rule in self.LIMITS:
+            if request.method == rule['method'] and re.match(rule['path'], request.path.rstrip('/')):
+                return rule
+        return
+
+    def _get_expires(self, limit):
+        _, unit = limit.split('/')
+        if unit == 'm':
+            return 60
+        if unit == 'h':
+            return 60 * 60
+        if unit == 'd':
+            return 60 * 60 * 24
+
+    def _overlimit(self, count, rule):
+        total_count, _ = rule['limit'].split('/')
+        total_count = int(total_count)
+        if count >= total_count:
+            # overlimit
+            return True
+        return False
+
+    def before(self, state):
+        limit_info = {}
+        limit_rule = self._in_rule(state.request)
+        if not limit_rule:
+            return
+        LOG.debug("limit to rule" + str(limit_rule))
+
+        limit_info['rule'] = limit_rule
+
+        mc_key = "%s:%s:%s:%s" % (self.CACHE_PREFIX, state.request.method,
+                                  state.request.path.rstrip('/'),
+                                  state.request.context.project_id)
+        LOG.debug('mc_key is:%s' % mc_key)
+        limit_info['cache_key'] = mc_key
+        state.request.limit_info = limit_info
+
+        count = _CACHE_CLIENT.get(mc_key)
+        if count is None:
+            _CACHE_CLIENT.set(mc_key, 0, self._get_expires(limit_rule['limit']))
+            return
+
+        if self._overlimit(int(count), limit_rule):
+            if 'custom_exception' in limit_rule:
+                raise limit_rule['custom_exception']
+            raise exception.Overlimit(api=limit_rule['path'])
+
+    def after(self, state):
+        if 200 <= state.response.status_code < 300 and hasattr(state.request, 'limit_info'):
+            limit_info = state.request.limit_info
+            # increase user's limit count
+            _CACHE_CLIENT.incr(limit_info['cache_key'])

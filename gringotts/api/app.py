@@ -36,7 +36,8 @@ def setup_app(config, extra_hooks=None):
 
     app_hooks = [hooks.ConfigHook(),
                  hooks.DBHook(db.get_connection(CONF)),
-                 hooks.ContextHook()]
+                 hooks.ContextHook(),
+                 hooks.LimitHook()]
 
     if extra_hooks:
         app_hooks.extend(extra_hooks)

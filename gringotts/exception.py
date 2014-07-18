@@ -107,6 +107,15 @@ class PreChargeHasUsed(GringottsException):
     code = 400
 
 
+class Overlimit(GringottsException):
+    code = 423
+    message = _("%(api)s is called overlimited")
+
+
+class PreChargeOverlimit(Overlimit):
+    message = _("Precharge has reached the maxium number")
+
+
 class NotAuthorized(GringottsException):
     message = _("Not authorized.")
     code = 403
