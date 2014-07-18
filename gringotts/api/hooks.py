@@ -17,7 +17,14 @@ from gringotts.api import acl
 
 
 LOG = log.getLogger(__name__)
-_CACHE_CLIENT = memorycache.get_client()
+MC = None
+
+
+def _get_cache():
+    global MC
+    if MC is None:
+        MC = memorycache.get_client()
+    return MC
 
 
 class ConfigHook(hooks.PecanHook):
@@ -101,16 +108,17 @@ class LimitHook(hooks.PecanHook):
 
         limit_info['rule'] = limit_rule
 
-        mc_key = "%s:%s:%s:%s" % (self.CACHE_PREFIX, state.request.method,
-                                  state.request.path.rstrip('/'),
-                                  state.request.context.project_id)
-        LOG.debug('mc_key is:%s' % mc_key)
+        mc_key = str("%s:%s:%s:%s" % (self.CACHE_PREFIX, state.request.method,
+                                      limit_rule['path'],
+                                      state.request.context.project_id))
+        LOG.warn('mc_key is: %s' % mc_key)
         limit_info['cache_key'] = mc_key
         state.request.limit_info = limit_info
 
-        count = _CACHE_CLIENT.get(mc_key)
+        cache = _get_cache()
+        count = cache.get(mc_key)
         if count is None:
-            _CACHE_CLIENT.set(mc_key, 0, self._get_expires(limit_rule['limit']))
+            cache.set(mc_key, 0, self._get_expires(limit_rule['limit']))
             return
 
         if self._overlimit(int(count), limit_rule):
@@ -122,4 +130,4 @@ class LimitHook(hooks.PecanHook):
         if 200 <= state.response.status_code < 300 and hasattr(state.request, 'limit_info'):
             limit_info = state.request.limit_info
             # increase user's limit count
-            _CACHE_CLIENT.incr(limit_info['cache_key'])
+            _get_cache().incr(limit_info['cache_key'])
