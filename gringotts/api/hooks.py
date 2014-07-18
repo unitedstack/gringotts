@@ -111,7 +111,7 @@ class LimitHook(hooks.PecanHook):
         mc_key = str("%s:%s:%s:%s" % (self.CACHE_PREFIX, state.request.method,
                                       limit_rule['path'],
                                       state.request.context.project_id))
-        LOG.warn('mc_key is: %s' % mc_key)
+        LOG.debug('mc_key is: %s' % mc_key)
         limit_info['cache_key'] = mc_key
         state.request.limit_info = limit_info
 

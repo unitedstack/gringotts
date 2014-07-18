@@ -1218,8 +1218,8 @@ class Connection(base.Connection):
                                       project_id=project_id,
                                       currency='CNY',
                                       value=precharge.price,
-                                      type='bonus',
-                                      come_from="system",
+                                      type='topup',
+                                      come_from="recharge card",
                                       charge_time=charge_time)
             session.add(charge)
 
