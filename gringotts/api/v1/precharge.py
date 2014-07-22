@@ -145,7 +145,7 @@ class PrechargeController(rest.RestController):
         return models.PreChargeSimple.transform(price=price,
                                                 ret_code=ret_code,
                                                 left_count=left_count,
-                                                lock_time=lock_time)
+                                                lock_time=lock_time/60)
 
 
 class PrechargesController(rest.RestController):
