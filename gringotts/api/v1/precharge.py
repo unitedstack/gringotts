@@ -98,14 +98,14 @@ class PrechargeController(rest.RestController):
         user_id = pecan.request.context.user_id
         project_id = pecan.request.context.project_id
 
-        key = str("gring-precharge-limit: %s" % project_id)
+        key = str("gring-precharge-limit-%s" % project_id)
         cache = _get_cache()
         count = cache.get(key)
 
         max_count, lock_time = self._parse_limit_rule(CONF.precharge_limit_rule)
 
         if count is None:
-            cache.set(key, max_count, lock_time)
+            cache.set(key, str(max_count), lock_time)
             count = max_count
 
         price = utils._quantize_decimal('0')
@@ -121,21 +121,33 @@ class PrechargeController(rest.RestController):
             except exception.PreChargeNotFound:
                 LOG.error('The precharge %s not found' % self.code)
                 ret_code = 1
-                cache.incr(key, delta=-1)
+                try:
+                    cache.decr(key)
+                except AttributeError:
+                    cache.incr(key, delta=-1)
             except exception.PreChargeHasUsed:
                 LOG.error('The precharge %s has been used' % self.code)
                 ret_code = 2
-                cache.incr(key, delta=-1)
+                try:
+                    cache.decr(key)
+                except AttributeError:
+                    cache.incr(key, delta=-1)
             except exception.PreChargeHasExpired:
                 LOG.error('The precharge %s has been expired' % self.code)
                 ret_code = 3
-                cache.incr(key, delta=-1)
+                try:
+                    cache.decr(key)
+                except AttributeError:
+                    cache.incr(key, delta=-1)
             except Exception as e:
                 LOG.error('Fail to use precharge(%s), for reason: %s' % (self.code, e))
-                cache.incr(key, delta=-1)
+                try:
+                    cache.decr(key)
+                except AttributeError:
+                    cache.incr(key, delta=-1)
                 raise exception.PreChargeException()
             else:
-                cache.set(key, max_count, lock_time)
+                cache.set(key, str(max_count), lock_time)
 
         left_count = int(cache.get(key))
 
