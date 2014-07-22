@@ -1131,19 +1131,6 @@ class Connection(base.Connection):
                         break
 
     @require_context
-    def use_precharge(self, context, **kwargs):
-        session = db_session.get_session()
-        with session.begin():
-            try:
-                precharge = model_query(context, sa_models.PreCharge, session=session).\
-                        filter_by(code=kwargs['code']).\
-                        filter_by(deleted=False).\
-                        with_lockmode('update').one()
-            except NoResultFound:
-                LOG.warning('The precharge %s not found' % kwargs['code'])
-                raise exception.PreChargeNotFound(precharge_code=kwargs['code'])
-
-    @require_context
     def get_precharges(self, context, project_id, limit=None, offset=None,
                        sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.PreCharge).\
