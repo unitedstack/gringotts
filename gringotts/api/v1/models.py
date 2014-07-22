@@ -449,3 +449,5 @@ class PreCharge(APIBase):
 class PreChargeSimple(APIBase):
     price = decimal.Decimal
     ret_code = int
+    left_count = int
+    lock_time = int

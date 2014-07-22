@@ -107,6 +107,11 @@ class PreChargeHasUsed(GringottsException):
     code = 400
 
 
+class PreChargeHasExpired(GringottsException):
+    message = _("Precharge %(precharge_code)s has been expired")
+    code = 400
+
+
 class Overlimit(GringottsException):
     code = 423
     message = _("%(api)s is called overlimited")

@@ -1199,6 +1199,10 @@ class Connection(base.Connection):
             if precharge.used:
                 raise exception.PreChargeHasUsed(precharge_code=code)
 
+            now = datetime.datetime.utcnow()
+            if precharge.expired_at < now:
+                raise exception.PreChargeHasExpired(precharge_code=code)
+
             # Update account
             try:
                 account = model_query(context, sa_models.Account, session=session).\
@@ -1218,8 +1222,8 @@ class Connection(base.Connection):
                                       project_id=project_id,
                                       currency='CNY',
                                       value=precharge.price,
-                                      type='topup',
-                                      come_from="recharge card",
+                                      type='coupon',
+                                      come_from="coupon",
                                       charge_time=charge_time)
             session.add(charge)
 

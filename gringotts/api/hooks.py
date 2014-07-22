@@ -70,10 +70,10 @@ class LimitHook(hooks.PecanHook):
 
     CACHE_PREFIX = "gringotts:limit"
     LIMITS = [
-        {'path': r"/v1/precharge/.*/used",
-         'method': 'PUT',
-         'limit': '5/h',
-         'custom_exception': exception.PreChargeOverlimit}
+        #{'path': r"/v1/precharge/.*/used",
+        # 'method': 'PUT',
+        # 'limit': '5/h',
+        # 'custom_exception': exception.PreChargeOverlimit}
     ]
 
     def _in_rule(self, request):

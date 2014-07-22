@@ -67,7 +67,7 @@ class WorkerAPI(object):
                      servcie=service,
                      region_id=region_id,
                      change_to=change_to)
-        self.client.put('/subs', body=body)
+        self.client.put('/subs', body=_body)
 
     def create_order(self, ctxt, order_id, region_id, unit_price, unit, **kwargs):
         _body = dict(order_id=order_id,

@@ -2,6 +2,7 @@ import wsme
 import pecan
 import datetime
 
+from oslo.config import cfg
 from pecan import rest
 from wsmeext.pecan import wsexpose
 from wsme import types as wtypes
@@ -10,10 +11,28 @@ from gringotts import exception
 from gringotts import utils
 from gringotts.api.v1 import models
 from gringotts.openstack.common import timeutils
+from gringotts.openstack.common import memorycache
 from gringotts.openstack.common import log
 
 
+OPTS = [
+    cfg.StrOpt('precharge_limit_rule',
+               default='5/quarter',
+               help='Enable bouns or not'),
+]
+
+CONF = cfg.CONF
+CONF.register_opts(OPTS)
+
 LOG = log.getLogger(__name__)
+MC = None
+
+
+def _get_cache():
+    global MC
+    if MC is None:
+        MC = memorycache.get_client()
+    return MC
 
 
 class PrechargeController(rest.RestController):
@@ -61,33 +80,72 @@ class PrechargeController(rest.RestController):
 
         return models.PreCharge.from_db_model(precharge)
 
+    def _parse_limit_rule(self, rule):
+        max_count, unit = rule.split('/')
+        if unit == 'm':
+            cache_time = 60
+        if unit == 'quarter':
+            cache_time = 60 * 15
+        if unit == 'h':
+            cache_time = 60 * 60
+        if unit == 'd':
+            cache_time = 60 * 60 * 24
+        return int(max_count), int(cache_time)
+
     @wsexpose(models.PreChargeSimple)
     def used(self):
         conn = pecan.request.db_conn
         user_id = pecan.request.context.user_id
         project_id = pecan.request.context.project_id
 
+        key = str("gring-precharge-limit: %s" % project_id)
+        cache = _get_cache()
+        count = cache.get(key)
+
+        max_count, lock_time = self._parse_limit_rule(CONF.precharge_limit_rule)
+
+        if count is None:
+            cache.set(key, max_count, lock_time)
+            count = max_count
+
         price = utils._quantize_decimal('0')
         ret_code = 0
 
-        try:
-            precharge = conn.use_precharge(pecan.request.context,
-                                           self.code,
-                                           user_id=user_id,
-                                           project_id=project_id)
-            price = precharge.price
-        except exception.PreChargeNotFound:
-            LOG.error('The precharge %s not found' % self.code)
-            ret_code = 1
-        except exception.PreChargeHasUsed:
-            LOG.error('The precharge %s has been used' % self.code)
-            ret_code = 2
-        except Exception as e:
-            LOG.error('Fail to use precharge(%s), for reason: %s' % (self.code, e))
-            raise exception.PreChargeException()
+        if int(count) > 0:
+            try:
+                precharge = conn.use_precharge(pecan.request.context,
+                                               self.code,
+                                               user_id=user_id,
+                                               project_id=project_id)
+                price = precharge.price
+            except exception.PreChargeNotFound:
+                LOG.error('The precharge %s not found' % self.code)
+                ret_code = 1
+                cache.incr(key, delta=-1)
+            except exception.PreChargeHasUsed:
+                LOG.error('The precharge %s has been used' % self.code)
+                ret_code = 2
+                cache.incr(key, delta=-1)
+            except exception.PreChargeHasExpired:
+                LOG.error('The precharge %s has been expired' % self.code)
+                ret_code = 3
+                cache.incr(key, delta=-1)
+            except Exception as e:
+                LOG.error('Fail to use precharge(%s), for reason: %s' % (self.code, e))
+                cache.incr(key, delta=-1)
+                raise exception.PreChargeException()
+            else:
+                cache.set(key, max_count, lock_time)
+
+        left_count = int(cache.get(key))
+
+        if left_count == 0:
+            ret_code = 4
 
         return models.PreChargeSimple.transform(price=price,
-                                                ret_code=ret_code)
+                                                ret_code=ret_code,
+                                                left_count=left_count,
+                                                lock_time=lock_time)
 
 
 class PrechargesController(rest.RestController):
