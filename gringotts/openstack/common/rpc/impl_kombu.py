@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 #    Copyright 2011 OpenStack Foundation
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -28,9 +26,10 @@ import kombu.connection
 import kombu.entity
 import kombu.messaging
 from oslo.config import cfg
+import six
 
 from gringotts.openstack.common import excutils
-from gringotts.openstack.common.gettextutils import _  # noqa
+from gringotts.openstack.common.gettextutils import _
 from gringotts.openstack.common import network_utils
 from gringotts.openstack.common.rpc import amqp as rpc_amqp
 from gringotts.openstack.common.rpc import common as rpc_common
@@ -53,6 +52,25 @@ kombu_opts = [
                default='',
                help=('SSL certification authority file '
                      '(valid only if SSL enabled)')),
+    cfg.FloatOpt('kombu_reconnect_delay',
+                 default=1.0,
+                 help='How long to wait before reconnecting in response to an '
+                      'AMQP consumer cancel notification. '),
+    cfg.StrOpt('kombu_transport',
+                default='pyamqp',
+                help='Default transport for kombu'),
+    cfg.BoolOpt('kombu_keepalive_enable',
+                 default=True,
+                 help='enable keeplive for kombu transport.'),
+    cfg.IntOpt('kombu_keepalive_idle',
+                default=30,
+                help='keeplive_idle for kombu transport.'),
+    cfg.IntOpt('kombu_keepalive_interval',
+                default=3,
+                help='keeplive_interval for kombu transport.'),
+    cfg.IntOpt('kombu_keepalive_count',
+                default=3,
+                help='keeplive_count for kombu transport.'),
     cfg.StrOpt('rabbit_host',
                default='localhost',
                help='The RabbitMQ broker address where a single node is used'),
@@ -444,9 +462,17 @@ class Connection(object):
                 'userid': self.conf.rabbit_userid,
                 'password': self.conf.rabbit_password,
                 'virtual_host': self.conf.rabbit_virtual_host,
+                'transport': self.conf.kombu_transport,
             }
 
-            for sp_key, value in server_params.iteritems():
+            if self.conf.kombu_keepalive_enable:
+                params['transport_options'] = {
+                    'keepalive_idle': self.conf.kombu_keepalive_idle,
+                    'keepalive_interval': self.conf.kombu_keepalive_interval,
+                    'keepalive_count': self.conf.kombu_keepalive_count,
+                }
+
+            for sp_key, value in six.iteritems(server_params):
                 p_key = server_params_to_kombu_params.get(sp_key, sp_key)
                 params[p_key] = value
 
@@ -496,6 +522,17 @@ class Connection(object):
             LOG.info(_("Reconnecting to AMQP server on "
                      "%(hostname)s:%(port)d") % params)
             try:
+                # NOTE(bogdando): when reconnecting to a RabbitMQ cluster
+                # with mirrored queues in use, the attempt to release the
+                # connection can hang "indefinitely" somewhere deep down
+                # in Kombu. Blocking the thread for a bit prior to
+                # release seems to kludge around the problem where it is
+                # otherwise reproduceable.
+                if self.conf.kombu_reconnect_delay > 0:
+                    LOG.info(_("Delaying reconnect for %1.1f seconds...") %
+                             self.conf.kombu_reconnect_delay)
+                    time.sleep(self.conf.kombu_reconnect_delay)
+
                 self.connection.release()
             except self.connection_errors:
                 pass
@@ -504,6 +541,7 @@ class Connection(object):
             self.connection = None
         self.connection = kombu.connection.BrokerConnection(**params)
         self.connection_errors = self.connection.connection_errors
+        self.channel_errors = self.connection.channel_errors
         if self.memory_transport:
             # Kludge to speed up tests.
             self.connection.transport.polling_interval = 0.0
@@ -578,6 +616,9 @@ class Connection(object):
             except (self.connection_errors, socket.timeout, IOError) as e:
                 if error_callback:
                     error_callback(e)
+            except self.channel_errors as e:
+                if error_callback:
+                    error_callback(e)
             except Exception as e:
                 # NOTE(comstud): Unfortunately it's possible for amqplib
                 # to return an error not covered by its transport
@@ -625,7 +666,7 @@ class Connection(object):
 
         def _declare_consumer():
             consumer = consumer_cls(self.conf, self.channel, topic, callback,
-                                    self.consumer_num.next())
+                                    six.next(self.consumer_num))
             self.consumers.append(consumer)
             return consumer
 
@@ -732,7 +773,7 @@ class Connection(object):
         it = self.iterconsume(limit=limit)
         while True:
             try:
-                it.next()
+                six.next(it)
             except StopIteration:
                 return
 
