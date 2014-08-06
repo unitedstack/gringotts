@@ -352,6 +352,7 @@ class UserAccount(APIBase):
                    currency='CNY')
 
 
+
 class AdminAccount(APIBase):
     """Account Detail for a tenant
     """

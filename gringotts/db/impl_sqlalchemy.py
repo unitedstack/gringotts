@@ -805,6 +805,12 @@ class Connection(base.Connection):
         return (self._row_to_db_account_model(r) for r in result)
 
     @require_admin_context
+    def get_accounts_count(self, context):
+        query = model_query(context, sa_models.Account,
+                            func.count(sa_models.Account.id).label('count'))
+        return query.one().count or 0
+
+    @require_admin_context
     def update_account(self, context, project_id, **data):
         session = db_session.get_session()
         with session.begin():

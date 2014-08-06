@@ -40,5 +40,6 @@ fi
 screen_it gring-api "cd ; gring-api --config-file $CONFIG_FILE"
 screen_it gring-waiter "cd ; gring-waiter --config-file $CONFIG_FILE"
 screen_it gring-master "cd ; gring-master --config-file $CONFIG_FILE"
+screen_it gring-checker "cd ; gring-checker --config-file $CONFIG_FILE"
 
 echo "Type 'screen -x $SCREEN_NAME' to join the session"

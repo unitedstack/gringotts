@@ -11,7 +11,7 @@ LOG = log.getLogger(__name__)
 
 OPTS = [
     cfg.StrOpt('alert_url',
-               default='http://localhost:8080',
+               default='http://alerting.ustack.com:8080',
                help="The endpoint of the alert api"),
     cfg.StrOpt('alert_to',
                default='all',

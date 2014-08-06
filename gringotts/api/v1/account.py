@@ -172,14 +172,17 @@ class AccountsController(rest.RestController):
             remainder = remainder[:-1]
         return AccountController(project_id), remainder
 
-    @wsexpose([models.AdminAccount])
-    def get_all(self):
-        """Get all account
+    @wsexpose([models.AdminAccount], int, int)
+    def get_all(self, limit=None, offset=None):
+        """Get all accounts
         """
         self.conn = pecan.request.db_conn
 
         try:
-            accounts = self.conn.get_accounts(request.context)
+            accounts = self.conn.get_accounts(request.context,
+                                              limit=limit, offset=offset)
+            count = self.conn.get_accounts_count(request.context)
+            pecan.response.headers['X-Total-Count'] = str(count)
         except exception.NotAuthorized as e:
             LOG.exception('Fail to get all accounts')
             raise exception.NotAuthorized()
@@ -189,6 +192,7 @@ class AccountsController(rest.RestController):
 
         return [models.AdminAccount.from_db_model(account)
                 for account in accounts]
+
 
     @wsexpose(None, body=models.AdminAccount)
     def post(self, data):
