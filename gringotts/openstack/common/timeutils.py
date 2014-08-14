@@ -40,7 +40,10 @@ def isotime(at=None, subsecond=False):
     st = at.strftime(_ISO8601_TIME_FORMAT
                      if not subsecond
                      else _ISO8601_TIME_FORMAT_SUBSECOND)
-    tz = at.tzinfo.tzname(None) if at.tzinfo else 'UTC'
+    try:
+        tz = at.tzinfo.tzname(None) if at.tzinfo else 'UTC'
+    except AttributeError:
+        tz = 'UTC'
     st += ('Z' if tz == 'UTC' else tz)
     return st
 
