@@ -12,13 +12,28 @@ LOG = log.getLogger(__name__)
 operation_kind = wtypes.Enum(str, 'lt', 'le', 'eq', 'ne', 'ge', 'gt')
 
 
+def isotime(at=None, subsecond=False):
+    """Stringify time in ISO 8601 format."""
+    if not at:
+        at = utcnow()
+    st = at.strftime(timeutils._ISO8601_TIME_FORMAT
+                     if not subsecond
+                     else timeutils._ISO8601_TIME_FORMAT_SUBSECOND)
+    st += 'Z'
+    return st
+
+
 class APIBase(wtypes.Base):
     """Inherit from wsme Base class to handle complex types
     """
     def __init__(self, **kw):
         for k, v in kw.items():
             if isinstance(v, datetime.datetime):
-                kw[k] = timeutils.isotime(at=v)
+                try:
+                    kw[k] = timeutils.isotime(at=v)
+                except AttributeError:
+                    # For IE/360 compatibility
+                    kw[k] = isotime(at=v)
         super(APIBase, self).__init__(**kw)
 
     @classmethod
