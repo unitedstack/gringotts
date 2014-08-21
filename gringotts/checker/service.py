@@ -428,6 +428,13 @@ class CheckerService(os_service.Service):
             else:
                 LOG.warn('Checked, There are %s date jobs, and %s owed active orders' %
                          (datejob_count, owed_order_count))
+
+            # checking 30 days orders
+            datejob_30_days_count = self.master_api.get_datejob_count_30_days(self.ctxt)
+            stopped_order_count = self.worker_api.get_stopped_order_count(
+                self.ctxt, self.region_name)
+            LOG.warn('Checked, There are %s 30-days date jobs, and %s stopped orders' %
+                     (datejob_30_days_count, stopped_order_count))
         except Exception:
             LOG.exception('Some exceptions occurred when checking whether '
                           'cron jobs match with orders or not')

@@ -25,6 +25,10 @@ class MasterAPI(proxy.RpcProxy):
         return self.call(ctxt,
                          self.make_msg('get_datejob_count'))
 
+    def get_datejob_count_30_days(self, ctxt):
+        return self.call(ctxt,
+                         self.make_msg('get_datejob_count_30_days'))
+
     def resource_created(self, ctxt, order_id, action_time, remarks):
         return self.cast(ctxt,
                          self.make_msg('resource_created',

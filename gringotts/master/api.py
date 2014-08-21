@@ -37,6 +37,9 @@ class LocalAPI(object):
     def get_datejob_count(self, ctxt):
         return self._service.get_datejob_count(ctxt)
 
+    def get_datejob_count_30_days(self, ctxt):
+        return self._service.get_datejob_count_30_days(ctxt)
+
     def resource_created(self, ctxt, order_id, action_time, remarks):
         self._service.resource_created(ctxt, order_id, action_time, remarks)
 

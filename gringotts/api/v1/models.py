@@ -232,6 +232,7 @@ class OrderPutBody(APIBase):
     change_to = wtypes.text
     cron_time = datetime.datetime
     change_order_status = bool
+    first_change_to = wtypes.text
 
 
 class Order(APIBase):
@@ -289,6 +290,7 @@ class BillBody(APIBase):
     order_id = wtypes.text
     action_time = datetime.datetime
     remarks = wtypes.text
+    end_time = datetime.datetime
 
 
 class BillResult(APIBase):

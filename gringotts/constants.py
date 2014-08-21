@@ -1,6 +1,7 @@
 # Order and resource State
 STATE_RUNNING = 'running'
 STATE_STOPPED = 'stopped'
+STATE_STOPPED_IN_30_DAYS = 'stopped_in_30_days'
 STATE_DELETED = 'deleted'
 STATE_SUSPEND = 'suspend'
 STATE_CHANGING = 'changing'

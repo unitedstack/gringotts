@@ -71,6 +71,7 @@ class MasterService(rpc_service.Service):
 
         self.cron_jobs = {}
         self.date_jobs = {}
+        self.date_jobs_after_30_days = {}
         self.lock = Lock()
         self.ctxt = context.get_admin_context()
 
@@ -110,16 +111,12 @@ class MasterService(rpc_service.Service):
         if cfg.CONF.enable_owe:
             self.load_date_jobs()
 
+        self.load_30_days_date_jobs()
+
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
     def load_date_jobs(self):
-        action_time = datetime.datetime.utcnow() + timedelta(minutes=1)
-        action_time = utils.utc_to_local(action_time)
-        self.apsched.add_date_job(self._load_date_jobs,
-                                  action_time)
-
-    def _load_date_jobs(self):
         states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
         for s in states:
             LOG.debug('Loading date jobs in %s state' % s)
@@ -128,6 +125,7 @@ class MasterService(rpc_service.Service):
                                                 region_id=cfg.CONF.region_name)
 
             for order in orders:
+                # load delete resource date job
                 if isinstance(order['date_time'], basestring):
                     date_time = timeutils.parse_strtime(order['date_time'],
                                                         fmt=ISO8601_UTC_TIME_FORMAT)
@@ -146,7 +144,32 @@ class MasterService(rpc_service.Service):
                     self._delete_owed_resource(order['type'],
                                                order['resource_id'],
                                                order['region_id'])
+
         LOG.warning('Load date jobs successfully.')
+
+    def load_30_days_date_jobs(self):
+        # load change unit price date job
+        orders = self.worker_api.get_orders(self.ctxt, status=const.STATE_STOPPED,
+                                            region_id=cfg.CONF.region_name)
+        for order in orders:
+            if not order['cron_time']:
+                LOG.warn('There is no cron_time for the stopped order: %s' % order)
+                continue
+            if isinstance(order['cron_time'], basestring):
+                cron_time = timeutils.parse_strtime(order['cron_time'],
+                                                    fmt=ISO8601_UTC_TIME_FORMAT)
+            else:
+                cron_time = order['cron_time']
+
+            danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
+            cron_time = cron_time - datetime.timedelta(hours=1)
+            if cron_time > danger_time:
+                self._create_date_job_after_30_days(order['order_id'], cron_time)
+            else:
+                LOG.warning('The order(%s) is in danger time after master started'
+                            % order['order_id'])
+                self._change_order_unit_price(order['order_id'])
+        LOG.warning('Load 30-days date jobs successfully.')
 
     def load_jobs(self):
         states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
@@ -155,7 +178,6 @@ class MasterService(rpc_service.Service):
 
             orders = self.worker_api.get_orders(self.ctxt, status=s,
                                                 region_id=cfg.CONF.region_name)
-
             for order in orders:
                 if not order['cron_time']:
                     continue
@@ -212,6 +234,7 @@ class MasterService(rpc_service.Service):
                                             max_instances=604800)
         self.cron_jobs[order_id] = job
 
+
     def _delete_cron_job(self, order_id):
         """Delete cron job related to this subscription
         """
@@ -241,6 +264,31 @@ class MasterService(rpc_service.Service):
                                               resource_id,
                                               region_id])
         self.date_jobs[resource_id] = job
+
+    def _change_order_unit_price(self, order_id):
+        self.worker_api.change_order(self.ctxt, order_id, const.STATE_STOPPED)
+
+    def _create_date_job_after_30_days(self, order_id, action_time):
+        action_time = utils.utc_to_local(action_time)
+        job = self.apsched.add_date_job(self._change_order_unit_price,
+                                        action_time,
+                                        name=order_id,
+                                        args=[order_id])
+        self.date_jobs_after_30_days[order_id] = job
+
+    def _delete_date_job_after_30_days(self, order_id):
+        job = self.date_jobs_after_30_days.get(order_id)
+        if not job:
+            LOG.warning('There is no 30 days date job for order: %s' % order_id)
+            return
+        try:
+            self.apsched.unschedule_job(job)
+        except KeyError:
+            LOG.warn('Fail to unschedule 30 days date job: %s' % job)
+        try:
+            del self.date_jobs_after_30_days[order_id]
+        except  KeyError:
+            LOG.warn('Fail to delete 30 days date job of order: %s' % order_id)
 
     def _delete_date_job(self, resource_id):
         """Delete date job related to this order
@@ -290,6 +338,9 @@ class MasterService(rpc_service.Service):
     def get_datejob_count(self, ctxt):
         return len(self.date_jobs)
 
+    def get_datejob_count_30_days(self, ctxt):
+        return len(self.date_jobs_after_30_days)
+
     def resource_created(self, ctxt, order_id, action_time, remarks):
         LOG.debug('Resource created, its order_id: %s, action_time: %s',
                   order_id, action_time)
@@ -319,11 +370,22 @@ class MasterService(rpc_service.Service):
     def resource_deleted(self, ctxt, order_id, action_time):
         LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
                   (order_id, action_time))
+
         result = self._close_bill(ctxt, order_id, action_time)
         # Delete date job of owed resource
         if result['resource_owed']:
             self._delete_date_job(result['resource_id'])
         self.worker_api.change_order(ctxt, order_id, const.STATE_DELETED)
+
+        # create a bill that tell people the resource has been deleted
+        self.worker_api.create_bill(ctxt, order_id,
+                                    action_time=action_time,
+                                    remarks="Instance has been deleted",
+                                    end_time=action_time)
+
+        # delete the date job if the order has a 30-days date job
+        if self.date_jobs_after_30_days.get(order_id):
+            self._delete_date_job_after_30_days(order_id)
 
     def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
         LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to: %s'
@@ -336,6 +398,10 @@ class MasterService(rpc_service.Service):
 
         # create a new bill for the updated order
         self._create_bill(ctxt, order_id, action_time, remarks)
+
+        # delete the date job if the order has a 30-days date job
+        if self.date_jobs_after_30_days.get(order_id):
+            self._delete_date_job_after_30_days(order_id)
 
     def resource_resized(self, ctxt, order_id, action_time, quantity, remarks):
         LOG.debug('Resource resized, its order_id: %s, action_time: %s, will resize to: %s'
@@ -369,10 +435,23 @@ class MasterService(rpc_service.Service):
 
         # change the order's unit price and its active subscriptions
         self.worker_api.change_order(ctxt, order_id,
-                                     const.STATE_STOPPED,
-                                     cron_time=cron_time)
+                                     const.STATE_STOPPED_IN_30_DAYS,
+                                     cron_time=cron_time,
+                                     first_change_to=const.STATE_STOPPED)
 
-        # create a cron job that will execute after one month
+        # create a bill cross 30 days
+        self.worker_api.create_bill(ctxt, order_id,
+                                    action_time=action_time,
+                                    remarks="Instance has been stopped",
+                                    end_time=cron_time)
+
+        # create a date job to change order unit price after 30 days
+        # let this action execute 1 hour earlier to ensure unit price be changed
+        # before pre deduct
+        self._create_date_job_after_30_days(order_id,
+                                            cron_time-datetime.timedelta(hours=1))
+
+        # create a cron job that will execute after 30 month
         self._create_cron_job(order_id, start_date=cron_time)
 
     def instance_resized(self, ctxt, order_id, action_time,

@@ -398,7 +398,7 @@ class Connection(base.Connection):
                            updated_at=datetime.datetime.utcnow())
 
             if kwargs['change_order_status']:
-                a_order.update(status=kwargs['change_to'])
+                a_order.update(status=kwargs['first_change_to'] or kwargs['change_to'])
             if kwargs['cron_time']:
                 a_order.update(cron_time=kwargs['cron_time'])
 
@@ -481,6 +481,17 @@ class Connection(base.Connection):
         if owed:
             query = query.filter_by(owed=owed)
         query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
+        return query.one().count or 0
+
+    @require_admin_context
+    def get_stopped_order_count(self, context, region_id=None, owed=None):
+        query = model_query(context, sa_models.Order,
+                            func.count(sa_models.Order.id).label('count'))
+        if region_id:
+            query = query.filter_by(region_id=region_id)
+        if owed:
+            query = query.filter_by(owed=owed)
+        query = query.filter(sa_models.Order.status == const.STATE_STOPPED)
         return query.one().count or 0
 
     @require_context
@@ -876,7 +887,7 @@ class Connection(base.Connection):
         return query.one().sum or 0, query.one().count or 0
 
     @require_admin_context
-    def create_bill(self, context, order_id, action_time=None, remarks=None):
+    def create_bill(self, context, order_id, action_time=None, remarks=None, end_time=None):
         """There are three type of results:
         0, Create bill successfully, including account is owed and order is owed,
            or account is not owed and balance is greater than 0
@@ -893,8 +904,7 @@ class Connection(base.Connection):
                 filter_by(order_id=order_id).\
                 with_lockmode('update').one()
 
-            if (order.status == const.STATE_DELETED or
-                order.status == const.STATE_CHANGING):
+            if order.status == const.STATE_CHANGING:
                 return result
 
             # Create a bill
@@ -911,7 +921,7 @@ class Connection(base.Connection):
 
             bill = sa_models.Bill(bill_id=uuidutils.generate_uuid(),
                                   start_time=action_time,
-                                  end_time=action_time + datetime.timedelta(hours=1),
+                                  end_time=end_time or action_time + datetime.timedelta(hours=1),
                                   type=order.type,
                                   status=const.BILL_PAYED,
                                   unit_price=order.unit_price,
@@ -924,6 +934,11 @@ class Connection(base.Connection):
                                   project_id=order.project_id,
                                   region_id=order.region_id)
             session.add(bill)
+
+            # if end_time is specified, it means the action is stopping the instance,
+            # so there is no need to update account, creating a new bill is enough.
+            if end_time:
+                return result
 
             # Update the order
             cron_time = action_time + datetime.timedelta(hours=1)
@@ -1226,3 +1241,36 @@ class Connection(base.Connection):
             precharge.project_id = project_id
 
         return self._row_to_db_precharge_model(precharge)
+
+    @require_context
+    def fix_resource(self, context, resource_id):
+        session = db_session.get_session()
+        with session.begin():
+            query = session.query(sa_models.Order).\
+                filter_by(resource_id=resource_id)
+            orders = query.all()
+
+            if len(orders) > 2:
+                return
+
+            for order in orders:
+                if order.status != 'deleted':
+                    new_order = order
+                else:
+                    old_order = order
+
+            old_order.status = new_order.status
+            old_order.unit_price = new_order.unit_price
+            old_order.unit = new_order.unit
+
+            if new_order.total_price > 0:
+                account = session.query(sa_models.Account).\
+                    filter_by(project_id=new_order.project_id).one()
+                account.balance += new_order.total_price
+                account.consumption -= new_order.total_price
+
+            bills = session.query(sa_models.Bill).filter_by(order_id=new_order.order_id)
+            for bill in bills:
+                session.delete(bill)
+
+            session.delete(new_order)

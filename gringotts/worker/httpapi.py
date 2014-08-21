@@ -24,13 +24,14 @@ class WorkerAPI(object):
                                     project_name=os_cfg.os_tenant_name,
                                     auth_url=os_cfg.os_auth_url)
 
-    def create_bill(self, ctxt, order_id, action_time=None, remarks=None):
+    def create_bill(self, ctxt, order_id, action_time=None, remarks=None, end_time=None):
         if isinstance(action_time, basestring):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
         _body = dict(order_id=order_id,
                      action_time=action_time,
-                     remarks=remarks)
+                     remarks=remarks,
+                     end_time=end_time)
         resp, body = self.client.post('/bills', body=_body)
         return body
 
@@ -78,11 +79,12 @@ class WorkerAPI(object):
         self.client.post('/orders', body=_body)
 
     def change_order(self, ctxt, order_id, change_to, cron_time=None,
-                     change_order_status=True):
+                     change_order_status=True, first_change_to=None):
         _body = dict(order_id=order_id,
                      change_to=change_to,
                      cron_time=cron_time,
-                     change_order_status=change_order_status)
+                     change_order_status=change_order_status,
+                     first_change_to=first_change_to)
         self.client.put('/orders', body=_body)
 
     def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):
@@ -109,6 +111,13 @@ class WorkerAPI(object):
         params = dict(region_id=region_id,
                       owed=owed)
         resp, body = self.client.get('/orders/count',
+                                     params=params)
+        return body
+
+    def get_stopped_order_count(self, ctxt, region_id=None, owed=None):
+        params = dict(region_id=region_id,
+                      owed=owed)
+        resp, body = self.client.get('/orders/stopped',
                                      params=params)
         return body
 

@@ -38,13 +38,13 @@ class WorkerService(rpc_service.Service):
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 
-    def create_bill(self, ctxt, order_id, action_time=None, remarks=None):
+    def create_bill(self, ctxt, order_id, action_time=None, remarks=None, end_time=None):
         if isinstance(action_time, basestring):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
         try:
             result = self.db_conn.create_bill(ctxt, order_id, action_time=action_time,
-                                              remarks=remarks)
+                                              remarks=remarks, end_time=end_time)
             LOG.debug('Create bill for order %s successfully.' % order_id)
             return result
         except Exception:
@@ -98,11 +98,12 @@ class WorkerService(rpc_service.Service):
         self.db_conn.create_order(ctxt, **order)
 
     def change_order(self, ctxt, order_id, change_to, cron_time=None,
-                     change_order_status=True):
+                     change_order_status=True, first_change_to=None):
         kwargs = dict(order_id=order_id,
                       change_to=change_to,
                       cron_time=cron_time,
-                      change_order_status=change_order_status)
+                      change_order_status=change_order_status,
+                      first_change_to=first_change_to)
         self.db_conn.update_order(ctxt, **kwargs)
 
     def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):
@@ -121,6 +122,11 @@ class WorkerService(rpc_service.Service):
         return self.db_conn.get_active_order_count(ctxt,
                                                    region_id=region_id,
                                                    owed=owed)
+
+    def get_stopped_order_count(self, ctxt, region_id=None, owed=None):
+        return self.db_conn.get_stopped_order_count(ctxt,
+                                                    region_id=region_id,
+                                                    owed=owed)
 
     def get_order_by_resource_id(self, ctxt, resource_id):
         return self.db_conn.get_order_by_resource_id(ctxt, resource_id)

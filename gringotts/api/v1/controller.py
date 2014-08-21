@@ -4,6 +4,7 @@ from gringotts.api.v1 import account
 from gringotts.api.v1 import bill
 from gringotts.api.v1 import sub
 from gringotts.api.v1 import precharge
+from gringotts.api.v1 import fix
 
 
 class V1Controller(object):
@@ -15,3 +16,4 @@ class V1Controller(object):
     bills = bill.BillsController()
     subs = sub.SubsController()
     precharge = precharge.PrechargesController()
+    fix = fix.FixController()

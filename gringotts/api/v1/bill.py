@@ -206,7 +206,8 @@ class BillsController(rest.RestController):
         try:
             result = conn.create_bill(request.context, data['order_id'],
                                       action_time=data['action_time'],
-                                      remarks=data['remarks'])
+                                      remarks=data['remarks'],
+                                      end_time=data['end_time'])
             LOG.debug('Create bill for order %s successfully.' % data['order_id'])
             return models.BillResult(**result)
         except Exception:

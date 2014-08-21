@@ -19,9 +19,9 @@ class LocalAPI(object):
     def __init__(self):
         self._service = service.WorkerService()
 
-    def create_bill(self, ctxt, order_id, action_time=None, remarks=None):
+    def create_bill(self, ctxt, order_id, action_time=None, remarks=None, end_time=None):
         return self._service.create_bill(ctxt, order_id, action_time=action_time,
-                                         remarks=remarks)
+                                         remarks=remarks, end_time=end_time)
 
     def close_bill(self, ctxt, order_id, action_time):
         return self._service.close_bill(ctxt, order_id, action_time)
@@ -48,9 +48,11 @@ class LocalAPI(object):
                                    unit_price, unit, **kwargs)
 
     def change_order(self, ctxt, order_id, change_to, cron_time=None,
-                     change_order_status=True):
+                     change_order_status=True, first_change_to=None):
+        """first_change_to is used when instance is stopped"""
         self._service.change_order(ctxt, order_id, change_to, cron_time=cron_time,
-                                   change_order_status=change_order_status)
+                                   change_order_status=change_order_status,
+                                   first_change_to=first_change_to)
 
     def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):
         return self._service.get_orders(ctxt,
@@ -69,6 +71,11 @@ class LocalAPI(object):
         return self._service.get_active_order_count(ctxt,
                                                     region_id=region_id,
                                                     owed=owed)
+
+    def get_stopped_order_count(self, ctxt, region_id=None, owed=None):
+        return self._service.get_stopped_order_count(ctxt,
+                                                     region_id=region_id,
+                                                     owed=owed)
 
     def get_order_by_resource_id(self, ctxt, resource_id):
         return self._service.get_order_by_resource_id(ctxt, resource_id)
