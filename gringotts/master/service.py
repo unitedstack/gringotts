@@ -380,7 +380,7 @@ class MasterService(rpc_service.Service):
         # create a bill that tell people the resource has been deleted
         self.worker_api.create_bill(ctxt, order_id,
                                     action_time=action_time,
-                                    remarks="Instance has been deleted",
+                                    remarks="Instance Has Been Deleted",
                                     end_time=action_time)
 
         # delete the date job if the order has a 30-days date job
@@ -442,7 +442,7 @@ class MasterService(rpc_service.Service):
         # create a bill cross 30 days
         self.worker_api.create_bill(ctxt, order_id,
                                     action_time=action_time,
-                                    remarks="Instance has been stopped",
+                                    remarks="Instance Has Been Stopped",
                                     end_time=cron_time)
 
         # create a date job to change order unit price after 30 days
