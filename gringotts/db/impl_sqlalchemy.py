@@ -1299,7 +1299,8 @@ class Connection(base.Connection):
                     break
                 if bill.total_price != gringutils._quantize_decimal('0.0020') or \
                         bill.total_price != gringutils._quantize_decimal('0.0400') or \
-                        bill.total_price != gringutils._quantize_decimal('0.0800'):
+                        bill.total_price != gringutils._quantize_decimal('0.0800') or \
+                        bill.remarks == 'Sytstem Adjust':
                     start_time = bill.end_time
                     cron_time = bill.end_time + datetime.timedelta(days=30)
                     break
