@@ -1290,16 +1290,16 @@ class Connection(base.Connection):
 
             for bill in bills:
                 if bill.total_price == gringutils._quantize_decimal('0.0020') or \
-                        bill.total_price == gringutils._quantize_decimal('0.0040') or \
-                        bill.total_price == gringutils._quantize_decimal('0.0080'):
+                        bill.total_price == gringutils._quantize_decimal('0.0400') or \
+                        bill.total_price == gringutils._quantize_decimal('0.0800'):
                     more_fee += bill.total_price
                 if bill.total_price == gringutils._quantize_decimal('0.0000'):
                     add_new_bill = False
                     cron_time = bill.end_time
                     break
                 if bill.total_price != gringutils._quantize_decimal('0.0020') or \
-                        bill.total_price != gringutils._quantize_decimal('0.0040') or \
-                        bill.total_price != gringutils._quantize_decimal('0.0080'):
+                        bill.total_price != gringutils._quantize_decimal('0.0400') or \
+                        bill.total_price != gringutils._quantize_decimal('0.0800'):
                     start_time = bill.end_time
                     cron_time = bill.end_time + datetime.timedelta(days=30)
                     break
