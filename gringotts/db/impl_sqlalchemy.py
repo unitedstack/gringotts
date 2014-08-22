@@ -1297,9 +1297,9 @@ class Connection(base.Connection):
                     add_new_bill = False
                     cron_time = bill.end_time
                     break
-                if bill.total_price != gringutils._quantize_decimal('0.0020') or \
-                        bill.total_price != gringutils._quantize_decimal('0.0400') or \
-                        bill.total_price != gringutils._quantize_decimal('0.0800') or \
+                if (bill.total_price != gringutils._quantize_decimal('0.0020') and \
+                        bill.total_price != gringutils._quantize_decimal('0.0400') and \
+                        bill.total_price != gringutils._quantize_decimal('0.0800')) or \
                         bill.remarks == 'Sytstem Adjust':
                     start_time = bill.end_time
                     cron_time = bill.end_time + datetime.timedelta(days=30)
