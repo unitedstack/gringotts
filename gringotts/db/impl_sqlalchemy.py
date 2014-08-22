@@ -1274,3 +1274,57 @@ class Connection(base.Connection):
                 session.delete(bill)
 
             session.delete(new_order)
+
+    @require_context
+    def fix_stopped_order(self, context, order_id):
+        session = db_session.get_session()
+        with session.begin():
+            order = session.query(sa_models.Order).filter_by(order_id=order_id).one()
+            bills = session.query(sa_models.Bill).filter_by(order_id=order_id).\
+                    order_by(desc(sa_models.Bill.id)).all()
+            account = session.query(sa_models.Account).filter_by(project_id=order.project_id).one()
+
+            more_fee = gringutils._quantize_decimal('0')
+            add_new_bill = True
+            cron_time = None
+
+            for bill in bills:
+                if bill.total_price == gringutils._quantize_decimal('0.0020') or \
+                        bill.total_price == gringutils._quantize_decimal('0.0040') or \
+                        bill.total_price == gringutils._quantize_decimal('0.0080'):
+                    more_fee += bill.total_price
+                if bill.total_price == gringutils._quantize_decimal('0.0000'):
+                    add_new_bill = False
+                    cron_time = bill.end_time
+                    break
+                if bill.total_price != gringutils._quantize_decimal('0.0020') or \
+                        bill.total_price != gringutils._quantize_decimal('0.0040') or \
+                        bill.total_price != gringutils._quantize_decimal('0.0080'):
+                    start_time = bill.end_time
+                    cron_time = bill.end_time + datetime.timedelta(days=30)
+                    break
+                session.delete(bill)
+
+            if add_new_bill:
+                bill = sa_models.Bill(bill_id=uuidutils.generate_uuid(),
+                                      start_time=start_time,
+                                      end_time=start_time + datetime.timedelta(days=30),
+                                      type=order.type,
+                                      status=const.BILL_PAYED,
+                                      unit_price=gringutils._quantize_decimal('0.0000'),
+                                      unit=order.unit,
+                                      total_price=gringutils._quantize_decimal('0.0000'),
+                                      order_id=order.order_id,
+                                      resource_id=order.resource_id,
+                                      remarks='Instance Has Been Stopped',
+                                      user_id=order.user_id,
+                                      project_id=order.project_id,
+                                      region_id=order.region_id)
+                session.add(bill)
+
+            order.unit_price = gringutils._quantize_decimal('0.0000')
+            order.cron_time = cron_time
+
+            order.total_price -= more_fee
+            account.balance += more_fee
+            account.consumption -= more_fee
