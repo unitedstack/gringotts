@@ -249,6 +249,7 @@ class Order(APIBase):
     date_time = wtypes.text
     created_at = wtypes.text
     region_id = wtypes.text
+    owed = bool
 
     @classmethod
     def sample1(cls):

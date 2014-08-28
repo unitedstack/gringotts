@@ -27,6 +27,9 @@ def wrap_exception(exc_type=None):
                         LOG.warn('The resource: %s is indeed owed, can be execute the action: %s' % \
                                 (uuid, f.__name__))
                         return f(uuid, *args, **kwargs)
+                    else:
+                        LOG.warn('The resource: %s is not owed, should not execute the action: %s' % \
+                                (uuid, f.__name__))
                 else:
                     return f(uuid, *args, **kwargs)
             except Exception as e:
