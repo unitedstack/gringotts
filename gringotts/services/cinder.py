@@ -169,7 +169,7 @@ def delete_snapshots(project_id, region_name=None, volume_id=None):
         client.volume_snapshots.delete(snap)
 
 
-@wrap_exception()
+@wrap_exception(exc_type='delete')
 def delete_volume(volume_id, region_name=None):
     client = get_cinderclient(region_name)
 
@@ -189,15 +189,15 @@ def delete_volume(volume_id, region_name=None):
     client.volumes.delete(volume_id)
 
 
-@wrap_exception()
+@wrap_exception(exc_type='stop')
 def stop_volume(volume_id, region_name=None):
     return True
 
-@wrap_exception()
+@wrap_exception(exc_type='delete')
 def delete_snapshot(snap_id, region_name=None):
     client = get_cinderclient(region_name)
     client.volume_snapshots.delete(snap_id)
 
-@wrap_exception()
+@wrap_exception(exc_type='stop')
 def stop_snapshot(snap_id, region_id=None):
     return True

@@ -1,3 +1,4 @@
+import os
 import eventlet
 import socket
 import sys
@@ -18,6 +19,35 @@ cfg.CONF.register_opts([
                'an AMQP key, and if using ZeroMQ, a valid '
                'hostname, FQDN, or IP address'),
 ])
+
+
+OPTS = [
+    cfg.StrOpt('os_username',
+               default=os.environ.get('OS_USERNAME', 'admin'),
+               help='Username to use for openstack service access'),
+    cfg.StrOpt('os_password',
+               default=os.environ.get('OS_PASSWORD', 'admin'),
+               help='Password to use for openstack service access'),
+    cfg.StrOpt('os_tenant_name',
+               default=os.environ.get('OS_TENANT_NAME', 'admin'),
+               help='Tenant name to use for openstack service access'),
+    cfg.StrOpt('os_endpoint_type',
+               default=os.environ.get('OS_ENDPOINT_TYPE', 'admin'),
+               help='Type of endpoint in Identity service catalog to use for '
+                    'communication with OpenStack services.'),
+    cfg.StrOpt('user_domain_name',
+               default='Default',
+               help='user domain name'),
+    cfg.StrOpt('project_domain_name',
+               default='Default',
+               help='project domain name'),
+    cfg.StrOpt('os_auth_url',
+               default=os.environ.get('OS_AUTH_URL',
+                                      'http://localhost:35357/v3'),
+               help='Auth URL to use for openstack service access')
+]
+
+cfg.CONF.register_opts(OPTS, group="service_credentials")
 
 
 def prepare_service(argv=None):

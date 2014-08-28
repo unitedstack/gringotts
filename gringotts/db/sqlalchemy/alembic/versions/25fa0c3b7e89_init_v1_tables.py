@@ -203,16 +203,16 @@ def upgrade():
         "(9,'bea31dc8-4140-47ee-8b48-4983f0f28a0f','instance:standard-4','compute','RegionOne','some decs','regular',0,'0.8890','hour',0,0,'2014-03-18 06:44:22',NULL,NULL)",
         "(10,'da55dddc-aa4e-4439-ba30-8bcfba36094b','instance:standard-8','compute','RegionOne','some decs','regular',0,'1.7780','hour',0,0,'2014-03-18 06:44:46',NULL,NULL)",
         "(11,'049378d6-8918-45be-b023-00fd573267ff','instance:standard-12','compute','RegionOne','some decs','regular',0,'2.6670','hour',0,0,'2014-03-18 06:45:01',NULL,NULL)",
-        "(12,'b45234b1-64fd-4572-8e71-2d5ff3e62594','instance:standard-16','compute','RegionOne','some decs','regular',0,'3.5560','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)"
+        "(12,'b45234b1-64fd-4572-8e71-2d5ff3e62594','instance:standard-16','compute','RegionOne','some decs','regular',0,'3.5560','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)",
         "(13,'e73b7486-0071-4bf7-8ea2-dca040a8dee0','instance:memory-1','compute','RegionOne','some decs','regular',0,'0.3610','hour',0,0,'2014-03-18 06:45:41',NULL,NULL)",
         "(14,'72af128b-9e82-45e6-824d-b15fcb01fbd3','instance:memory-2','compute','RegionOne','some decs','regular',0,'0.7220','hour',0,0,'2014-03-18 06:46:02',NULL,NULL)",
         "(15,'46345fe6-ab66-4f39-b6ca-b2945557e999','instance:memory-4','compute','RegionOne','some decs','regular',0,'1.4440','hour',0,0,'2014-03-18 06:46:16',NULL,NULL)",
         "(16,'732a3fe2-2837-4e46-80cd-ae6579c99121','instance:memory-8','compute','RegionOne','some decs','regular',0,'2.8890','hour',0,0,'2014-03-18 06:46:37',NULL,NULL)",
-        "(17,'b45234b1-64fd-4572-8e71-2d5ff3e62595','instance:memory-12','compute','RegionOne','some decs','regular',0,'4.3330','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)"
+        "(17,'b45234b1-64fd-4572-8e71-2d5ff3e62595','instance:memory-12','compute','RegionOne','some decs','regular',0,'4.3330','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)",
         "(18,'41579554-6b2c-4cd9-965c-0f2544d68a24','instance:compute-2','compute','RegionOne','some decs','regular',0,'0.3330','hour',0,0,'2014-03-18 06:47:19',NULL,NULL)",
         "(19,'4d2f6900-8f75-4f8d-877d-dff4dec1a57b','instance:compute-4','compute','RegionOne','some decs','regular',0,'0.6670','hour',0,0,'2014-03-18 06:47:43',NULL,NULL)",
         "(20,'cef8cb7b-b0a5-46ff-80a5-57d82e7ac611','instance:compute-8','compute','RegionOne','some decs','regular',0,'1.3330','hour',0,0,'2014-03-18 06:47:58',NULL,NULL)",
-        "(21,'b45234b1-64fd-4572-8e71-2d5ff3e62593','instance:compute-12','compute','RegionOne','some decs','regular',0,'2.0000','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)"
+        "(21,'b45234b1-64fd-4572-8e71-2d5ff3e62593','instance:compute-12','compute','RegionOne','some decs','regular',0,'2.0000','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)",
     ]
 
     for PRODUCT in PRODUCT_SQLS:

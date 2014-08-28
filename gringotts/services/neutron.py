@@ -233,7 +233,7 @@ def delete_routers(project_id, region_name=None):
         client.delete_router(router['id'])
 
 
-@wrap_exception()
+@wrap_exception(exc_type='delete')
 def delete_fip(fip_id, region_name=None):
     client = get_neutronclient(region_name)
     update_dict = {'port_id': None}
@@ -242,7 +242,7 @@ def delete_fip(fip_id, region_name=None):
     client.delete_floatingip(fip_id)
 
 
-@wrap_exception()
+@wrap_exception(exc_type='stop')
 def stop_fip(fip_id, region_name=None):
     if cfg.CONF.reserve_fip:
         return True
@@ -254,7 +254,7 @@ def stop_fip(fip_id, region_name=None):
     return False
 
 
-@wrap_exception()
+@wrap_exception(exc_type='delete')
 def delete_router(router_id, region_name=None):
     client = get_neutronclient(region_name)
 
@@ -286,6 +286,6 @@ def delete_router(router_id, region_name=None):
     client.delete_router(router_id)
 
 
-@wrap_exception()
+@wrap_exception(exc_type='stop')
 def stop_router(router_id, region_name=None):
     return True

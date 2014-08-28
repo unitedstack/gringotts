@@ -10,7 +10,7 @@ LOG = log.getLogger(__name__)
 
 TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 
-cfg.CONF.import_group('service_credentials', 'gringotts.services')
+cfg.CONF.import_group('service_credentials', 'gringotts.service')
 
 
 class WorkerAPI(object):

@@ -73,7 +73,7 @@ def delete_images(project_id, region_name=None):
         client.images.delete(image.id)
 
 
-@wrap_exception()
+@wrap_exception(exc_type='delete')
 def delete_image(image_id, region_name=None):
     endpoint = ks_client.get_endpoint(region_name, 'image')
     if endpoint[-1] != '/':
@@ -83,6 +83,6 @@ def delete_image(image_id, region_name=None):
     client.images.delete(image_id)
 
 
-@wrap_exception()
+@wrap_exception(exc_type='stop')
 def stop_image(image_id, region_name):
     return True

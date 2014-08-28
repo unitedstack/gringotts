@@ -1,39 +1,15 @@
-import os
 import functools
 from oslo.config import cfg
+
+from gringotts import context
+from gringotts import worker
 from gringotts.openstack.common import log
 
 
 LOG = log.getLogger(__name__)
 
 
-OPTS = [
-    cfg.StrOpt('os_username',
-               default=os.environ.get('OS_USERNAME', 'admin'),
-               help='Username to use for openstack service access'),
-    cfg.StrOpt('os_password',
-               default=os.environ.get('OS_PASSWORD', 'admin'),
-               help='Password to use for openstack service access'),
-    cfg.StrOpt('os_tenant_name',
-               default=os.environ.get('OS_TENANT_NAME', 'admin'),
-               help='Tenant name to use for openstack service access'),
-    cfg.StrOpt('os_endpoint_type',
-               default=os.environ.get('OS_ENDPOINT_TYPE', 'admin'),
-               help='Type of endpoint in Identity service catalog to use for '
-                    'communication with OpenStack services.'),
-    cfg.StrOpt('user_domain_name',
-               default='Default',
-               help='user domain name'),
-    cfg.StrOpt('project_domain_name',
-               default='Default',
-               help='project domain name'),
-    cfg.StrOpt('os_auth_url',
-               default=os.environ.get('OS_AUTH_URL',
-                                      'http://localhost:35357/v3'),
-               help='Auth URL to use for openstack service access')
-]
-
-cfg.CONF.register_opts(OPTS, group="service_credentials")
+worker_api = worker.API()
 
 
 def wrap_exception(exc_type=None):
@@ -44,11 +20,19 @@ def wrap_exception(exc_type=None):
     def inner(f):
         def wrapped(uuid, *args, **kwargs):
             try:
-                return f(uuid, *args, **kwargs)
+                if exc_type == 'delete' or exc_type == 'stop':
+                    order = worker_api.get_order_by_resource_id(context.get_admin_context(),
+                                                                uuid)
+                    if order['owed']:
+                        LOG.warn('The resource: %s is indeed owed, can be execute the action: %s' % \
+                                (uuid, f.__name__))
+                        return f(uuid, *args, **kwargs)
+                else:
+                    return f(uuid, *args, **kwargs)
             except Exception as e:
                 msg = None
                 result = True
-                if exc_type == 'single':
+                if exc_type == 'single' or exc_type == 'delete' or exc_type == 'stop':
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
                 elif exc_type == 'bulk':
                     msg = 'Fail to do %s for account: %s, reason: %s' % (f.__name__, uuid, e)

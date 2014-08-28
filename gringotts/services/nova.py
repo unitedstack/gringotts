@@ -124,13 +124,13 @@ def delete_servers(project_id, region_name=None):
         client.servers.delete(server)
 
 
-@wrap_exception()
+@wrap_exception(exc_type='delete')
 def delete_server(instance_id, region_name=None):
     client = get_novaclient(region_name)
     client.servers.delete(instance_id)
 
 
-@wrap_exception()
+@wrap_exception(exc_type='stop')
 def stop_server(instance_id, region_name=None):
     client = get_novaclient(region_name)
     client.servers.stop(instance_id)
