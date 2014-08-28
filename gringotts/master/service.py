@@ -201,14 +201,14 @@ class MasterService(rpc_service.Service):
                                           start_date=cron_time)
 
     def _stop_owed_resource(self, resource_type, resource_id, region_id):
-        LOG.info('stop owed resource(resource_type: %s, resource_id: %s)' % \
+        LOG.warn('stop owed resource(resource_type: %s, resource_id: %s)' % \
                 (resource_type, resource_id))
         method = self.STOP_METHOD_MAP[resource_type]
         return method(resource_id, region_id)
 
     def _delete_owed_resource(self, resource_type, resource_id, region_id):
         # delete date job from self.date_jobs
-        LOG.info('delete date job for resource: %s' % resource_id)
+        LOG.warn('delete date job for resource: %s' % resource_id)
         job = self.date_jobs.get(resource_id)
         if not job:
             LOG.warning('There is no date job for the resource: %s' % resource_id)
@@ -216,7 +216,7 @@ class MasterService(rpc_service.Service):
         del self.date_jobs[resource_id]
 
         # delete the resource first
-        LOG.info('delete owed resource(resource_type: %s, resource_id: %s)' % \
+        LOG.warn('delete owed resource(resource_type: %s, resource_id: %s)' % \
                 (resource_type, resource_id))
         method = self.DELETE_METHOD_MAP[resource_type]
         method(resource_id, region_id)
@@ -239,7 +239,7 @@ class MasterService(rpc_service.Service):
                                             max_instances=604800)
         self.cron_jobs[order_id] = job
 
-        LOG.info('create cron job for order: %s' % order_id)
+        LOG.warn('create cron job for order: %s' % order_id)
 
 
     def _delete_cron_job(self, order_id):
@@ -258,7 +258,7 @@ class MasterService(rpc_service.Service):
         except KeyError:
             LOG.warn('Fail to delete cron job of resource: %s' % resource_id)
 
-        LOG.info('delete cron job for order: %s' % order_id)
+        LOG.warn('delete cron job for order: %s' % order_id)
 
     def _create_date_job(self, resource_type, resource_id, region_id,
                          action_time):
@@ -274,7 +274,7 @@ class MasterService(rpc_service.Service):
                                               region_id])
         self.date_jobs[resource_id] = job
 
-        LOG.info('create date job for resource: %s' % resource_id)
+        LOG.warn('create date job for resource: %s' % resource_id)
 
     def _change_order_unit_price(self, order_id):
         self.worker_api.change_order(self.ctxt, order_id, const.STATE_STOPPED)
@@ -287,7 +287,7 @@ class MasterService(rpc_service.Service):
                                         args=[order_id])
         self.date_jobs_after_30_days[order_id] = job
 
-        LOG.info('create 30-days date job for order: %s' % order_id)
+        LOG.warn('create 30-days date job for order: %s' % order_id)
 
     def _delete_date_job_after_30_days(self, order_id):
         job = self.date_jobs_after_30_days.get(order_id)
@@ -303,7 +303,7 @@ class MasterService(rpc_service.Service):
         except  KeyError:
             LOG.warn('Fail to delete 30 days date job of order: %s' % order_id)
 
-        LOG.info('delete 30-days date job for order: %s' % order_id)
+        LOG.warn('delete 30-days date job for order: %s' % order_id)
 
     def _delete_date_job(self, resource_id):
         """Delete date job related to this order
@@ -321,7 +321,7 @@ class MasterService(rpc_service.Service):
         except  KeyError:
             LOG.warn('Fail to delete date job of resource: %s' % resource_id)
 
-        LOG.info('delete date job for resource: %s' % resource_id)
+        LOG.warn('delete date job for resource: %s' % resource_id)
 
     def _pre_deduct(self, order_id):
         remarks = 'Hourly Billing'
