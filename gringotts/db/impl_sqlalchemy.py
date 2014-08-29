@@ -492,6 +492,7 @@ class Connection(base.Connection):
         if owed:
             query = query.filter_by(owed=owed)
         query = query.filter(sa_models.Order.status == const.STATE_STOPPED)
+        query = query.filter(sa_models.Order.unit_price == gringutils._quantize_decimal('0'))
         return query.one().count or 0
 
     @require_context

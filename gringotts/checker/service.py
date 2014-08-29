@@ -487,7 +487,10 @@ class CheckerService(os_service.Service):
                                     fmt=ISO8601_UTC_TIME_FORMAT)
 
                         now = datetime.datetime.utcnow()
-                        reserved_days = order['date_time'].day - now.day
+                        reserved_days = (order['date_time'] - now).days
+                        if reserved_days < 0:
+                            LOG.warn('The order %s reserved_days is less than 0' % order['order_id'])
+                            reserved_days = 0
                         order_d['reserved_days'] = reserved_days
 
                         order_d['date_time'] = timeutils.strtime(
