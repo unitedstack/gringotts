@@ -1,5 +1,6 @@
 import fixtures
 import mock
+import datetime
 
 from gringotts import context
 from gringotts import constants as const
@@ -22,6 +23,7 @@ class DatabaseInit(fixtures.Fixture):
 
     def prepare_data(self):
         product_flavor_tiny = db_models.Product(**fake_data.PRODUCT_FLAVOR_TINY)
+        product_flavor_small = db_models.Product(**fake_data.PRODUCT_FLAVOR_SMALL)
         product_volume_size = db_models.Product(**fake_data.PRODUCT_VOLUME_SIZE)
         product_router_size = db_models.Product(**fake_data.PRODUCT_ROUTER_SIZE)
         product_snapshot_size = db_models.Product(**fake_data.PRODUCT_SNAPSHOT_SIZE)
@@ -30,8 +32,13 @@ class DatabaseInit(fixtures.Fixture):
         fake_account_demo = db_models.Account(**fake_data.FAKE_ACCOUNT_DEMO)
         fake_account_admin = db_models.Account(**fake_data.FAKE_ACCOUNT_ADMIN)
 
+        fake_project_demo = db_models.Project(**fake_data.FAKE_PROJECT_DEMO)
+        fake_project_admin = db_models.Project(**fake_data.FAKE_PROJECT_ADMIN)
+
         self.conn.create_product(context.get_admin_context(),
                                  product_flavor_tiny)
+        self.conn.create_product(context.get_admin_context(),
+                                 product_flavor_small)
         self.conn.create_product(context.get_admin_context(),
                                  product_volume_size)
         self.conn.create_product(context.get_admin_context(),
@@ -44,6 +51,10 @@ class DatabaseInit(fixtures.Fixture):
                                  fake_account_demo)
         self.conn.create_account(context.get_admin_context(),
                                  fake_account_admin)
+        self.conn.create_project(context.get_admin_context(),
+                                 fake_project_demo)
+        self.conn.create_project(context.get_admin_context(),
+                                 fake_project_admin)
 
     def reset(self):
         self.conn.clear()
@@ -93,6 +104,10 @@ class GenerateFakeData(fixtures.Fixture):
         self.instance_start_end(fake_data.NOTICE_INSTANCE_4_STARTED)
         self.instance_delete_end(fake_data.NOTICE_INSTANCE_4_DELETED)
 
+        # instance 5 (running, resized)
+        self.instance_create_end(fake_data.NOTICE_INSTANCE_5_CREATED)
+        self.instance_resize_end(fake_data.NOTICE_INSTANCE_5_RESIZED)
+
         # volume 1 (running)
         self.volume_create_end(fake_data.NOTICE_VOLUME_1_CREATED)
 
@@ -118,10 +133,8 @@ class GenerateFakeData(fixtures.Fixture):
         order = self.conn.get_order_by_resource_id(self.ctxt,
                                                    message['payload']['instance_id'])
         action_time = message['timestamp']
-        remarks = 'Instance Has Been Stopped.'
         change_to = const.STATE_STOPPED
-        self.master_srv.resource_changed(self.ctxt, order.order_id,
-                                         action_time, change_to, remarks)
+        self.master_srv.instance_stopped(self.ctxt, order.order_id, action_time)
 
     def instance_start_end(self, message):
         order = self.conn.get_order_by_resource_id(self.ctxt,
@@ -132,11 +145,32 @@ class GenerateFakeData(fixtures.Fixture):
         self.master_srv.resource_changed(self.ctxt, order.order_id,
                                          action_time, change_to, remarks)
 
+    def instance_resize_end(self, message):
+        order = self.conn.get_order_by_resource_id(self.ctxt,
+                                                   message['payload']['instance_id'])
+
+        new_flavor = message['payload']['instance_type']
+        old_flavor = message['payload']['old_instance_type']
+
+        new_flavor = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
+                                new_flavor)
+        old_flavor = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
+                                old_flavor)
+        service = const.SERVICE_COMPUTE
+        region_id = "RegionOne"
+
+        action_time = message['timestamp']
+        remarks = 'Instance Has Been Resized'
+        self.master_srv.instance_resized(self.ctxt, order.order_id, action_time,
+                                         new_flavor, old_flavor,
+                                         service, region_id, remarks)
+
     def instance_delete_end(self, message):
         order = self.conn.get_order_by_resource_id(self.ctxt,
                                                    message['payload']['instance_id'])
         action_time = message['timestamp']
-        self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time)
+        self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time,
+                                         "Instance Has Been Deleted")
 
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def volume_create_end(self, message):
@@ -161,7 +195,8 @@ class GenerateFakeData(fixtures.Fixture):
         order = self.conn.get_order_by_resource_id(self.ctxt,
                                                    message['payload']['volume_id'])
         action_time = message['timestamp']
-        self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time)
+        self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time,
+                                         "Volume Has Been Deleted")
 
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def router_create_end(self, message):
@@ -177,4 +212,27 @@ class GenerateFakeData(fixtures.Fixture):
         order = self.conn.get_order_by_resource_id(self.ctxt,
                                                    message['payload']['router']['id'])
         action_time = message['timestamp']
-        self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time)
+        self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time,
+                                         "Router Has Been Deleted")
+
+
+class PrechargeInit(fixtures.Fixture):
+    def __init__(self, conn):
+        self.conn = conn
+
+    def setUp(self):
+        super(PrechargeInit, self).setUp()
+        self.generate_precharge()
+        self.addCleanup(self.reset)
+
+    def generate_precharge(self):
+        expired_at = datetime.datetime.utcnow() + datetime.timedelta(days=365)
+
+        self.conn.create_precharge(context.get_admin_context(),
+                                   number=10,
+                                   price="125",
+                                   expired_at=expired_at)
+
+    def reset(self):
+        self.conn.clear()
+        self.conn = None

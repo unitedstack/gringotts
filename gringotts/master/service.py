@@ -509,7 +509,7 @@ class MasterService(rpc_service.Service):
         self._create_date_job_after_30_days(order_id,
                                             cron_time-datetime.timedelta(hours=1))
 
-        # create a cron job that will execute after 30 month
+        # create a cron job that will execute after 30 days
         self._create_cron_job(order_id, start_date=cron_time)
 
     def instance_resized(self, ctxt, order_id, action_time,

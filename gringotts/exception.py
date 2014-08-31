@@ -201,7 +201,7 @@ class EndpointNotFound(NotFound):
 
 
 class AccountNotFound(NotFound):
-    message = _("Account %(project_id)s could not be found")
+    message = _("Account %(user_id)s could not be found")
 
 
 class PreChargeNotFound(NotFound):
@@ -209,7 +209,23 @@ class PreChargeNotFound(NotFound):
 
 
 class AccountCreateFailed(GringottsException):
-    message = _("Fail to create account for the project %(project_id)s")
+    message = _("Fail to create account %(user_id)s for the domain %(domain_id)s")
+
+
+class AccountChargeFailed(GringottsException):
+    message = _("Fail to charge %(value)s to account %(user_id)s")
+
+
+class ProjectNotFound(NotFound):
+    message = _("Project %(project_id)s could not be found")
+
+
+class UserProjectNotFound(NotFound):
+    message = _("Relationship between User %(user_id)s and Project %(project_id)s not found")
+
+
+class ProjectCreateFaild(GringottsException):
+    message =_("Fail to create project %(project_id)s with project_owner %(user_id)s")
 
 
 class NotSufficientFund(GringottsException):

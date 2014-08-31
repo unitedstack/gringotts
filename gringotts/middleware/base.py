@@ -96,11 +96,11 @@ class BillingProtocol(object):
             return self.app(env, start_response)
 
         try:
-            project_id = env['HTTP_X_PROJECT_ID']
+            user_id = env['HTTP_X_USER_ID']
         except KeyError:
-            project_id = env['HTTP_X_AUTH_PROJECT_ID']
+            user_id = env['HTTP_X_AUTH_USER_ID']
 
-        self.LOG.debug('Checking if the account(%s) is owed' % project_id)
+        self.LOG.debug('Checking if the account(%s) is owed' % user_id)
 
         retry = False
         min_balance = "0"
@@ -109,7 +109,7 @@ class BillingProtocol(object):
 
         try:
             self.make_billing_client()
-            if self.check_if_owed(project_id, min_balance):
+            if self.check_if_owed(user_id, min_balance):
                 return self._reject_request(env, start_response, 402, min_balance)
         except AuthorizationFailure:
             retry = True
@@ -121,7 +121,7 @@ class BillingProtocol(object):
         if retry:
             try:
                 self.make_billing_client(refresh=True)
-                if self.check_if_owed(project_id, min_balance):
+                if self.check_if_owed(user_id, min_balance):
                     return self._reject_request(env, start_response, 402, min_balance)
             except AuthorizationFailure:
                 return self._reject_request(env, start_response, 401)
@@ -153,20 +153,20 @@ class BillingProtocol(object):
             self.LOG.error(msg)
             raise ServiceError(msg)
 
-    def check_if_owed(self, project_id, min_balance):
+    def check_if_owed(self, user_id, min_balance):
         try:
-            resp, body = self.client.get('/accounts/%s' % project_id)
+            resp, body = self.client.get('/accounts/%s' % user_id)
             if body['level'] == 9:
                 return False
             if Decimal(str(body['balance'])) <= Decimal(min_balance):
-                self.LOG.warn('The account %s is owed' % project_id)
+                self.LOG.warn('The account %s is owed' % user_id)
                 return True
             return False
         except (exception.Unauthorized, exception.AuthorizationFailure):
             self.LOG.error("Authorization Failed - rejecting request")
             raise AuthorizationFailure("Authorization Failed")
         except exception.HTTPNotFound:
-            msg = 'Can not find the account: %s' % project_id
+            msg = 'Can not find the account: %s' % user_id
             self.LOG.error(msg)
             raise AccountNotFound(msg)
         except Exception as e:
@@ -175,7 +175,7 @@ class BillingProtocol(object):
             self.LOG.error(msg)
             raise ServiceError(msg)
 
-    def _reject_request(self, env, start_response, code, min_balance):
+    def _reject_request(self, env, start_response, code, min_balance=None):
         """For 402 condition:
         * if the minimum balance is 0, which is the most cases
         * if the minimum balance is 10, which is used for floatingip for now.

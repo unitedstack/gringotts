@@ -22,7 +22,14 @@ OPTS = [
                help='initial balance when an user registered'),
     cfg.IntOpt('initial_level',
                default=3,
-               help='The limit that a account can deduct')
+               help='The limit that a account can deduct'),
+    cfg.StrOpt('user_initial_balance',
+               default='0',
+               help='initial balance when an user be created'),
+    cfg.IntOpt('user_initial_level',
+               default=3,
+               help='The limit that a user can deduct')
+
 ]
 
 OPTS_GLOBAL = [

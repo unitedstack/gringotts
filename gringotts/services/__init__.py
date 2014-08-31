@@ -25,7 +25,7 @@ def wrap_exception(exc_type=None):
                     order = worker_api.get_order_by_resource_id(context.get_admin_context(),
                                                                 uuid)
                     account = worker_api.get_account(context.get_admin_context(),
-                                                     order['project_id'])
+                                                     order['user_id'])
                     if order['owed'] and account['owed'] and Decimal(str(account['balance'])) < 0 and int(account['level']) < 9:
                         LOG.warn('The resource: %s is indeed owed, can be execute the action: %s' % \
                                 (uuid, f.__name__))

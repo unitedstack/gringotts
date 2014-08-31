@@ -1,3 +1,4 @@
+import sys
 from oslo.config import cfg
 from gringotts.worker import api as worker_api
 
@@ -9,7 +10,7 @@ worker_opts = [
                      "local, http, rpc"),
 ]
 
-cfg.CONF([], project='gringotts')
+cfg.CONF(sys.argv[1:], project='gringotts')
 
 worker_group = cfg.OptGroup(name='worker')
 CONF = cfg.CONF

@@ -254,6 +254,7 @@ class Order(APIBase):
     created_at = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
+    domain_id = wtypes.text
     region_id = wtypes.text
     owed = bool
 
@@ -352,6 +353,7 @@ class UserAccount(APIBase):
     """Account for a tenant
     """
     balance = decimal.Decimal
+    consumption = decimal.Decimal
     currency = wtypes.text
     owed = bool
     level = int
@@ -368,9 +370,9 @@ class AdminAccount(APIBase):
     balance = decimal.Decimal
     consumption = decimal.Decimal
     level = int
-    currency = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
+    domain_id = wtypes.text
     owed = bool
     created_at = wtypes.text
 
@@ -389,6 +391,11 @@ class AdminAccount(APIBase):
                    currency='CNY',
                    user_id='user-id-yyy',
                    project_id='project-id-yyy')
+
+
+class AdminAccounts(APIBase):
+    total_count = int
+    accounts = [AdminAccount]
 
 
 class Summary(APIBase):
@@ -442,7 +449,7 @@ class PreChargeDispatched(APIBase):
 
 class PreChargeUsed(APIBase):
     user_id = wtypes.text
-    project_id = wtypes.text
+    domain_id = wtypes.text
 
 
 class PreCharge(APIBase):
@@ -462,3 +469,36 @@ class PreChargeSimple(APIBase):
     ret_code = int
     left_count = int
     lock_time = int
+
+
+class Project(APIBase):
+    user_id = wtypes.text
+    project_id = wtypes.text
+    domain_id = wtypes.text
+    consumption = decimal.Decimal
+    created_at = wtypes.text
+
+
+class Projects(APIBase):
+    projects = [Project]
+    total_count = int
+
+
+class UserProject(APIBase):
+    user_id = wtypes.text
+    project_id = wtypes.text
+    project_name = wtypes.text
+    user_consumption = decimal.Decimal
+    project_consumption = decimal.Decimal
+    billing_owner = {wtypes.text: wtypes.text}
+    project_owner = {wtypes.text: wtypes.text}
+    project_creator = {wtypes.text: wtypes.text}
+    is_historical = bool
+    created_at = wtypes.text
+
+
+class Resource(APIBase):
+    region_name = wtypes.text
+    resource_id = wtypes.text
+    resource_name = wtypes.text
+    resource_type = wtypes.text

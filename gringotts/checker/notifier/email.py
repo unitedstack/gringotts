@@ -13,21 +13,25 @@ LOG = log.getLogger(__name__)
 class EmailNotifier(notifier.Notifier):
 
     @staticmethod
-    def notify_has_owed(context, account, contact, orders):
+    def notify_has_owed(context, account, contact, projects):
         # Get account info
         account_name = contact.get('real_name') or contact['email'].split('@')[0]
         mobile_number = contact.get('mobile_number') or "unknown"
         company = contact.get('company') or "unknown"
 
         # Notify user
-        resources = 'resources' if len(orders) > 1 else 'resource'
-        subject = u"[UnitedStack] 您好, %s, 您有%s个资源已经欠费" % (account_name, len(orders))
+        order_count = 0
+        for project in projects:
+            order_count += len(project['orders'])
+
+        subject = u"[UnitedStack] 您好, %s, 您有%s个资源已经欠费" % (account_name, order_count)
         payload = {
             'actions': {
                 'email': {
                     'template': 'account_has_owed',
                     'context': {
-                        'orders': orders,
+                        'send_to': 'user',
+                        'projects': projects,
                         'reserved_days': account['reserved_days']
                     },
                     'subject': subject,
@@ -47,7 +51,12 @@ class EmailNotifier(notifier.Notifier):
                 'email': {
                     'template': 'account_has_owed',
                     'context': {
-                        'orders': orders,
+                        'send_to': 'uos',
+                        'real_name': account_name,
+                        'mobile': mobile_number,
+                        'email': contact['email'],
+                        'company': company,
+                        'projects': projects,
                         'reserved_days': account['reserved_days']
                     },
                     'subject': subject,
@@ -60,7 +69,7 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.owed', payload)
 
     @staticmethod
-    def notify_before_owed(context, account, contact, price_per_day, days_to_owe):
+    def notify_before_owed(context, account, contact, projects, price_per_day, days_to_owe):
         # Get account info
         account_name = contact.get('real_name') or contact['email'].split('@')[0]
         mobile_number = contact.get('mobile_number') or "unknown"
@@ -73,6 +82,8 @@ class EmailNotifier(notifier.Notifier):
                 'email': {
                     'template': 'account_will_owe',
                     'context': {
+                        'send_to': 'user',
+                        'projects': projects,
                         'price_per_day': price_per_day,
                         'balance': str(account['balance']),
                         'days_to_owe': days_to_owe
@@ -94,6 +105,12 @@ class EmailNotifier(notifier.Notifier):
                 'email': {
                     'template': 'account_will_owe',
                     'context': {
+                        'send_to': 'uos',
+                        'real_name': account_name,
+                        'mobile': mobile_number,
+                        'email': contact['email'],
+                        'company': company,
+                        'projects': projects,
                         'price_per_day': price_per_day,
                         'balance': str(account['balance']),
                         'days_to_owe': days_to_owe
@@ -108,14 +125,19 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.will_owed', payload)
 
     @staticmethod
-    def notify_account_charged(context, account, contact, value, bonus=None):
+    def notify_account_charged(context, account, contact, type, value, bonus=None):
         # Notify user
-        subject = u"[UnitedStack] 您好, %s, 您已充值成功" % contact['email'].split('@')[0]
+        account_name = contact.get('real_name') or contact['email'].split('@')[0]
+        if type == 'bonus':
+            subject = u"[UnitedStack] 您好，%s，系统为您充值[￥%s]" % (account_name, value)
+        else:
+            subject = u"[UnitedStack] 您好, %s, 您已充值成功" % account_name
         payload = {
             'actions': {
                 'email': {
                     'template': 'charge_to_user',
                     'context': {
+                        'type': type,
                         'value': str(value),
                         'balance': str(account['balance']),
                         'bonus': str(bonus),
@@ -130,12 +152,16 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.charged', payload)
 
         # Notify us
-        subject = u"[UnitedStack] 账户[%s]充值[￥%s]" % (contact['email'].split('@')[0], value)
+        if type == 'bonus':
+            subject = u"[UnitedStack] 系统为用户[%s]充值[￥%s]" % (account_name, value)
+        else:
+            subject = u"[UnitedStack] 用户[%s]成功充值[￥%s]" % (account_name, value)
         payload = {
             'actions': {
                 'email': {
                     'template': 'charge_to_admin',
                     'context': {
+                        'type': type,
                         'email': contact['email'],
                         'value': str(value),
                         'balance': str(account['balance']),

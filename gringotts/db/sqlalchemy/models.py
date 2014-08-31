@@ -88,7 +88,6 @@ class Product(Base):
     unit_price = Column(DECIMAL(20,4))
     unit = Column(String(64))
     quantity = Column(Integer)
-    total_price = Column(DECIMAL(20,4))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
@@ -125,6 +124,7 @@ class Order(Base):
     user_id = Column(String(255))
     project_id = Column(String(255))
     region_id = Column(String(255))
+    domain_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
@@ -150,13 +150,13 @@ class Subscription(Base):
     unit_price = Column(DECIMAL(20,4))
     unit = Column(String(64))
     quantity = Column(Integer)
-    total_price = Column(DECIMAL(20,4))
 
     order_id = Column(String(255))
 
     user_id = Column(String(255))
     project_id = Column(String(255))
     region_id = Column(String(255))
+    domain_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
@@ -193,26 +193,7 @@ class Bill(Base):
     user_id = Column(String(255))
     project_id = Column(String(255))
     region_id = Column(String(255))
-
-    created_at = Column(DateTime, default=timeutils.utcnow)
-    updated_at = Column(DateTime)
-
-
-class Account(Base):
-
-    __tablename__ = 'account'
-    __table_args__ = (
-        Index('ix_account_project_id', 'project_id'),
-    )
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(String(255))
-    project_id = Column(String(255))
-    balance = Column(DECIMAL(20,4))
-    consumption = Column(DECIMAL(20,4))
-    currency = Column(String(64))
-    level = Column(Integer)
-    owed = Column(Boolean, default=False)
+    domain_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
@@ -225,11 +206,10 @@ class Charge(Base):
     id = Column(Integer, primary_key=True)
     charge_id = Column(String(255))
     user_id = Column(String(255))
-    project_id = Column(String(255))
+    domain_id = Column(String(255))
     value = Column(DECIMAL(20,4))
     type = Column(String(64))
     come_from = Column(String(255))
-    currency = Column(String(64))
     charge_time = Column(DateTime)
 
     created_at = Column(DateTime, default=timeutils.utcnow)
@@ -267,6 +247,51 @@ class PreCharge(Base):
     deleted = Column(Boolean, default=False)
 
     user_id = Column(String(255))
-    project_id = Column(String(255))
+    domain_id = Column(String(255))
 
     remarks = Column(String(255))
+
+
+class Account(Base):
+
+    __tablename__ = 'account'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(255))
+    project_id = Column(String(255))
+    domain_id = Column(String(255))
+    balance = Column(DECIMAL(20,4))
+    consumption = Column(DECIMAL(20,4))
+    level = Column(Integer)
+    owed = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime, default=timeutils.utcnow)
+
+
+class Project(Base):
+
+    __tablename__ = 'project'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(255))
+    project_id = Column(String(255))
+    consumption = Column(DECIMAL(20,4))
+    domain_id = Column(String(255))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime, default=timeutils.utcnow)
+
+
+class UserProject(Base):
+
+    __tablename__ = 'user_project'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(255))
+    project_id = Column(String(255))
+    consumption = Column(DECIMAL(20,4))
+    domain_id = Column(String(255))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime, default=timeutils.utcnow)

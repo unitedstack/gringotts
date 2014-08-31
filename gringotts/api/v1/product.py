@@ -24,10 +24,6 @@ LOG = log.getLogger(__name__)
 class ProductController(rest.RestController):
     """Manages operations on a single product
     """
-    _custom_actions = {
-        'sales': ['GET'],
-    }
-
     def __init__(self, product_id):
         pecan.request.context['product_id'] = product_id
         self._id = product_id
@@ -100,68 +96,6 @@ class ProductController(rest.RestController):
 
         # DB model to API model
         return models.Product.from_db_model(product)
-
-    @wsexpose([models.Subscription], wtypes.text,
-              datetime.datetime, datetime.datetime)
-    def sales(self, start_time=None, end_time=None):
-        """Return this product's subscriptions"""
-        product = self._product()
-
-        subs = self.conn.get_subscriptions_by_product_id(
-            request.context,
-            self._id,
-            start_time=start_time,
-            end_time=end_time)
-
-        subscriptions = []
-        for s in subs:
-            sub = models.Subscription.transform(unit_price=s.unit_price,
-                                                quantity=s.quantity,
-                                                total_price=s.total_price,
-                                                user_id=s.user_id,
-                                                project_id=s.project_id,
-                                                created_at=s.created_at)
-            subscriptions.append(sub)
-
-        return subscriptions
-
-
-class SalesController(rest.RestController):
-    """Sales information about all products
-    """
-    @wsexpose(models.Sales, wtypes.text, wtypes.text, wtypes.text)
-    def get(self, name=None, service=None, region_id=None):
-        """Get all products's statistics
-        """
-        filters = {}
-        if name:
-            filters.update(name=name)
-        if service:
-            filters.update(service=service)
-        if region_id:
-            filters.update(region_id=region_id)
-
-        conn = pecan.request.db_conn
-
-        # Get all products
-        products = conn.get_products(request.context, filters=filters)
-
-        total_price = gringutils._quantize_decimal(0)
-        sales = []
-
-        for p in products:
-            total_price += p.total_price
-            sales.append(models.Sale.transform(
-                product_id=p.product_id,
-                product_name=p.name,
-                service=p.service,
-                region_id=p.region_id,
-                quantity=p.quantity,
-                unit=p.unit,
-                total_price=p.total_price))
-
-        return models.Sales.transform(total_price=total_price,
-                                      sales=sales)
 
 
 class PriceController(rest.RestController):
@@ -239,7 +173,6 @@ class DetailController(rest.RestController):
 class ProductsController(rest.RestController):
     """Manages operations on the products collection
     """
-    sales = SalesController()
     price = PriceController()
     detail = DetailController()
 
@@ -261,7 +194,6 @@ class ProductsController(rest.RestController):
         # API model to DB model
         try:
             product_in = db_models.Product(quantity=0,
-                                           total_price=0,
                                            deleted=False,
                                            **data.as_dict())
         except Exception as e:

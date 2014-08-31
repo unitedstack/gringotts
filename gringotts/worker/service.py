@@ -42,6 +42,9 @@ class WorkerService(rpc_service.Service):
         if isinstance(action_time, basestring):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
+        if isinstance(end_time, basestring):
+            end_time = timeutils.parse_strtime(end_time,
+                                               fmt=TIMESTAMP_TIME_FORMAT)
         try:
             result = self.db_conn.create_bill(ctxt, order_id, action_time=action_time,
                                               remarks=remarks, end_time=end_time)
@@ -121,9 +124,10 @@ class WorkerService(rpc_service.Service):
                                        owed=owed,
                                        region_id=region_id)
 
-    def get_active_orders(self, ctxt, project_id=None, owed=None, charged=None,
+    def get_active_orders(self, ctxt, user_id=None, project_id=None, owed=None, charged=None,
                           region_id=None):
         return self.db_conn.get_active_orders(ctxt,
+                                              user_id=user_id,
                                               project_id=project_id,
                                               owed=owed,
                                               charged=charged,
@@ -148,16 +152,16 @@ class WorkerService(rpc_service.Service):
         except Exception:
             LOG.exception("Fail to reset charged orders: %s" % data.order_ids)
 
-    def create_account(self, ctxt, user_id, project_id, balance,
-                       consumption, currency, level, **kwargs):
+    def create_account(self, ctxt, user_id, domain_id, balance,
+                       consumption, level, **kwargs):
         try:
-            account = db_models.Account(user_id, project_id,
-                                        balance, consumption, currency,
-                                        level, **kwargs)
+            account = db_models.Account(user_id, domain_id, balance,
+                                        consumption, level, **kwargs)
             self.db_conn.create_account(ctxt, account)
         except Exception:
-            LOG.exception('Fail to create account: %s' % account.as_dict())
-            raise exception.AccountCreateFailed(project_id=project_id)
+            LOG.exception('Fail to create account %s for the domain %s' % \
+                    (user_id, domain_id))
+            raise exception.AccountCreateFailed(user_id=user_id, domain_id=domain_id)
 
     def get_accounts(self, ctxt, owed=None):
         return self.db_conn.get_accounts(ctxt, owed=owed)
@@ -165,16 +169,33 @@ class WorkerService(rpc_service.Service):
     def get_account(self, ctxt, project_id):
         return self.db_conn.get_account(ctxt, project_id)
 
-    def charge_account(self, ctxt, project_id, value, type, come_from):
+    def charge_account(self, ctxt, user_id, value, type, come_from):
         if isinstance(value, basestring):
             value = utils._quantize_decimal(value)
         try:
-            self.db_conn.update_account(ctxt, project_id,
+            self.db_conn.update_account(ctxt, user_id,
                                         value=value,
                                         type=type,
                                         come_from=come_from)
         except Exception:
-            LOG.exception('Fail to charge the account: %s, charge(%s, %s, %s)' % (project_id, value, type, come_from))
+            LOG.exception('Fail to charge the account: %s, charge(%s, %s, %s)' % \
+                    (user_id, value, type, come_from))
+            raise exception.AccountChargeFailed(value=value, user_id=user_id)
+
+    def create_project(self, ctxt, user_id, project_id, domain_id, consumption):
+        project = db_models.Project(user_id, project_id, domain_id, consumption)
+        self.db_conn.create_project(ctxt, project)
+
+    def get_projects(self, ctxt, user_id=None):
+        return self.db_conn.get_projects(ctxt, user_id=user_id)
+
+    def delete_resources(self, ctxt, project_id, region_name=None):
+        pass
+
+    def change_billing_owner(self, ctxt, project_id, user_id):
+        self.db_conn.change_billing_owner(ctxt,
+                                          project_id=project_id,
+                                          user_id=user_id)
 
     def fix_order(self, ctxt, order_id):
         self.db_conn.fix_order(ctxt, order_id)

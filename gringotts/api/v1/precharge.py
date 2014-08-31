@@ -10,6 +10,8 @@ from wsme import types as wtypes
 from gringotts import exception
 from gringotts import utils
 from gringotts.api.v1 import models
+from gringotts.checker import notifier
+from gringotts.services import keystone
 from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import memorycache
 from gringotts.openstack.common import log
@@ -96,9 +98,8 @@ class PrechargeController(rest.RestController):
     def used(self):
         conn = pecan.request.db_conn
         user_id = pecan.request.context.user_id
-        project_id = pecan.request.context.project_id
 
-        key = str("gring-precharge-limit-%s" % project_id)
+        key = str("gring-precharge-limit-%s" % user_id)
         cache = _get_cache()
         count = cache.get(key)
 
@@ -115,8 +116,7 @@ class PrechargeController(rest.RestController):
             try:
                 precharge = conn.use_precharge(pecan.request.context,
                                                self.code,
-                                               user_id=user_id,
-                                               project_id=project_id)
+                                               user_id=user_id)
                 price = precharge.price
             except exception.PreChargeNotFound:
                 LOG.error('The precharge %s not found' % self.code)
@@ -148,7 +148,16 @@ class PrechargeController(rest.RestController):
                 raise exception.PreChargeException()
             else:
                 cache.set(key, str(max_count), lock_time)
-
+                # Notifier account
+                if cfg.CONF.notify_account_charged:
+                    account = conn.get_account(pecan.request.context, user_id).as_dict()
+                    contact = keystone.get_uos_user(user_id)
+                    self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
+                    self.notifier.notify_account_charged(pecan.request.context,
+                                                         account, contact,
+                                                         'coupon',
+                                                         price,
+                                                         bonus=0)
         left_count = int(cache.get(key))
 
         if left_count == 0:
@@ -185,13 +194,23 @@ class PrechargesController(rest.RestController):
                           (data.as_dict(), e))
             raise exception.PreChargeException()
 
+    @wsexpose(None)
+    def put(self):
+        if not pecan.request.context.is_admin:
+            raise exception.NotAuthorized()
+
+        user_id = pecan.request.context.user_id
+        key = str("gring-precharge-limit-%s" % user_id)
+        cache = _get_cache()
+        cache.delete(key)
+
     @wsexpose([models.PreCharge], wtypes.text, int, int)
-    def get_all(self, project_id=None, limit=None, offset=None):
+    def get_all(self, user_id=None, limit=None, offset=None):
         """Get all precharges
         """
         conn = pecan.request.db_conn
         precharges = conn.get_precharges(pecan.request.context,
-                                         project_id=project_id,
+                                         user_id=user_id,
                                          limit=limit,
                                          offset=offset)
         r = [models.PreCharge.from_db_model(p) for p in precharges]

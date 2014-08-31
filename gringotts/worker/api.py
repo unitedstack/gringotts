@@ -64,9 +64,10 @@ class LocalAPI(object):
                                         owed=owed,
                                         region_id=region_id)
 
-    def get_active_orders(self, ctxt, project_id=None, owed=None, charged=None,
+    def get_active_orders(self, ctxt, user_id=None, project_id=None, owed=None, charged=None,
                           region_id=None):
         return self._service.get_active_orders(ctxt,
+                                               user_id=user_id,
                                                project_id=project_id,
                                                owed=owed,
                                                charged=charged,
@@ -88,10 +89,9 @@ class LocalAPI(object):
     def reset_charged_orders(self, ctxt, order_ids):
         self._service.reset_charged_orders(ctxt, order_ids)
 
-    def create_account(self, ctxt, user_id, project_id, balance,
-                       consumption, currency, level, **kwargs):
-        self._service.create_account(ctxt, user_id, project_id,
-                                     balance, consumption, currency,
+    def create_account(self, ctxt, user_id, domain_id, balance, consumption, level,
+                       **kwargs):
+        self._service.create_account(ctxt, user_id, domain_id, balance, consumption,
                                      level, **kwargs)
 
     def get_accounts(self, ctxt, owed=None):
@@ -100,8 +100,21 @@ class LocalAPI(object):
     def get_account(self, ctxt, project_id):
         return self._service.get_account(ctxt, project_id)
 
-    def charge_account(self, ctxt, project_id, value, type, come_from):
-        self._service.charge_account(ctxt, project_id, value, type, come_from)
+    def charge_account(self, ctxt, user_id, value, type, come_from):
+        self._service.charge_account(ctxt, user_id, value, type, come_from)
+
+    def create_project(self, ctxt, user_id, project_id, domain_id, consumption):
+        self._service.create_project(ctxt, user_id, project_id, domain_id, consumption)
+
+    def get_projects(self, ctxt, user_id=None):
+        return self._service.get_projects(ctxt, user_id=user_id)
+
+    def delete_resources(self, ctxt, project_id, region_name=None):
+        return self._service.delete_resources(ctxt, project_id,
+                                              region_name=region_name)
+
+    def change_billing_owner(self, ctxt, project_id, user_id):
+        return self._service.change_billing_owner(ctxt, project_id, user_id)
 
     def fix_order(self, ctxt, order_id):
         self._service.fix_order(ctxt, order_id)

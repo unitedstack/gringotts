@@ -93,48 +93,19 @@ class TestProducts(FunctionalTest):
         self.useFixture(db_fixtures.DatabaseInit(self.conn))
         products = self.get_json(self.PATH, headers=self.headers)
 
-        self.assertEqual(5, len(products))
+        self.assertEqual(6, len(products))
 
     def test_get_products(self):
         self.useFixture(db_fixtures.DatabaseInit(self.conn))
         products = self.get_json(self.PATH_DETAIL, headers=self.headers)
 
-        self.assertEqual(5, len(products))
+        self.assertEqual(6, len(products))
 
     def test_get_products_with_params(self):
         self.useFixture(db_fixtures.DatabaseInit(self.conn))
         products = self.get_json(self.PATH_DETAIL, headers=self.headers, service='compute')
 
-        self.assertEqual(2, len(products))
+        self.assertEqual(3, len(products))
         self.assertEqual('compute', products[0]['service'])
         self.assertEqual('compute', products[1]['service'])
-
-    def test_get_products_sales(self):
-        self.useFixture(db_fixtures.DatabaseInit(self.conn))
-        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
-        path = self.PATH + '/sales'
-        sales = self.get_json(path, headers=self.headers)
-
-        self.assertEqual(5, len(sales['sales']))
-        self.assertEqual('0.6080', sales['total_price'])
-
-        add_up = decimal.Decimal('0')
-
-        for s in sales['sales']:
-            add_up += decimal.Decimal(s['total_price'])
-
-        self.assertEqual(decimal.Decimal(sales['total_price']), add_up)
-
-    def test_get_single_product_sales(self):
-        self.useFixture(db_fixtures.DatabaseInit(self.conn))
-        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
-        products = self.get_json(self.PATH_DETAIL, headers=self.headers,
-                                 service='network')
-
-        # check the router product
-        path = self.PATH + '/' + products[0]['product_id']+'/sales'
-        sales = self.get_json(path, headers=self.headers)
-
-        self.assertEqual(1, len(sales))
-        self.assertEqual('0.0500', sales[0]['total_price'])
-        self.assertEqual(1, sales[0]['quantity'])
+        self.assertEqual('compute', products[2]['service'])

@@ -393,18 +393,11 @@ class CheckerService(os_service.Service):
     def _check_if_owed_resources_match_owed_orders(self,
                                                    should_stop_resources,
                                                    should_delete_resources):
-        accounts = list(self.worker_api.get_accounts(self.ctxt))
-        for account in accounts:
-            if account['level'] == 9:
-                continue
-            if not isinstance(account, dict):
-                account = account.as_dict()
-            if not account['owed']:
-                continue
-
+        projects = self.keystone_client.get_project_list()
+        for project in projects:
             orders = list(self.worker_api.get_active_orders(self.ctxt,
                                                             region_id=self.region_name,
-                                                            project_id=account['project_id'],
+                                                            project_id=project.id,
                                                             owed=True))
             if not orders:
                 continue
@@ -499,15 +492,6 @@ class CheckerService(os_service.Service):
         LOG.warn('Notifying owed accounts')
         try:
             accounts = list(self.worker_api.get_accounts(self.ctxt))
-            projects = self.keystone_client.get_project_list()
-
-            # Check if number of account is equal to number of projects
-            c_accounts = len(accounts)
-            c_projects = len(projects)
-
-            if c_accounts != c_projects:
-                LOG.warn('The count(%s) of accounts is not equal to the count(%s) '
-                         'of projects' % (c_accounts, c_projects))
 
             for account in accounts:
                 if account['level'] == 9:
@@ -519,15 +503,18 @@ class CheckerService(os_service.Service):
                 if account['owed']:
                     orders = list(
                         self.worker_api.get_active_orders(self.ctxt,
-                                                          project_id=account['project_id'],
+                                                          user_id=account['user_id'],
                                                           owed=True)
                     )
                     if not orders:
                         continue
 
                     contact = self.keystone_client.get_uos_user(account['user_id'])
+                    _projects = self.worker_api.get_projects(self.ctxt, user_id=account['user_id'])
 
-                    orders_dict = []
+                    orders_dict = {}
+                    for project in _projects:
+                        orders_dict[project['project_id']] = []
 
                     for order in orders:
                         order_d = {}
@@ -553,20 +540,36 @@ class CheckerService(os_service.Service):
                                 order['date_time'],
                                 fmt=ISO8601_UTC_TIME_FORMAT)
 
-                        orders_dict.append(order_d)
+                        orders_dict[order['project_id']].append(order_d)
+
+                    projects = []
+                    for project in _projects:
+                        if orders_dict[project['project_id']]:
+                            adict = {}
+                            adict['project_id'] = project['project_id']
+                            adict['project_name'] = project['project_name']
+                            adict['orders'] = orders_dict[project['project_id']]
+                            projects.append(adict)
 
                     reserved_days = utils.cal_reserved_days(account['level'])
                     account['reserved_days'] = reserved_days
-                    self.notifier.notify_has_owed(self.ctxt, account, contact, orders_dict)
+                    self.notifier.notify_has_owed(self.ctxt, account, contact, projects)
                 else:
                     orders = self.worker_api.get_active_orders(self.ctxt,
-                                                               project_id=account['project_id'])
+                                                               user_id=account['user_id'])
                     if not orders:
                         continue
+
+                    _projects = self.worker_api.get_projects(self.ctxt, user_id=account['user_id'])
+
+                    estimation = {}
+                    for project in _projects:
+                        estimation[project['project_id']] = 0
 
                     price_per_hour = 0
                     for order in orders:
                         price_per_hour += utils._quantize_decimal(order['unit_price'])
+                        estimation[order['project_id']] += utils._quantize_decimal(order['unit_price'])
 
                     price_per_day = price_per_hour * 24
                     account_balance = utils._quantize_decimal(account['balance'])
@@ -580,8 +583,17 @@ class CheckerService(os_service.Service):
                     if days_to_owe > cfg.CONF.checker.days_to_owe:
                         continue
 
+                    # caculate projects
+                    projects = []
+                    for project in _projects:
+                        adict = {}
+                        adict['project_id'] = project['project_id']
+                        adict['project_name'] = project['project_name']
+                        adict['estimation'] = str(estimation[project['project_id']] * 24)
+                        projects.append(adict)
+
                     contact = self.keystone_client.get_uos_user(account['user_id'])
-                    self.notifier.notify_before_owed(self.ctxt, account, contact,
+                    self.notifier.notify_before_owed(self.ctxt, account, contact, projects,
                                                      str(price_per_day), days_to_owe)
         except Exception:
             LOG.exception('Some exceptions occurred when checking owed accounts')

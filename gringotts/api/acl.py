@@ -52,6 +52,16 @@ def get_limited_to_project(headers):
     return get_limited_to(headers)[1]
 
 
+def get_limited_to_user(headers):
+    """Return the user the request should be limited to.
+
+    :param headers: HTTP headers dictionary
+    :return: A user, or None if there's no limit on it.
+
+    """
+    return get_limited_to(headers)[0]
+
+
 def context_is_admin(headers):
     """Check if the context is admin"""
     global _ENFORCER
@@ -65,12 +75,12 @@ def context_is_admin(headers):
         return True
 
 
-def context_is_staff(headers):
-    """Check if the context is admin"""
+def context_is_domain_owner(headers):
+    """Check if the context is domain owner"""
     global _ENFORCER
     if not _ENFORCER:
         _ENFORCER = policy.Enforcer()
-    if not _ENFORCER.enforce('context_is_staff',
+    if not _ENFORCER.enforce('context_is_domain_owner',
                              {},
                              {'roles': headers.get('X-Roles', "").split(",")}):
         return False

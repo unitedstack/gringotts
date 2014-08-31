@@ -28,6 +28,9 @@ class WorkerAPI(object):
         if isinstance(action_time, basestring):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
+        if isinstance(end_time, basestring):
+            end_time = timeutils.parse_strtime(end_time,
+                                               fmt=TIMESTAMP_TIME_FORMAT)
         _body = dict(order_id=order_id,
                      action_time=action_time,
                      remarks=remarks,
@@ -106,9 +109,10 @@ class WorkerAPI(object):
             return body['orders']
         return []
 
-    def get_active_orders(self, ctxt, project_id=None, owed=None,
+    def get_active_orders(self, ctxt, user_id=None, project_id=None, owed=None,
                           charged=None, region_id=None):
-        params = dict(project_id=project_id,
+        params = dict(user_id=user_id,
+                      project_id=project_id,
                       owed=owed,
                       charged=charged,
                       region_id=region_id)
@@ -142,13 +146,12 @@ class WorkerAPI(object):
         _body = dict(order_ids=order_ids)
         self.client.put('/orders/reset', body=_body)
 
-    def create_account(self, ctxt, user_id, project_id, balance, consumption, currency,
-                       level, **kwargs):
+    def create_account(self, ctxt, user_id, domain_id, balance,
+                       consumption, level, **kwargs):
         _body = dict(user_id=user_id,
-                     project_id=project_id,
+                     domain_id=domain_id,
                      balance=balance,
                      consumption=consumption,
-                     currency=currency,
                      level=level,
                      **kwargs)
         self.client.post('/accounts', body=_body)
@@ -156,17 +159,38 @@ class WorkerAPI(object):
     def get_accounts(self, ctxt, owed=None):
         params = dict(owed=owed)
         resp, body = self.client.get('/accounts', params=params)
-        return body
+        return body['accounts']
 
     def get_account(self, ctxt, project_id):
         resp, body = self.client.get('/accounts/%s' % project_id)
         return body
 
-    def charge_account(self, ctxt, project_id, value, type, come_from):
+    def charge_account(self, ctxt, user_id, value, type, come_from):
         _body = dict(value=value,
                      type=type,
                      come_from=come_from)
-        self.client.put('/accounts/%s' % project_id, body=_body)
+        self.client.put('/accounts/%s' % user_id, body=_body)
+
+    def create_project(self, ctxt, user_id, project_id, domain_id, consumption):
+        _body = dict(user_id=user_id,
+                     project_id=project_id,
+                     domain_id=domain_id,
+                     consumption=consumption)
+        self.client.post('/projects', body=_body)
+
+    def get_projects(self, ctxt, user_id=None):
+        params = dict(user_id=user_id)
+        resp, body = self.client.get('/projects', params=params)
+        return body['projects']
+
+    def delete_resources(self, ctxt, project_id, region_name=None):
+        params = dict(project_id=project_id,
+                      region_name=region_name)
+        self.client.delete('/resources', params=params)
+
+    def change_billing_owner(self, ctxt, project_id, user_id):
+        _body = dict(user_id=user_id)
+        self.client.put('/projects/%s/billing_owner' % project_id, body=_body)
 
     def fix_order(self, ctxt, order_id):
         raise NotImplementedError()

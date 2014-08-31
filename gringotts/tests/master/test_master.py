@@ -125,15 +125,17 @@ class TestMasterService(db_test_base.DBTestBase):
 
         # Delete the instance
         action_time = fake_data.INSTANCE_1_DELETED_TIME
-        self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time)
+        remarks = 'Instance Has Been Deleted.'
+        self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time, remarks)
 
         # Assertions
         bills = self.conn.get_bills_by_order_id(self.ctxt, order.order_id)
 
         # Check bills
         bills = list(bills)
-        self.assertEqual(1, len(bills))
-        self.assertEqual(Decimal('0.0450'), bills[0].total_price)
+        self.assertEqual(2, len(bills))
+        self.assertEqual(Decimal('0.0000'), bills[0].total_price)
+        self.assertEqual(Decimal('0.0600'), bills[1].total_price)
 
         action_time = timeutils.parse_strtime(action_time,
                                               fmt=worker_service.TIMESTAMP_TIME_FORMAT)
@@ -151,7 +153,7 @@ class TestMasterService(db_test_base.DBTestBase):
                                                    fake_data.INSTANCE_ID_1)
         self.assertEqual('deleted', order.status)
         self.assertEqual(Decimal('0.0000'), order.unit_price)
-        self.assertEqual(Decimal('0.0450'), order.total_price)
+        self.assertEqual(Decimal('0.0600'), order.total_price)
 
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def test_resource_resize_end(self):
@@ -197,4 +199,4 @@ class TestMasterService(db_test_base.DBTestBase):
         order = self.conn.get_order_by_resource_id(self.ctxt, volume_id)
         self.assertEqual('running', order.status)
         self.assertEqual(Decimal('0.0080'), order.unit_price)
-        self.assertEqual(Decimal('0.0087'), order.total_price)
+        self.assertEqual(Decimal('0.0100'), order.total_price)

@@ -5,6 +5,7 @@ from oslo.config import cfg
 from keystoneclient.v3 import client
 
 from gringotts import exception
+from gringotts.services import wrap_exception
 from gringotts.openstack.common import memorycache
 from gringotts.openstack.common import log
 
@@ -171,14 +172,17 @@ def get_project_list():
     return get_ks_client().projects.list()
 
 
+@wrap_exception(exc_type='get')
 def get_user(user_id):
     return get_ks_client().users.get(user_id)
 
 
+@wrap_exception(exc_type='get')
 def get_project(project_id):
     return get_ks_client().projects.get(project_id)
 
 
+@wrap_exception(exc_type='get')
 def get_uos_user(user_id):
 
     internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url + '/US-INTERNAL'+ '/' + api
@@ -191,6 +195,30 @@ def get_uos_user(user_id):
         LOG.warn("can't not find user %s from keystone" % user_id)
         raise exception.NotFound()
     return r.json()['user']
+
+
+def get_projects_by_project_ids(project_ids):
+
+    internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url + '/US-INTERNAL'+ '/' + api
+
+    query = {'ids': ','.join(project_ids)}
+    r = requests.get(internal_api('get_projects'),
+                     params=query,
+                     headers={'Content-Type': 'application/json'})
+    if r.status_code == 404:
+        return []
+    return r.json()['projects']
+
+
+def get_projects_by_user(user_id):
+    url = cfg.CONF.service_credentials.os_auth_url + '/UOS-EXT/users/' + user_id + '/projects'
+
+    r = requests.get(url,
+                     headers={'Content-Type': 'application/json',
+                              'X-Auth-Token': get_token()})
+    if r.status_code == 404:
+        return []
+    return r.json()['projects']
 
 
 def get_role_list(user=None, group=None, domain=None, project=None):

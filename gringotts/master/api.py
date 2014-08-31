@@ -73,9 +73,6 @@ class LocalAPI(object):
                                        new_flavor, old_flavor,
                                        service, region_id, remarks)
 
-    def clean_date_jobs(self, ctxt, resource_ids):
-        self._service.clean_date_jobs(ctxt, resource_ids)
-
 
 class API(LocalAPI):
     """Master API that handles requests via RPC to the MasterService

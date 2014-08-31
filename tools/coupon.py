@@ -3,10 +3,10 @@ import json
 import requests
 from gringotts.client import client
 
-OS_AUHT_URL = 'http://i.l7.0.uc.ustack.in:35357/v3'
+OS_AUHT_URL = 'http://localhost:35357/v3'
 
 client = client.Client(username='admin',
-                       password='1osNsweuv4boiyfZ',
+                       password='rachel',
                        project_name='admin',
                        auth_url=OS_AUHT_URL)
 
@@ -17,7 +17,7 @@ def generate_coupons(number, price):
     client.post('/precharge', body=body)
 
 
-def get_coupons():
+def get_coupons(remarks=None):
     __, precharges = client.get('/precharge')
 
     codes = []
@@ -26,19 +26,22 @@ def get_coupons():
         if precharge['used'] or precharge['dispatched']:
             continue
         code = precharge['code']
+
+        dispatch_coupon(code, remarks)
+
         code = "%s-%s-%s-%s" % (code[0:4], code[4:8], code[8:12], code[12:16])
         print code, precharge['price']
 
 
-def dispatch_coupon(email, code):
-    _body = dict(remarks=email)
-    _code = code.replace('-', '')
-    client.put('/precharge/%s/dispatched' % _code, body=_body)
+def dispatch_coupon(code, remarks):
+    if remarks:
+        _body = dict(remarks=remarks)
+        client.put('/precharge/%s/dispatched' % code, body=_body)
 
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print 'usage: python coupon.py <number> <price>'
+        print 'usage: python coupon.py <number> <price> [remarks]'
         sys.exit()
 
     number = sys.argv[1]
@@ -52,6 +55,10 @@ if __name__ == '__main__':
         sys.exit("Invalid number, should be greater than 0")
 
     price = sys.argv[2]
+    try:
+        remarks = sys.argv[3]
+    except IndexError:
+        remarks = None
 
     generate_coupons(number, price)
-    get_coupons()
+    get_coupons(remarks)

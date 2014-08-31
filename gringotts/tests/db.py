@@ -22,10 +22,12 @@ class DBTestBase(test_base.TestBase):
         url = 'sqlite://'
         self.CONF.set_override('connection', url, group='database')
 
-        with mock.patch('gringotts.services.keystone.get_admin_user_id', return_value='mock_user_id'):
-            with mock.patch('gringotts.services.keystone.get_admin_tenant_id', return_value='mock_project_id'):
-                self.conn = db.get_connection(self.CONF)
-                self.conn.upgrade()
+        with mock.patch('gringotts.services.keystone.get_admin_user_id', return_value='mock_user_id'), \
+             mock.patch('gringotts.services.keystone.get_admin_tenant_id', return_value='mock_project_id'), \
+             mock.patch('gringotts.services.billing.check_avaliable', return_value=None), \
+             mock.patch('gringotts.services.billing.get_accounts', return_value=[]):
+            self.conn = db.get_connection(self.CONF)
+            self.conn.upgrade()
 
     def tearDown(self):
         super(DBTestBase, self).tearDown()

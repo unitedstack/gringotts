@@ -31,6 +31,7 @@ def charge_account(project_id, value, type, come_from):
 
 
 if __name__ == '__main__':
+
     if len(sys.argv) < 3:
         print 'usage: python charge.py <email> <value> [type] [come_from]'
         sys.exit()
@@ -63,8 +64,7 @@ if __name__ == '__main__':
     if come_from not in ('system', 'alipay', 'bank'):
         sys.exit('Invalid come_from')
 
-
-    project_id = get_uos_user(email)['default_project_id']
-    charge_account(project_id, value, type, come_from)
-    #user_id = get_uos_user(email)['id']
-    #charge_account(user_id, value, type, come_from)
+    #project_id = get_uos_user(email)['default_project_id']
+    #charge_account(project_id, value, type, come_from)
+    user_id = get_uos_user(email)['id']
+    charge_account(user_id, value, type, come_from)

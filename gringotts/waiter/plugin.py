@@ -148,12 +148,11 @@ class NotificationBase(plugin.NotificationBase):
         return worker_api.get_order_by_resource_id(context.get_admin_context(),
                                                    resource_id)
 
-    def create_account(self, user_id, project_id, balance, consumption,
-                       currency, level, **kwargs):
+    def create_account(self, user_id, domain_id, balance, consumption, level,
+                       **kwargs):
         worker_api.create_account(context.get_admin_context(),
-                                  user_id, project_id,
-                                  balance, consumption, currency,
-                                  level, **kwargs)
+                                  user_id, domain_id, balance, consumption, level,
+                                  **kwargs)
 
     def resource_created(self, order_id, action_time, remarks):
         """Notify master that resource has been created
@@ -225,8 +224,22 @@ class NotificationBase(plugin.NotificationBase):
                                               service, region_id,
                                               const.STATE_RUNNING)
 
-    def charge_account(self, project_id, value, type, come_from):
+    def charge_account(self, user_id, value, type, come_from):
         """Charge the account
         """
         worker_api.charge_account(context.get_admin_context(),
-                                  project_id, value, type, come_from)
+                                  user_id, value, type, come_from)
+
+    def create_project(self, user_id, project_id, domain_id, consumption):
+        """Create a project whose project owner is user_id
+        """
+        worker_api.create_project(context.get_admin_context(),
+                                  user_id, project_id, domain_id, consumption)
+
+    def delete_resources(self, project_id):
+        """Delete all resources of project"""
+        worker_api.delete_resources(context.get_admin_context(), project_id)
+
+    def change_billing_owner(self, project_id, user_id):
+        """Change billing owner"""
+        worker_api.change_billing_owner(context.get_admin_context(), project_id, user_id)

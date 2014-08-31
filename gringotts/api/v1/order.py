@@ -69,8 +69,10 @@ class OrderController(rest.RestController):
 class SummaryController(rest.RestController):
     """Summary every order type's consumption
     """
-    @wsexpose(models.Summaries, datetime.datetime, datetime.datetime, wtypes.text)
-    def get(self, start_time=None, end_time=None, region_id=None):
+    @wsexpose(models.Summaries, datetime.datetime, datetime.datetime, wtypes.text,
+              wtypes.text, wtypes.text)
+    def get(self, start_time=None, end_time=None, region_id=None,
+            user_id=None, project_id=None):
         """Get summary of all kinds of orders
         """
         conn = pecan.request.db_conn
@@ -79,6 +81,8 @@ class SummaryController(rest.RestController):
         orders_db = list(conn.get_orders(request.context,
                                          start_time=start_time,
                                          end_time=end_time,
+                                         user_id=user_id,
+                                         project_id=project_id,
                                          region_id=region_id))
 
         total_price = gringutils._quantize_decimal(0)
@@ -168,21 +172,22 @@ class ActiveController(rest.RestController):
     """Get active orders
     """
     @wsexpose([models.Order], wtypes.text, int, int, wtypes.text,
-              wtypes.text, bool, bool)
+              wtypes.text, wtypes.text, bool, bool)
     def get_all(self, type=None, limit=None, offset=None,
-                region_id=None, project_id=None, owed=None, charged=None):
+                region_id=None, user_id=None, project_id=None,
+                owed=None, charged=None):
         conn = pecan.request.db_conn
         orders = conn.get_active_orders(request.context,
                                         type=type,
                                         limit=limit,
                                         offset=offset,
                                         region_id=region_id,
+                                        user_id=user_id,
                                         project_id=project_id,
                                         owed=owed,
                                         charged=charged)
         return [models.Order.from_db_model(order)
                 for order in orders]
-
 
 
 class ResetOrderController(rest.RestController):
@@ -216,10 +221,10 @@ class OrdersController(rest.RestController):
 
     @wsexpose(models.Orders, wtypes.text, wtypes.text,
               datetime.datetime, datetime.datetime, int, int, wtypes.text,
-              wtypes.text, bool, bool)
+              wtypes.text, wtypes.text, bool)
     def get_all(self, type=None, status=None, start_time=None, end_time=None,
                 limit=None, offset=None, region_id=None, project_id=None,
-                owed=None):
+                user_id=None, owed=None):
         """Get queried orders
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
@@ -235,6 +240,7 @@ class OrdersController(rest.RestController):
                                                  offset=offset,
                                                  with_count=True,
                                                  region_id=region_id,
+                                                 user_id=user_id,
                                                  project_id=project_id)
         orders = []
         for order in orders_db:
@@ -271,6 +277,7 @@ class OrdersController(rest.RestController):
 
     @wsexpose(None, body=models.OrderPutBody)
     def put(self, data):
+        """Change the unit price of the order"""
         conn = pecan.request.db_conn
         try:
             conn.update_order(request.context, **data.as_dict())

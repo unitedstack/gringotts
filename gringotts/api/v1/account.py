@@ -47,18 +47,17 @@ class AccountController(rest.RestController):
         'estimate_per_day': ['GET'],
     }
 
-    def __init__(self, project_id):
-        pecan.request.context['project_id'] = project_id
-        self._id = project_id
+    def __init__(self, user_id):
+        self._id = user_id
 
     def _account(self):
         self.conn = pecan.request.db_conn
         try:
             account = self.conn.get_account(request.context,
-                                            project_id=self._id)
+                                            user_id=self._id)
         except Exception as e:
             LOG.error('account %s not found' % self._id)
-            raise exception.AccountNotFound(project_id=self._id)
+            raise exception.AccountNotFound(user_id=self._id)
         return account
 
     @wsexpose(models.UserAccount, int)
@@ -85,7 +84,7 @@ class AccountController(rest.RestController):
         """Charge the account
         """
         # Check the charge value
-        if not data.value or data.value < 0:
+        if not data.value or data.value < 0 or data.value > 100000:
             raise exception.InvalidChargeValue(value=data.value)
 
         self.conn = pecan.request.db_conn
@@ -96,14 +95,13 @@ class AccountController(rest.RestController):
                                               **data.as_dict())
             has_bonus = False
             if cfg.CONF.enable_bonus and data['type'] != 'bonus':
-                data['type'] = 'bonus'
-                data['come_from'] = 'system'
                 value = gringutils.calculate_bonus(data['value'])
                 if value > 0:
-                    data['value'] = value
                     bonus = self.conn.update_account(request.context,
                                                      self._id,
-                                                     **data.as_dict())
+                                                     type='bonus',
+                                                     value=value,
+                                                     come_from='system')
                     has_bonus = True
 
             self.conn.set_charged_orders(request.context, self._id)
@@ -117,13 +115,14 @@ class AccountController(rest.RestController):
             raise exception.DBError(reason=e)
         else:
             # Notifier account
-            if cfg.CONF.notify_account_charged and charge['type'] != 'bonus':
+            if cfg.CONF.notify_account_charged:
                 account = self.conn.get_account(request.context, self._id).as_dict()
                 contact = keystone.get_uos_user(account['user_id'])
                 self.notifier = notifier.NotifierService(1)
                 self.notifier.notify_account_charged(request.context,
                                                      account,
                                                      contact,
+                                                     data['type'],
                                                      charge.value,
                                                      bonus = bonus.value if has_bonus else 0)
         return models.Charge.from_db_model(charge)
@@ -134,7 +133,7 @@ class AccountController(rest.RestController):
         """
         self.conn = pecan.request.db_conn
         charges = self.conn.get_charges(request.context,
-                                        project_id=self._id,
+                                        user_id=self._id,
                                         limit=limit,
                                         offset=offset,
                                         start_time=start_time,
@@ -144,13 +143,14 @@ class AccountController(rest.RestController):
             charges_list.append(models.Charge.from_db_model(charge))
 
         total_price, total_count = self.conn.get_charges_price_and_count(
-            request.context, project_id=self._id,
+            request.context, user_id=self._id,
             start_time=start_time, end_time=end_time)
         total_price = gringutils._quantize_decimal(total_price)
 
         return models.Charges.transform(total_price=total_price,
                                         total_count=total_count,
                                         charges=charges_list)
+
     @wsexpose(int)
     def estimate(self):
         self.conn = pecan.request.db_conn
@@ -163,7 +163,7 @@ class AccountController(rest.RestController):
             return -2
 
         orders = self.conn.get_active_orders(request.context,
-                                             project_id=self._id,
+                                             user_id=self._id,
                                              within_one_hour=True)
         if not orders:
             return -1
@@ -190,7 +190,7 @@ class AccountController(rest.RestController):
 
         account = self._account()
         orders = self.conn.get_active_orders(request.context,
-                                             project_id=self._id,
+                                             user_id=self._id,
                                              within_one_hour=True)
         if not orders:
             return 0
@@ -210,12 +210,12 @@ class AccountsController(rest.RestController):
     """Manages operations on the accounts collection
     """
     @pecan.expose()
-    def _lookup(self, project_id, *remainder):
+    def _lookup(self, user_id, *remainder):
         if remainder and not remainder[-1]:
             remainder = remainder[:-1]
-        return AccountController(project_id), remainder
+        return AccountController(user_id), remainder
 
-    @wsexpose([models.AdminAccount], bool, int, int)
+    @wsexpose(models.AdminAccounts, bool, int, int)
     def get_all(self, owed=None, limit=None, offset=None):
         """Get all accounts
         """
@@ -233,8 +233,11 @@ class AccountsController(rest.RestController):
             LOG.exception('Fail to get all accounts')
             raise exception.DBError(reason=e)
 
-        return [models.AdminAccount.from_db_model(account)
-                for account in accounts]
+        accounts = [models.AdminAccount.from_db_model(account)
+                    for account in accounts]
+
+        return models.AdminAccounts(total_count=count,
+                                    accounts=accounts)
 
 
     @wsexpose(None, body=models.AdminAccount)
@@ -247,4 +250,5 @@ class AccountsController(rest.RestController):
             return conn.create_account(request.context, account)
         except Exception:
             LOG.exception('Fail to create account: %s' % data.as_dict())
-            raise exception.AccountCreateFailed(project_id=data.project_id)
+            raise exception.AccountCreateFailed(user_id=data.user_id,
+                                                domain_id=data.domain_id)

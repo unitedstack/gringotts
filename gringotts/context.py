@@ -40,13 +40,14 @@ class RequestContext(object):
     accesses the system, as well as additional request information.
     """
 
-    def __init__(self, auth_token=None, user_id=None, project_id=None,
-                 is_admin=False, is_staff=None, request_id=None):
+    def __init__(self, auth_token=None, user_id=None, project_id=None, domain_id=None,
+                 is_admin=False, is_domain_owner=False, request_id=None):
         self.auth_token = auth_token
         self.user_id = user_id
         self.project_id = project_id
+        self.domain_id = domain_id
         self.is_admin = is_admin
-        self.is_staff = is_staff
+        self.is_domain_owner = is_domain_owner
         if not request_id:
             request_id = generate_request_id()
         self.request_id = request_id
@@ -54,8 +55,9 @@ class RequestContext(object):
     def to_dict(self):
         return {'user_id': self.user_id,
                 'project_id': self.project_id,
+                'domain_id': self.domain_id,
                 'is_admin': self.is_admin,
-                'is_staff': self.is_staff,
+                'is_domain_owner': self.is_domain_owner,
                 'auth_token': self.auth_token,
                 'request_id': self.request_id,
                 'tenant': self.tenant,
@@ -105,21 +107,37 @@ def get_context_from_function_and_args(function, args, kwargs):
 
 
 def is_user_context(context):
-    """Indicates if the request context is a normal user."""
-    if not context:
-        return False
+    """Indicates if the request context is a normal user who doesn't bind
+    to any project or domain owner"""
     if context.is_admin:
         return False
-    if not context.user_id or not context.project_id:
+    if context.is_domain_owner:
+        return False
+    if not context.user_id:
         return False
     return True
 
 
+def is_domain_owner_context(context):
+    """Indicates that the context is only a domain owner"""
+    if context.is_admin:
+        return False
+    if context.is_domain_owner:
+        return True
+    return False
+
+
 def require_context(ctxt):
-    if not ctxt.is_admin and not is_user_context(ctxt):
+    if not ctxt.is_admin and not ctxt.is_domain_owner and \
+            not is_user_context(ctxt):
         raise exception.NotAuthorized()
 
 
 def require_admin_context(ctxt):
     if not ctxt.is_admin:
+        raise exception.NotAuthorized()
+
+
+def require_domain_context(ctxt):
+    if not ctxt.is_admin and not ctxt.is_domain_owner:
         raise exception.NotAuthorized()

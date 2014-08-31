@@ -76,6 +76,25 @@ class TestWaiterService(db_test_base.DBTestBase):
                                                 remarks)
 
     @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
+    def test_instance_resize_end(self):
+        with mock.patch('gringotts.worker.api.LocalAPI.change_flavor_subscription') as change_flavor_subscription:
+            self.srv.process_notification(fake_data.NOTICE_INSTANCE_1_CREATED)
+            self.srv.process_notification(fake_data.NOTICE_INSTANCE_1_RESIZED)
+
+            order = self.conn.get_order_by_resource_id(self.ctxt,
+                                                       fake_data.INSTANCE_ID_1)
+
+            new_flavor = '%s:m1.small' % const.PRODUCT_INSTANCE_TYPE_PREFIX
+            old_flavor = '%s:m1.tiny' % const.PRODUCT_INSTANCE_TYPE_PREFIX
+            service = const.SERVICE_COMPUTE
+            region_id = 'RegionOne'
+
+            change_flavor_subscription.assert_called_with(self.ctxt, order.order_id,
+                                                          new_flavor, old_flavor,
+                                                          service, region_id,
+                                                          const.STATE_RUNNING)
+
+    @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
     def test_instance_delete_end(self):
         with mock.patch('gringotts.master.api.API.resource_deleted') as resource_deleted:
             self.srv.process_notification(fake_data.NOTICE_INSTANCE_1_CREATED)
@@ -86,5 +105,5 @@ class TestWaiterService(db_test_base.DBTestBase):
 
             action_time = fake_data.INSTANCE_1_DELETED_TIME
 
-            resource_deleted.assert_called_with(self.ctxt, order.order_id,
-                                                action_time)
+            resource_deleted.assert_called_with(self.ctxt, order.order_id, action_time,
+                                                "Instance Has Been Deleted")

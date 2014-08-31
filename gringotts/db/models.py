@@ -50,12 +50,10 @@ class Product(Model):
                  here should be corresponding to the period field. Fox example,
                  if period is hourly, and the unit here should be hour or GB-hour,
                  not month or GB-month.
-    :param quantity: The total sales amount of this product.
-    :param total_price: The total sales price of this product.
     """
     def __init__(self,
                  product_id, name, service, region_id, description,
-                 type, deleted, unit_price, unit, quantity, total_price,
+                 type, deleted, unit_price, unit, quantity,
                  created_at=None, updated_at=None, deleted_at=None):
         Model.__init__(
             self,
@@ -69,7 +67,6 @@ class Product(Model):
             unit_price=unit_price,
             unit=unit,
             quantity=quantity,
-            total_price=total_price,
             created_at=created_at,
             updated_at=updated_at,
             deleted_at=deleted_at)
@@ -94,8 +91,8 @@ class Order(Model):
     def __init__(self,
                  order_id, resource_id, resource_name, type, status,
                  unit_price, unit, total_price, cron_time, date_time,
-                 user_id, project_id, region_id, owed=None, charged=None,
-                 created_at=None, updated_at=None):
+                 user_id, project_id, region_id, domain_id, owed=None,
+                 charged=None, created_at=None, updated_at=None):
         Model.__init__(
             self,
             order_id=order_id,
@@ -111,6 +108,7 @@ class Order(Model):
             user_id=user_id,
             project_id=project_id,
             region_id=region_id,
+            domain_id=domain_id,
             owed=owed,
             charged=charged,
             created_at=created_at,
@@ -126,16 +124,14 @@ class Subscription(Model):
     :param product_id: The product this resource subscribes to
     :param unit_price: The unit price of the product
     :param unit: The unit of the product
-    :param quantity: The quantity of the resource
-    :param total_price: The total fee this resource spent from creation to now
     :param order_id: The order this subscription belongs to
     :param user_id: The user id this subscription belongs to
     :param project_id: The project id this subscription belongs to
     """
     def __init__(self,
                  subscription_id, type, product_id, unit_price, unit,
-                 quantity, total_price, order_id, user_id, project_id,
-                 region_id, created_at=None, updated_at=None):
+                 quantity, order_id, user_id, project_id, region_id, domain_id,
+                 created_at=None, updated_at=None):
         Model.__init__(
             self,
             subscription_id=subscription_id,
@@ -144,10 +140,10 @@ class Subscription(Model):
             unit_price=unit_price,
             unit=unit,
             quantity=quantity,
-            total_price=total_price,
             order_id=order_id,
             user_id=user_id,
             project_id=project_id,
+            domain_id=domain_id,
             region_id=region_id,
             created_at=created_at,
             updated_at=updated_at)
@@ -173,7 +169,8 @@ class Bill(Model):
     def __init__(self,
                  bill_id, start_time, end_time, type, status, unit_price, unit,
                  total_price, order_id, resource_id, remarks, user_id,
-                 project_id, region_id, created_at=None, updated_at=None):
+                 project_id, region_id, domain_id,
+                 created_at=None, updated_at=None):
         Model.__init__(
             self,
             bill_id=bill_id,
@@ -190,29 +187,30 @@ class Bill(Model):
             user_id=user_id,
             project_id=project_id,
             region_id=region_id,
+            domain_id=domain_id,
             created_at=created_at,
             updated_at=updated_at)
 
 
 class Account(Model):
-    """The DB model of account
+    """The DB model of user
     :param user_id: The uuid of the user
-    :param project_id: The uuid of the project
     :param balance: The balance of the account
     :param consumption: The consumption of the account
     :param currency: The currency of the account
     """
 
     def __init__(self,
-                 user_id, project_id, balance, consumption, currency,
-                 level, owed=None, created_at=None, updated_at=None):
+                 user_id, domain_id, balance, consumption, level,
+                 owed=None, created_at=None, updated_at=None,
+                 project_id=None):
         Model.__init__(
             self,
             user_id=user_id,
             project_id=project_id,
+            domain_id=domain_id,
             balance=balance,
             consumption=consumption,
-            currency=currency,
             level=level,
             owed=owed,
             created_at=created_at,
@@ -223,24 +221,21 @@ class Charge(Model):
     """The charge record db model
     :param charge_id: The uuid of the charge
     :param user_id: The uuid of the user
-    :param project_id: The uuid of the project
     :param value: The charge value one time
-    :param currency: The currency of the value
     :param charge_time: The charge time
     """
 
-    def __init__(self, charge_id, project_id, value, charge_time,
-                 type=None, come_from=None, currency=None, user_id=None,
+    def __init__(self, charge_id, user_id, domain_id, value, charge_time,
+                 type=None, come_from=None,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,
             charge_id=charge_id,
             user_id=user_id,
-            project_id=project_id,
+            domain_id=domain_id,
             value=value,
             type=type,
             come_from=come_from,
-            currency=currency,
             charge_time=charge_time,
             created_at=created_at,
             updated_at=updated_at)
@@ -264,7 +259,7 @@ class Region(Model):
 class PreCharge(Model):
     """The precharge model
     """
-    def __init__(self, code, price, used, dispatched, user_id, project_id,
+    def __init__(self, code, price, used, dispatched, user_id, domain_id,
                  created_at=None, expired_at=None, remarks=None):
         Model.__init__(self,
                        code=code,
@@ -272,7 +267,30 @@ class PreCharge(Model):
                        used=used,
                        dispatched=dispatched,
                        user_id=user_id,
-                       project_id=project_id,
+                       domain_id=domain_id,
                        created_at=created_at,
                        expired_at=expired_at,
                        remarks=remarks)
+
+
+class Project(Model):
+    def __init__(self, user_id, project_id, domain_id, consumption,
+                 created_at=None, updated_at=None):
+        Model.__init__(self,
+                       user_id=user_id,
+                       project_id=project_id,
+                       domain_id=domain_id,
+                       consumption=consumption,
+                       created_at=created_at,
+                       updated_at=updated_at)
+
+
+class UserProject(Model):
+    def __init__(self, user_id, project_id, user_consumption,
+                 project_consumption, is_historical):
+        Model.__init__(self,
+                       user_id=user_id,
+                       project_id=project_id,
+                       user_consumption=user_consumption,
+                       project_consumption=project_consumption,
+                       is_historical=is_historical)

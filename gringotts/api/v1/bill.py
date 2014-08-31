@@ -48,17 +48,14 @@ def reset_cache():
 def _make_cache_key(region_id, project_id, start_time, end_time):
     start_time = timeutils.isotime(start_time)
     end_time = timeutils.isotime(end_time)
-    if region_id:
-        return str("%s-%s-%s-%s" % (project_id, region_id, start_time, end_time))
-    else:
-        return str("%s-%s-%s" % (project_id, start_time, end_time))
+    return str("%s-%s-%s-%s" % (project_id, region_id, start_time, end_time))
 
 
 class TrendsController(rest.RestController):
     """Summary every order type's consumption
     """
-    @wsexpose([models.Trend], datetime.datetime, wtypes.text, wtypes.text)
-    def get(self, today=None, type=None, region_id=None):
+    @wsexpose([models.Trend], datetime.datetime, wtypes.text, wtypes.text, wtypes.text)
+    def get(self, today=None, type=None, project_id=None, region_id=None):
         """Get summary of all kinds of orders in the latest 12 month or 12 day
 
         :param today: Client's today wee hour
@@ -109,6 +106,7 @@ class TrendsController(rest.RestController):
                 read_cache = False
             bills_sum = self._get_bills_sum(request.context,
                                             conn,
+                                            project_id=project_id,
                                             region_id=region_id,
                                             start_time=periods[i][0],
                                             end_time=periods[i][1],
@@ -122,22 +120,23 @@ class TrendsController(rest.RestController):
 
         return trends
 
-    def _get_bills_sum(self, context, conn, region_id, start_time, end_time,
+    def _get_bills_sum(self, context, conn, project_id, region_id, start_time, end_time,
                        read_cache=True):
         if read_cache:
             cache = _get_cache()
-            key = _make_cache_key(region_id, context.project_id,
-                                  start_time, end_time)
+            key = _make_cache_key(region_id, project_id, start_time, end_time)
 
             bills_sum = cache.get(key)
             if not bills_sum and bills_sum != 0:
                 bills_sum = conn.get_bills_sum(context,
+                                               project_id=project_id,
                                                region_id=region_id,
                                                start_time=start_time,
                                                end_time=end_time)
                 cache.set(key, bills_sum, BILL_CACHE_SECONDS)
         else:
             bills_sum = conn.get_bills_sum(context,
+                                           project_id=project_id,
                                            region_id=region_id,
                                            start_time=start_time,
                                            end_time=end_time)
