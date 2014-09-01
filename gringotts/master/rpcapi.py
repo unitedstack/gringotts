@@ -83,3 +83,8 @@ class MasterAPI(proxy.RpcProxy):
                                        service=service,
                                        region_id=region_id,
                                        remarks=remarks))
+
+    def clean_date_jobs(self, ctxt, resource_ids):
+        return self.cast(ctxt,
+                         self.make_msg('clean_date_jobs',
+                                       resource_ids=resource_ids))

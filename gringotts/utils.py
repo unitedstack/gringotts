@@ -110,3 +110,15 @@ def random_str(randomlength=16):
     for i in range(randomlength):
         str+=chars[random.randint(0, length)]
     return str
+
+
+def calculate_bonus(value):
+    if value <= 500:
+        return value * Decimal("0.1")
+    if value <= 1000:
+        return value * Decimal("0.2")
+    if value <= 5000:
+        return value * Decimal("0.3")
+    if value <= 10000:
+        return value * Decimal("0.4")
+    return 0

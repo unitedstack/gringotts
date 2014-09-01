@@ -852,6 +852,24 @@ class Connection(base.Connection):
 
         return self._row_to_db_charge_model(charge)
 
+    @require_admin_context
+    def reset_owed_orders(self, context, project_id):
+        session = db_session.get_session()
+        with session.begin():
+            query = model_query(context, sa_models.Order, session=session).\
+                    filter_by(project_id=project_id).\
+                    filter_by(owed=True)
+            orders = query.filter(not_(sa_models.Order.status==const.STATE_DELETED)).all()
+
+            resource_ids = []
+
+            for order in orders:
+                order.owed = False
+                order.date_time = None
+                resource_ids.append(order.resource_id)
+
+            return resource_ids
+
     @require_context
     def get_charges(self, context, project_id=None, start_time=None, end_time=None,
                     limit=None, offset=None, sort_key=None, sort_dir=None):

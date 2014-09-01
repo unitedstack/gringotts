@@ -505,6 +505,10 @@ class MasterService(rpc_service.Service):
         # create a new bill for the updated order
         self._create_bill(ctxt, order_id, action_time, remarks)
 
+    def clean_date_jobs(self, ctxt, resource_ids):
+        for resource_id in resource_ids:
+            self._delete_date_job(resource_id)
+
 
 def master():
     prepare_service()

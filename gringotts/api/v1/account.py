@@ -9,6 +9,7 @@ from wsme import types as wtypes
 
 from oslo.config import cfg
 
+from gringotts import master
 from gringotts import exception
 from gringotts import utils as gringutils
 from gringotts.api.v1 import models
@@ -81,10 +82,17 @@ class AccountController(rest.RestController):
             if cfg.CONF.enable_bonus and data['type'] != 'bonus':
                 data['type'] = 'bonus'
                 data['come_from'] = 'system'
-                bonus = self.conn.update_account(request.context,
-                                                 self._id,
-                                                 **data.as_dict())
-                has_bonus = True
+                value = gringutils.calculate_bonus(data['value'])
+                if value > 0:
+                    data['value'] = value
+                    bonus = self.conn.update_account(request.context,
+                                                     self._id,
+                                                     **data.as_dict())
+                    has_bonus = True
+
+            account = self.conn.get_account(request.context, self._id).as_dict()
+            if account['balance'] > 0:
+                resource_ids = self.conn.reset_owed_orders(request.context, self._id)
         except exception.NotAuthorized as e:
             LOG.exception('Fail to charge the account:%s due to not authorization' % \
                           self._id)
@@ -96,7 +104,6 @@ class AccountController(rest.RestController):
         else:
             # Notifier account
             if cfg.CONF.notify_account_charged and charge['type'] != 'bonus':
-                account = self.conn.get_account(request.context, self._id).as_dict()
                 contact = keystone.get_uos_user(account['user_id'])
                 self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
                 self.notifier.notify_account_charged(request.context,
