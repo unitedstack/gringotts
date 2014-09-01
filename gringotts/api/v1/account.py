@@ -89,10 +89,6 @@ class AccountController(rest.RestController):
                                                      self._id,
                                                      **data.as_dict())
                     has_bonus = True
-
-            account = self.conn.get_account(request.context, self._id).as_dict()
-            if account['balance'] > 0:
-                resource_ids = self.conn.reset_owed_orders(request.context, self._id)
         except exception.NotAuthorized as e:
             LOG.exception('Fail to charge the account:%s due to not authorization' % \
                           self._id)
@@ -104,6 +100,7 @@ class AccountController(rest.RestController):
         else:
             # Notifier account
             if cfg.CONF.notify_account_charged and charge['type'] != 'bonus':
+                account = self.conn.get_account(request.context, self._id).as_dict()
                 contact = keystone.get_uos_user(account['user_id'])
                 self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
                 self.notifier.notify_account_charged(request.context,
