@@ -235,6 +235,10 @@ class OrderPutBody(APIBase):
     first_change_to = wtypes.text
 
 
+class OrderIds(APIBase):
+    order_ids = [wtypes.text]
+
+
 class Order(APIBase):
     """One single order
     """
@@ -248,6 +252,8 @@ class Order(APIBase):
     cron_time = wtypes.text
     date_time = wtypes.text
     created_at = wtypes.text
+    user_id = wtypes.text
+    project_id = wtypes.text
     region_id = wtypes.text
     owed = bool
 

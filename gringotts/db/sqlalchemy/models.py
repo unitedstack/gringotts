@@ -119,6 +119,7 @@ class Order(Base):
     total_price = Column(DECIMAL(20,4))
     cron_time = Column(DateTime)
     owed = Column(Boolean, default=False)
+    charged = Column(Boolean, default=False)
     date_time = Column(DateTime)
 
     user_id = Column(String(255))

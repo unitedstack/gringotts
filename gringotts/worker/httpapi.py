@@ -97,9 +97,11 @@ class WorkerAPI(object):
             return body['orders']
         return []
 
-    def get_active_orders(self, ctxt, project_id=None, owed=None, region_id=None):
+    def get_active_orders(self, ctxt, project_id=None, owed=None,
+                          charged=None, region_id=None):
         params = dict(project_id=project_id,
                       owed=owed,
+                      charged=charged,
                       region_id=region_id)
         resp, body = self.client.get('/orders/active', params=params)
         if body:
@@ -127,6 +129,10 @@ class WorkerAPI(object):
                                      params=params)
         return body
 
+    def reset_charged_orders(self, ctxt, order_ids):
+        _body = dict(order_ids=order_ids)
+        self.client.put('/orders/reset', body=_body)
+
     def create_account(self, ctxt, user_id, project_id, balance, consumption, currency,
                        level, **kwargs):
         _body = dict(user_id=user_id,
@@ -138,14 +144,13 @@ class WorkerAPI(object):
                      **kwargs)
         self.client.post('/accounts', body=_body)
 
-    def get_accounts(self, ctxt):
-        resp, body = self.client.get('/accounts')
+    def get_accounts(self, ctxt, owed=None):
+        params = dict(owed=owed)
+        resp, body = self.client.get('/accounts', params=params)
         return body
 
     def get_account(self, ctxt, project_id):
-        params = dict(project_id=project_id)
-        resp, body = self.client.get('/accounts',
-                                     params=params)
+        resp, body = self.client.get('/accounts/%s' % project_id)
         return body
 
     def charge_account(self, ctxt, project_id, value, type, come_from):

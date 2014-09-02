@@ -112,10 +112,12 @@ class WorkerService(rpc_service.Service):
                                        owed=owed,
                                        region_id=region_id)
 
-    def get_active_orders(self, ctxt, project_id=None, owed=None, region_id=None):
+    def get_active_orders(self, ctxt, project_id=None, owed=None, charged=None,
+                          region_id=None):
         return self.db_conn.get_active_orders(ctxt,
                                               project_id=project_id,
                                               owed=owed,
+                                              charged=charged,
                                               region_id=region_id)
 
     def get_active_order_count(self, ctxt, region_id=None, owed=None):
@@ -131,6 +133,12 @@ class WorkerService(rpc_service.Service):
     def get_order_by_resource_id(self, ctxt, resource_id):
         return self.db_conn.get_order_by_resource_id(ctxt, resource_id)
 
+    def reset_charged_orders(self, ctxt, order_ids):
+        try:
+            self.db_conn.reset_charged_orders(ctxt, order_ids)
+        except Exception:
+            LOG.exception("Fail to reset charged orders: %s" % data.order_ids)
+
     def create_account(self, ctxt, user_id, project_id, balance,
                        consumption, currency, level, **kwargs):
         try:
@@ -142,8 +150,8 @@ class WorkerService(rpc_service.Service):
             LOG.exception('Fail to create account: %s' % account.as_dict())
             raise exception.AccountCreateFailed(project_id=project_id)
 
-    def get_accounts(self, ctxt):
-        return self.db_conn.get_accounts(ctxt)
+    def get_accounts(self, ctxt, owed=None):
+        return self.db_conn.get_accounts(ctxt, owed=owed)
 
     def get_account(self, ctxt, project_id):
         return self.db_conn.get_account(ctxt, project_id)

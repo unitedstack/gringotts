@@ -205,6 +205,7 @@ class Connection(base.Connection):
                                project_id=row.project_id,
                                region_id=row.region_id,
                                owed=row.owed,
+                               charged=row.charged,
                                created_at=row.created_at,
                                updated_at=row.updated_at)
 
@@ -497,7 +498,8 @@ class Connection(base.Connection):
 
     @require_context
     def get_active_orders(self, context, type=None, limit=None, offset=None, sort_key=None,
-                   sort_dir=None, region_id=None, project_id=None, owed=None, within_one_hour=None):
+                   sort_dir=None, region_id=None, project_id=None, owed=None,
+                   charged=None, within_one_hour=None):
         """Get all active orders
         """
         query = model_query(context, sa_models.Order)
@@ -510,6 +512,8 @@ class Connection(base.Connection):
             query = query.filter_by(project_id=project_id)
         if owed:
             query = query.filter_by(owed=owed)
+        if charged:
+            query = query.filter_by(charged=charged)
 
         if within_one_hour:
             one_hour_later = timeutils.utcnow() + datetime.timedelta(hours=1)
@@ -805,9 +809,12 @@ class Connection(base.Connection):
         return self._row_to_db_account_model(ref)
 
     @require_admin_context
-    def get_accounts(self, context, limit=None, offset=None,
+    def get_accounts(self, context, owed=None, limit=None, offset=None,
                      sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.Account)
+
+        if owed:
+            query = query.filter_by(owed=owed)
 
         result = paginate_query(context, sa_models.Account,
                                 limit=limit, offset=offset,
@@ -817,9 +824,13 @@ class Connection(base.Connection):
         return (self._row_to_db_account_model(r) for r in result)
 
     @require_admin_context
-    def get_accounts_count(self, context):
+    def get_accounts_count(self, context, owed=None):
         query = model_query(context, sa_models.Account,
                             func.count(sa_models.Account.id).label('count'))
+
+        if owed:
+            query = query.filter_by(owed=owed)
+
         return query.one().count or 0
 
     @require_admin_context
@@ -853,22 +864,34 @@ class Connection(base.Connection):
         return self._row_to_db_charge_model(charge)
 
     @require_admin_context
-    def reset_owed_orders(self, context, project_id):
+    def set_charged_orders(self, context, project_id):
+        """Set owed orders to charged"""
         session = db_session.get_session()
         with session.begin():
+            # set owed order in all regions to charged
             query = model_query(context, sa_models.Order, session=session).\
                     filter_by(project_id=project_id).\
                     filter_by(owed=True)
-            orders = query.filter(not_(sa_models.Order.status==const.STATE_DELETED)).all()
-
-            resource_ids = []
+            orders = query.filter(not_(sa_models.Order.status==const.STATE_DELETED)).\
+                    all()
 
             for order in orders:
                 order.owed = False
                 order.date_time = None
-                resource_ids.append(order.resource_id)
+                order.charged = True
 
-            return resource_ids
+    @require_admin_context
+    def reset_charged_orders(self, context, order_ids):
+        session = db_session.get_session()
+        with session.begin():
+            for order_id in order_ids:
+                try:
+                    order = model_query(context, sa_models.Order, session=session).\
+                            filter_by(order_id=order_id).\
+                            one()
+                except NoResultFound:
+                    continue
+                order.charged = False
 
     @require_context
     def get_charges(self, context, project_id=None, start_time=None, end_time=None,
@@ -1020,6 +1043,7 @@ class Connection(base.Connection):
                 result['type'] = 3
                 order.owed = False
                 order.date_time = None
+                order.charged = False
 
             if order.owed:
                 result['resource_owed'] = True

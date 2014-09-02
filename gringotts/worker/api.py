@@ -61,10 +61,12 @@ class LocalAPI(object):
                                         owed=owed,
                                         region_id=region_id)
 
-    def get_active_orders(self, ctxt, project_id=None, owed=None, region_id=None):
+    def get_active_orders(self, ctxt, project_id=None, owed=None, charged=None,
+                          region_id=None):
         return self._service.get_active_orders(ctxt,
                                                project_id=project_id,
                                                owed=owed,
+                                               charged=charged,
                                                region_id=region_id)
 
     def get_active_order_count(self, ctxt, region_id=None, owed=None):
@@ -80,14 +82,17 @@ class LocalAPI(object):
     def get_order_by_resource_id(self, ctxt, resource_id):
         return self._service.get_order_by_resource_id(ctxt, resource_id)
 
+    def reset_charged_orders(self, ctxt, order_ids):
+        self._service.reset_charged_orders(ctxt, order_ids)
+
     def create_account(self, ctxt, user_id, project_id, balance,
                        consumption, currency, level, **kwargs):
         self._service.create_account(ctxt, user_id, project_id,
                                      balance, consumption, currency,
                                      level, **kwargs)
 
-    def get_accounts(self, ctxt):
-        return self._service.get_accounts(ctxt)
+    def get_accounts(self, ctxt, owed=None):
+        return self._service.get_accounts(ctxt, owed=owed)
 
     def get_account(self, ctxt, project_id):
         return self._service.get_account(ctxt, project_id)

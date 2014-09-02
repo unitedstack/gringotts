@@ -168,9 +168,9 @@ class ActiveController(rest.RestController):
     """Get active orders
     """
     @wsexpose([models.Order], wtypes.text, int, int, wtypes.text,
-              wtypes.text, bool)
+              wtypes.text, bool, bool)
     def get_all(self, type=None, limit=None, offset=None,
-                region_id=None, project_id=None, owed=None):
+                region_id=None, project_id=None, owed=None, charged=None):
         conn = pecan.request.db_conn
         orders = conn.get_active_orders(request.context,
                                         type=type,
@@ -178,9 +178,23 @@ class ActiveController(rest.RestController):
                                         offset=offset,
                                         region_id=region_id,
                                         project_id=project_id,
-                                        owed=owed)
+                                        owed=owed,
+                                        charged=charged)
         return [models.Order.from_db_model(order)
                 for order in orders]
+
+
+
+class ResetOrderController(rest.RestController):
+    """Reset a bunch of charged orders to uncharged
+    """
+    @wsexpose(None, body=models.OrderIds)
+    def put(self, data):
+        conn = pecan.request.db_conn
+        try:
+            conn.reset_charged_orders(request.context, data.order_ids)
+        except Exception:
+            LOG.exception("Fail to reset charged orders: %s" % data.order_ids)
 
 
 class OrdersController(rest.RestController):
@@ -191,6 +205,7 @@ class OrdersController(rest.RestController):
     count = CountController()
     active = ActiveController()
     stopped = StoppedOrderCountController()
+    reset = ResetOrderController()
 
     @pecan.expose()
     def _lookup(self, order_id, *remainder):
@@ -201,7 +216,7 @@ class OrdersController(rest.RestController):
 
     @wsexpose(models.Orders, wtypes.text, wtypes.text,
               datetime.datetime, datetime.datetime, int, int, wtypes.text,
-              wtypes.text, bool)
+              wtypes.text, bool, bool)
     def get_all(self, type=None, status=None, start_time=None, end_time=None,
                 limit=None, offset=None, region_id=None, project_id=None,
                 owed=None):

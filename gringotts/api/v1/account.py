@@ -89,6 +89,8 @@ class AccountController(rest.RestController):
                                                      self._id,
                                                      **data.as_dict())
                     has_bonus = True
+
+            self.conn.set_charged_orders(request.context, self._id)
         except exception.NotAuthorized as e:
             LOG.exception('Fail to charge the account:%s due to not authorization' % \
                           self._id)
@@ -176,16 +178,16 @@ class AccountsController(rest.RestController):
             remainder = remainder[:-1]
         return AccountController(project_id), remainder
 
-    @wsexpose([models.AdminAccount], int, int)
-    def get_all(self, limit=None, offset=None):
+    @wsexpose([models.AdminAccount], bool, int, int)
+    def get_all(self, owed=None, limit=None, offset=None):
         """Get all accounts
         """
         self.conn = pecan.request.db_conn
 
         try:
-            accounts = self.conn.get_accounts(request.context,
+            accounts = self.conn.get_accounts(request.context, owed=owed,
                                               limit=limit, offset=offset)
-            count = self.conn.get_accounts_count(request.context)
+            count = self.conn.get_accounts_count(request.context, owed=owed)
             pecan.response.headers['X-Total-Count'] = str(count)
         except exception.NotAuthorized as e:
             LOG.exception('Fail to get all accounts')

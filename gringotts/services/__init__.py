@@ -24,7 +24,7 @@ def wrap_exception(exc_type=None):
                 if exc_type == 'delete' or exc_type == 'stop':
                     order = worker_api.get_order_by_resource_id(context.get_admin_context(),
                                                                 uuid)
-                    account = worker_api.get_account(context,get_admin_context(),
+                    account = worker_api.get_account(context.get_admin_context(),
                                                      order['project_id'])
                     if order['owed'] and account['owed'] and Decimal(str(account['balance'])) < 0:
                         LOG.warn('The resource: %s is indeed owed, can be execute the action: %s' % \
@@ -48,7 +48,7 @@ def wrap_exception(exc_type=None):
                 elif exc_type == 'get':
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
                     result = None
-                LOG.error(msg)
+                LOG.exception(msg)
                 return result
         return functools.wraps(f)(wrapped)
     return inner

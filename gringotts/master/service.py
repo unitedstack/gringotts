@@ -38,6 +38,9 @@ OPTS = [
     cfg.IntOpt('allow_delay_seconds',
                default=300,
                help="The delay seconds that allows between nodes"),
+    cfg.IntOpt('clean_date_jobs_interval',
+               default=3,
+               help="The interval to clean date jobs, unit is minute"),
 ]
 
 OPTS_GLOBAL = [
@@ -102,19 +105,26 @@ class MasterService(rpc_service.Service):
 
     def start(self):
         self.apsched.start()
-        self.load_jobs()
-        LOG.warning('Jobs loaded successfully.')
+        self.load_cron_jobs()
+        LOG.warning('Load cron jobs successfully.')
+
+        if cfg.CONF.enable_owe:
+            self.load_date_jobs()
+            self.load_clean_date_jobs()
+
+        self.load_30_days_date_jobs()
 
         super(MasterService, self).start()
         LOG.warning('Master started successfully.')
 
-        if cfg.CONF.enable_owe:
-            self.load_date_jobs()
-
-        self.load_30_days_date_jobs()
-
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
+
+    def load_clean_date_jobs(self):
+        self.clean_date_jobs()
+        self.apsched.add_interval_job(self.clean_date_jobs,
+                                      minutes=cfg.CONF.master.clean_date_jobs_interval)
+        LOG.warn('Load clean date jobs successfully')
 
     def load_date_jobs(self):
         states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
@@ -171,7 +181,7 @@ class MasterService(rpc_service.Service):
                 self._change_order_unit_price(order['order_id'])
         LOG.warning('Load 30-days date jobs successfully.')
 
-    def load_jobs(self):
+    def load_cron_jobs(self):
         states = [const.STATE_RUNNING, const.STATE_STOPPED, const.STATE_SUSPEND]
         for s in states:
             LOG.debug('Loading jobs in %s state' % s)
@@ -212,8 +222,8 @@ class MasterService(rpc_service.Service):
         job = self.date_jobs.get(resource_id)
         if not job:
             LOG.warning('There is no date job for the resource: %s' % resource_id)
-            return
-        del self.date_jobs[resource_id]
+        else:
+            del self.date_jobs[resource_id]
 
         # delete the resource first
         LOG.warn('delete owed resource(resource_type: %s, resource_id: %s)' % \
@@ -505,9 +515,18 @@ class MasterService(rpc_service.Service):
         # create a new bill for the updated order
         self._create_bill(ctxt, order_id, action_time, remarks)
 
-    def clean_date_jobs(self, ctxt, resource_ids):
-        for resource_id in resource_ids:
-            self._delete_date_job(resource_id)
+    def clean_date_jobs(self):
+        LOG.warn('Doing clean date jobs')
+        orders = self.worker_api.get_active_orders(self.ctxt, charged=True,
+                                                   region_id=cfg.CONF.region_name)
+
+        order_ids = []
+        for order in orders:
+            order_ids.append(order['order_id'])
+            self._delete_date_job(order['resource_id'])
+
+        if order_ids:
+            self.worker_api.reset_charged_orders(self.ctxt, order_ids)
 
 
 def master():

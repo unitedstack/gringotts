@@ -94,7 +94,8 @@ class Order(Model):
     def __init__(self,
                  order_id, resource_id, resource_name, type, status,
                  unit_price, unit, total_price, cron_time, date_time,
-                 user_id, project_id, region_id, owed=None, created_at=None, updated_at=None):
+                 user_id, project_id, region_id, owed=None, charged=None,
+                 created_at=None, updated_at=None):
         Model.__init__(
             self,
             order_id=order_id,
@@ -111,6 +112,7 @@ class Order(Model):
             project_id=project_id,
             region_id=region_id,
             owed=owed,
+            charged=charged,
             created_at=created_at,
             updated_at=updated_at)
 
