@@ -41,7 +41,7 @@ class EmailNotifier(notifier.Notifier):
 
         # Notify us
         subject = u"[UnitedStack] 用户[%s]已欠费，电话[%s]，公司[%s]" % \
-                (contact_name, mobile_number, company)
+                (account_name, mobile_number, company)
         payload = {
             'actions': {
                 'email': {
@@ -87,8 +87,8 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.will_owed', payload)
 
         # Notify us
-        subject = u"[UnitedStack] 用户[%s]的账户余额即将不足, 电话[%s], 公司[%s]" % \
-                (contact_name, mobile_number, company)
+        subject = u"[UnitedStack] 用户[%s]的账户余额即将不足，电话[%s]，公司[%s]" % \
+                (account_name, mobile_number, company)
         payload = {
             'actions': {
                 'email': {
