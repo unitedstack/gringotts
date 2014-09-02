@@ -169,7 +169,7 @@ class AccountController(rest.RestController):
             return -1
         return days_to_owe
 
-    @wsexpose(int)
+    @wsexpose(float)
     def estimate_per_day(self):
         self.conn = pecan.request.db_conn
 
@@ -188,7 +188,7 @@ class AccountController(rest.RestController):
             return 0
 
         price_per_day = price_per_hour * 24
-        return price_per_day
+        return round(float(price_per_day), 4)
 
 
 class AccountsController(rest.RestController):

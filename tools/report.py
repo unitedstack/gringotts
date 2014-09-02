@@ -5,6 +5,9 @@ import csv
 from gringotts.client import client
 from gringotts.services import keystone
 
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 client = client.Client(username='admin',
                        password='rachel',
@@ -21,8 +24,8 @@ c.writerow(['姓名', '电话', '邮箱', '公司', '账户余额(元)', '消费
 for account in accounts:
 
     contact = keystone.get_uos_user(account['user_id'])
-    balance = float(account['balance'])
-    consumption = float(account['consumption'])
+    balance = round(float(account['balance']), 4)
+    consumption = round(float(account['consumption']), 4)
     __, consumption_per_day = client.get('/accounts/%s/estimate_per_day' % \
             account['project_id'])
 
@@ -32,3 +35,5 @@ for account in accounts:
     company = contact.get('company') or 'unknown'
 
     c.writerow([username, mobile_number, email, company, balance, consumption, consumption_per_day])
+
+csvfile.close()
