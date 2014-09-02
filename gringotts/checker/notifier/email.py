@@ -14,8 +14,12 @@ class EmailNotifier(notifier.Notifier):
 
     @staticmethod
     def notify_has_owed(context, account, contact, orders):
+        # Get account info
+        account_name = contact.get('real_name') or contact['email'].split('@')[0]
+        mobile_number = contact.get('mobile_number') or "unknown"
+        company = contact.get('company') or "unknown"
+
         # Notify user
-        account_name = contact['email'].split('@')[0]
         resources = 'resources' if len(orders) > 1 else 'resource'
         subject = u"[UnitedStack] 您好, %s, 您有%s个资源已经欠费" % (account_name, len(orders))
         payload = {
@@ -36,7 +40,8 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.owed', payload)
 
         # Notify us
-        subject = u"[UnitedStack] 用户[%s]已欠费，有%s个欠费资源" % (contact['email'], len(orders))
+        subject = u"[UnitedStack] 用户[%s]已欠费，电话[%s]，公司[%s]" % \
+                (contact_name, mobile_number, company)
         payload = {
             'actions': {
                 'email': {
@@ -56,8 +61,13 @@ class EmailNotifier(notifier.Notifier):
 
     @staticmethod
     def notify_before_owed(context, account, contact, price_per_day, days_to_owe):
+        # Get account info
+        account_name = contact.get('real_name') or contact['email'].split('@')[0]
+        mobile_number = contact.get('mobile_number') or "unknown"
+        company = contact.get('company') or "unknown"
+
         # Notify user
-        subject = u"[UnitedStack] 您好, %s, 您的账户余额不足, 请及时充值" % contact['email'].split('@')[0]
+        subject = u"[UnitedStack] 您好, %s, 您的账户余额不足, 请及时充值" % account_name
         payload = {
             'actions': {
                 'email': {
@@ -77,7 +87,8 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.will_owed', payload)
 
         # Notify us
-        subject = u"[UnitedStack] 用户[%s]的账户余额即将不足" % contact['email']
+        subject = u"[UnitedStack] 用户[%s]的账户余额即将不足, 电话[%s], 公司[%s]" % \
+                (contact_name, mobile_number, company)
         payload = {
             'actions': {
                 'email': {

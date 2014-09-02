@@ -39,7 +39,7 @@ OPTS = [
                default=300,
                help="The delay seconds that allows between nodes"),
     cfg.IntOpt('clean_date_jobs_interval',
-               default=3,
+               default=30,
                help="The interval to clean date jobs, unit is minute"),
 ]
 
