@@ -43,6 +43,7 @@ class AccountController(rest.RestController):
     _custom_actions = {
         'charges': ['GET'],
         'estimate': ['GET'],
+        'estimate_per_day': ['GET'],
     }
 
     def __init__(self, project_id):
@@ -167,6 +168,27 @@ class AccountController(rest.RestController):
         if days_to_owe > 7:
             return -1
         return days_to_owe
+
+    @wsexpose(int)
+    def estimate_per_day(self):
+        self.conn = pecan.request.db_conn
+
+        account = self._account()
+        orders = self.conn.get_active_orders(request.context,
+                                             project_id=self._id,
+                                             within_one_hour=True)
+        if not orders:
+            return 0
+
+        price_per_hour = 0
+        for order in orders:
+            price_per_hour += gringutils._quantize_decimal(order.unit_price)
+
+        if price_per_hour == 0:
+            return 0
+
+        price_per_day = price_per_hour * 24
+        return price_per_day
 
 
 class AccountsController(rest.RestController):
