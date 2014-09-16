@@ -27,6 +27,7 @@ RESOURCE_ROUTER = 'router'
 PRODUCT_INSTANCE_TYPE_PREFIX = 'instance'
 PRODUCT_VOLUME_SIZE = 'volume.size'
 PRODUCT_SNAPSHOT_SIZE = 'snapshot.size'
+PRODUCT_SATA_VOLUME_SIZE = 'sata.volume.size'
 PRODUCT_FLOATINGIP = 'ip.floating'
 PRODUCT_ROUTER = 'router'
 

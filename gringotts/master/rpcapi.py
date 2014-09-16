@@ -43,11 +43,12 @@ class MasterAPI(proxy.RpcProxy):
                                        action_time=action_time,
                                        remarks=remarks))
 
-    def resource_deleted(self, ctxt, order_id, action_time):
+    def resource_deleted(self, ctxt, order_id, action_time, remarks):
         return self.cast(ctxt,
                          self.make_msg('resource_deleted',
                                        order_id=order_id,
-                                       action_time=action_time))
+                                       action_time=action_time,
+                                       remarks=remarks))
 
     def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
         return self.cast(ctxt,

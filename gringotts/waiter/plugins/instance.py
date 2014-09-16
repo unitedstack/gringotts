@@ -299,7 +299,8 @@ class InstanceDeleteEnd(ComputeNotificationBase):
 
         # Notify master
         action_time = message['timestamp']
-        self.resource_deleted(order['order_id'], action_time)
+        remarks = 'Instance Has Been Deleted'
+        self.resource_deleted(order['order_id'], action_time, remarks)
 
 
 class InstanceSuspendEnd(ComputeNotificationBase):

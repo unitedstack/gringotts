@@ -85,6 +85,16 @@ def snapshot_get(snapshot_id, region_name=None):
                     resource_type=const.RESOURCE_SNAPSHOT)
 
 
+@wrap_exception(exc_type='get')
+def volume_type_get(volume_type, region_name=None):
+    c_client = get_cinderclient(region_name)
+    try:
+        vt = c_client.volume_types.get(volume_type)
+    except NotFound:
+        return None
+    return vt
+
+
 @wrap_exception(exc_type='list')
 def volume_list(project_id, region_name=None, detailed=True, project_name=None):
     """To see all volumes in the cloud as admin.

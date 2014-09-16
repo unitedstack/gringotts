@@ -34,7 +34,16 @@ class SizeItem(waiter_plugin.ProductItem):
     def get_collection(self, message):
         """Get collection from message
         """
-        product_name = const.PRODUCT_VOLUME_SIZE
+        if message['payload']['volume_type']:
+            from gringotts.services import cinder
+            volume_type = cinder.volume_type_get(message['payload']['volume_type'],
+                                                 region_name=cfg.CONF.region_name)
+            if volume_type.name == 'sata':
+                product_name = const.PRODUCT_SATA_VOLUME_SIZE
+            else:
+                product_name = const.PRODUCT_VOLUME_SIZE
+        else:
+            product_name = const.PRODUCT_VOLUME_SIZE
         service = const.SERVICE_BLOCKSTORAGE
         region_id = cfg.CONF.region_name
         resource_id = message['payload']['volume_id']
@@ -170,4 +179,5 @@ class VolumeDeleteEnd(VolumeNotificationBase):
 
         # Notify master
         action_time = message['timestamp']
-        self.resource_deleted(order['order_id'], action_time)
+        remarks = 'Volume Has Been Deleted'
+        self.resource_deleted(order['order_id'], action_time, remarks)

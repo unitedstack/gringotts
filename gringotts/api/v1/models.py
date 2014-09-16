@@ -361,7 +361,6 @@ class UserAccount(APIBase):
                    currency='CNY')
 
 
-
 class AdminAccount(APIBase):
     """Account Detail for a tenant
     """
@@ -372,6 +371,7 @@ class AdminAccount(APIBase):
     user_id = wtypes.text
     project_id = wtypes.text
     owed = bool
+    created_at = wtypes.text
 
     @classmethod
     def sample1(cls):

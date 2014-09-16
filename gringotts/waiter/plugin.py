@@ -128,12 +128,13 @@ class NotificationBase(plugin.NotificationBase):
                                           order_id,
                                           action_time, remarks)
 
-    def resource_deleted(self, order_id, action_time):
+    def resource_deleted(self, order_id, action_time, remarks):
         """Notify master that resource has been deleted
         """
         master_api.resource_deleted(context.get_admin_context(),
                                     order_id,
-                                    action_time)
+                                    action_time,
+                                    remarks)
 
     def resource_resized(self, order_id, action_time, quantity, remarks):
         """Notify master that resource has been resized

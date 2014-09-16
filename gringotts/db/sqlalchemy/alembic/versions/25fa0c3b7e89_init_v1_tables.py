@@ -213,6 +213,7 @@ def upgrade():
         "(19,'4d2f6900-8f75-4f8d-877d-dff4dec1a57b','instance:compute-4','compute','RegionOne','some decs','regular',0,'0.6670','hour',0,0,'2014-03-18 06:47:43',NULL,NULL)",
         "(20,'cef8cb7b-b0a5-46ff-80a5-57d82e7ac611','instance:compute-8','compute','RegionOne','some decs','regular',0,'1.3330','hour',0,0,'2014-03-18 06:47:58',NULL,NULL)",
         "(21,'b45234b1-64fd-4572-8e71-2d5ff3e62593','instance:compute-12','compute','RegionOne','some decs','regular',0,'2.0000','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)",
+        "(22,'98f2ce8b-8ad3-42db-b82e-dd022381d1bd','sata.volume.size','block_storage','RegionOne','some decs','regular',0,'0.0006','hour',0,0,'2014-02-09 08:16:10',NULL,NULL)",
     ]
 
     for PRODUCT in PRODUCT_SQLS:

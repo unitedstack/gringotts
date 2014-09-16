@@ -399,7 +399,7 @@ class MasterService(rpc_service.Service):
                 cron_time += datetime.timedelta(hours=1)
             self._create_cron_job(order_id, start_date=cron_time)
 
-    def resource_deleted(self, ctxt, order_id, action_time):
+    def resource_deleted(self, ctxt, order_id, action_time, remarks):
         LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
                   (order_id, action_time))
 
@@ -412,7 +412,7 @@ class MasterService(rpc_service.Service):
         # create a bill that tell people the resource has been deleted
         self.worker_api.create_bill(ctxt, order_id,
                                     action_time=action_time,
-                                    remarks="Instance Has Been Deleted",
+                                    remarks=remarks,
                                     end_time=action_time)
 
         # delete the date job if the order has a 30-days date job

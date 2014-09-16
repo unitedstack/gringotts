@@ -149,4 +149,5 @@ class RouterDeleteEnd(RouterNotificationBase):
 
         # Notify master
         action_time = message['timestamp']
-        self.resource_deleted(order['order_id'], action_time)
+        remarks = 'Router Has Been Deleted.'
+        self.resource_deleted(order['order_id'], action_time, remarks)

@@ -149,4 +149,5 @@ class ImageDeleteEnd(ImageNotificationBase):
 
         # Notify master
         action_time = message['timestamp']
-        self.resource_deleted(order['order_id'], action_time)
+        remarks = 'Image Has Been Deleted.'
+        self.resource_deleted(order['order_id'], action_time, remarks)

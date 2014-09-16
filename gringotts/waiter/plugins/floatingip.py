@@ -173,4 +173,5 @@ class FloatingIpDeleteEnd(FloatingIpNotificationBase):
 
         # Notify master
         action_time = message['timestamp']
-        self.resource_deleted(order['order_id'], action_time)
+        remarks = 'Floating IP Has Been Deleted'
+        self.resource_deleted(order['order_id'], action_time, remarks)
