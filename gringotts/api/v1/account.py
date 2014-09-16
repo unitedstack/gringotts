@@ -105,7 +105,7 @@ class AccountController(rest.RestController):
             if cfg.CONF.notify_account_charged and charge['type'] != 'bonus':
                 account = self.conn.get_account(request.context, self._id).as_dict()
                 contact = keystone.get_uos_user(account['user_id'])
-                self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
+                self.notifier = notifier.NotifierService(1)
                 self.notifier.notify_account_charged(request.context,
                                                      account,
                                                      contact,

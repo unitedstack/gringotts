@@ -231,7 +231,8 @@ class InstanceStartEnd(ComputeNotificationBase):
     """Handle the events that instances be started, for now, it will
     handle two product: flavor and image
     """
-    event_types = ['compute.instance.power_on.end']
+    event_types = ['compute.instance.power_on.end',
+                   'compute.instance.reboot.end']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s, resource_id: %s',
