@@ -110,7 +110,7 @@ class AccountController(rest.RestController):
                                                      account,
                                                      contact,
                                                      charge.value,
-                                                     bonus = bonus.value if has_bonus else None)
+                                                     bonus = bonus.value if has_bonus else 0)
         return models.Charge.from_db_model(charge)
 
     @wsexpose(models.Charges, datetime.datetime, datetime.datetime, int, int)

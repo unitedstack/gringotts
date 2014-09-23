@@ -143,7 +143,7 @@ class EmailNotifier(notifier.Notifier):
                     },
                     'subject': subject,
                     'from': 'noreply@unitedstack.com',
-                    'to': 'feedback@unitedstack.com'
+                    'to': 'support@unitedstack.com'
                 }
             }
         }

@@ -32,7 +32,7 @@ from gringotts.openstack.common.gettextutils import _
 
 
 exc_log_opts = [
-    cfg.BoolOpt('fatal_exception_format_errors',
+    cfg.BoolOpt('gring_fatal_exception_format_errors',
                 default=False,
                 help='make exception message format errors fatal'),
 ]
@@ -70,7 +70,7 @@ class GringottsException(Exception):
             except Exception as e:
                 # kwargs doesn't match a variable in the message
                 # log the issue and the kwargs
-                if CONF.fatal_exception_format_errors:
+                if CONF.gring_fatal_exception_format_errors:
                     raise e
                 else:
                     # at least get the core message out if something happened
