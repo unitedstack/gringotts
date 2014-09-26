@@ -354,6 +354,7 @@ class UserAccount(APIBase):
     balance = decimal.Decimal
     currency = wtypes.text
     owed = bool
+    level = int
 
     @classmethod
     def sample(cls):

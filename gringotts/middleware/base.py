@@ -143,7 +143,7 @@ class BillingProtocol(object):
     def check_if_owed(self, project_id):
         try:
             resp, body = self.client.get('/accounts/%s' % project_id)
-            if not body['owed']:
+            if body['level'] == 9:
                 return False
             if Decimal(str(body['balance'])) <= 0:
                 self.LOG.warn('The account %s is owed' % project_id)
