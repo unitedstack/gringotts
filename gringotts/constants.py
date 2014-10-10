@@ -12,6 +12,7 @@ STATE_ERROR = 'error'
 SERVICE_COMPUTE = 'compute'
 SERVICE_BLOCKSTORAGE = 'block_storage'
 SERVICE_NETWORK = 'network'
+SERVICE_MONITOR = 'monitor'
 
 
 # Resource type
@@ -21,6 +22,7 @@ RESOURCE_SNAPSHOT = 'snapshot'
 RESOURCE_VOLUME = 'volume'
 RESOURCE_FLOATINGIP = 'floatingip'
 RESOURCE_ROUTER = 'router'
+RESOURCE_ALARM = 'alarm'
 
 
 # Product Name
@@ -30,6 +32,7 @@ PRODUCT_SNAPSHOT_SIZE = 'snapshot.size'
 PRODUCT_SATA_VOLUME_SIZE = 'sata.volume.size'
 PRODUCT_FLOATINGIP = 'ip.floating'
 PRODUCT_ROUTER = 'router'
+PRODUCT_ALARM = 'alarm'
 
 
 # Bill status

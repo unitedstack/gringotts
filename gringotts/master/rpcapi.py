@@ -43,6 +43,20 @@ class MasterAPI(proxy.RpcProxy):
                                        action_time=action_time,
                                        remarks=remarks))
 
+    def resource_started(self, ctxt, order_id, action_time, remarks):
+        return self.cast(ctxt,
+                         self.make_msg('resource_started',
+                                       order_id=order_id,
+                                       action_time=action_time,
+                                       remarks=remarks))
+
+    def resource_stopped(self, ctxt, order_id, action_time, remarks):
+        return self.cast(ctxt,
+                         self.make_msg('resource_stopped',
+                                       order_id=order_id,
+                                       action_time=action_time,
+                                       remarks=remarks))
+
     def resource_deleted(self, ctxt, order_id, action_time, remarks):
         return self.cast(ctxt,
                          self.make_msg('resource_deleted',

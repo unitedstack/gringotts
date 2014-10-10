@@ -46,6 +46,12 @@ class LocalAPI(object):
     def resource_created_again(self, ctxt, order_id, action_time, remarks):
         self._service.resource_created_again(ctxt, order_id, action_time, remarks)
 
+    def resource_started(self, ctxt, order_id, action_time, remarks):
+        self._service.resource_started(ctxt, order_id, action_time, remarks)
+
+    def resource_stopped(self, ctxt, order_id, action_time, remarks):
+        self._service.resource_stopped(ctxt, order_id, action_time, remarks)
+
     def resource_deleted(self, ctxt, order_id, action_time, remarks):
         self._service.resource_deleted(ctxt, order_id, action_time, remarks)
 

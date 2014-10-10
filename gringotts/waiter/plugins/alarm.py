@@ -18,40 +18,30 @@ from gringotts.openstack.common import uuidutils
 
 LOG = log.getLogger(__name__)
 
-
 OPTS = [
-    cfg.StrOpt('cinder_control_exchange',
-               default='cinder',
-               help="Exchange name for Cinder notifications"),
+    cfg.StrOpt('ceilometer_control_exchange',
+               default='ceilometer',
+               help="Exchange name for Ceilometer notifications"),
 ]
 
 
 cfg.CONF.register_opts(OPTS)
 
 
-class SizeItem(waiter_plugin.ProductItem):
+class AlarmItem(waiter_plugin.ProductItem):
 
     def get_collection(self, message):
         """Get collection from message
         """
-        if message['payload']['volume_type']:
-            from gringotts.services import cinder
-            volume_type = cinder.volume_type_get(message['payload']['volume_type'],
-                                                 region_name=cfg.CONF.region_name)
-            if volume_type and volume_type.name == 'sata':
-                product_name = const.PRODUCT_SATA_VOLUME_SIZE
-            else:
-                product_name = const.PRODUCT_VOLUME_SIZE
-        else:
-            product_name = const.PRODUCT_VOLUME_SIZE
-        service = const.SERVICE_BLOCKSTORAGE
+        product_name = const.PRODUCT_ALARM
+        service = const.SERVICE_MONITOR
         region_id = cfg.CONF.region_name
-        resource_id = message['payload']['volume_id']
-        resource_name = message['payload']['display_name']
-        resource_type = const.RESOURCE_VOLUME
-        resource_volume = message['payload']['size']
+        resource_id = message['payload']['alarm_id']
+        resource_name = message['payload']['detail']['name']
+        resource_type = const.RESOURCE_ALARM
+        resource_volume = 1
         user_id = message['payload']['user_id']
-        project_id = message['payload']['tenant_id']
+        project_id = message['payload']['project_id']
 
         return Collection(product_name=product_name,
                           service=service,
@@ -65,12 +55,13 @@ class SizeItem(waiter_plugin.ProductItem):
 
 
 product_items = extension.ExtensionManager(
-    namespace='gringotts.volume.product_item',
+    namespace='gringotts.alarm.product_item',
     invoke_on_load=True,
 )
 
 
-class VolumeNotificationBase(waiter_plugin.NotificationBase):
+class AlarmNotificationBase(waiter_plugin.NotificationBase):
+
     @staticmethod
     def get_exchange_topics(conf):
         """Return a sequence of ExchangeTopics defining the exchange and
@@ -78,36 +69,38 @@ class VolumeNotificationBase(waiter_plugin.NotificationBase):
         """
         return [
             plugin.ExchangeTopics(
-                exchange=conf.cinder_control_exchange,
+                exchange=conf.ceilometer_control_exchange,
                 topics=set(topic + ".info"
                            for topic in conf.notification_topics)),
         ]
 
     def make_order(self, message, state=None):
-        """Make an order model for one router
+        """Make an order model for one instance
         """
-        resource_id = message['payload']['volume_id']
-        resource_name = message['payload']['display_name']
+        resource_id = message['payload']['alarm_id']
+        resource_name = message['payload']['detail']['name']
         user_id = message['payload']['user_id']
-        project_id = message['payload']['tenant_id']
+        project_id = message['payload']['project_id']
 
         order = Order(resource_id=resource_id,
                       resource_name=resource_name,
-                      type=const.RESOURCE_VOLUME,
+                      type=const.RESOURCE_ALARM,
                       status=state if state else const.STATE_RUNNING,
                       user_id=user_id,
                       project_id=project_id)
         return order
 
 
-class VolumeCreateEnd(VolumeNotificationBase):
-    """Handle the event that volume be created
+class AlarmCreateEnd(AlarmNotificationBase):
+    """Handle the event that instance be created, for now, it
+    will handle three products: flavor, image and disk
     """
-    event_types = ['volume.create.end']
+    event_types = ['alarm.creation']
 
     def process_notification(self, message, state=None):
         LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['volume_id'])
+                  message['event_type'],
+                  message['payload']['alarm_id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -117,6 +110,7 @@ class VolumeCreateEnd(VolumeNotificationBase):
 
         # Create subscriptions for this order
         for ext in product_items.extensions:
+            # disk extension is used when instance been stopped and been suspend
             if ext.name.startswith('suspend'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_SUSPEND)
@@ -132,11 +126,11 @@ class VolumeCreateEnd(VolumeNotificationBase):
                     unit_price += p * sub['quantity']
                     unit = sub['unit']
 
-        # Create an order for this volume
+        # Create an order for this instance
         self.create_order(order_id, unit_price, unit, message, state=state)
 
         # Notify master
-        remarks = 'Volume Has Been Created.'
+        remarks = 'Alarm Has Been Created.'
         action_time = message['timestamp']
         if state:
             self.resource_created_again(order_id, action_time, remarks)
@@ -144,40 +138,50 @@ class VolumeCreateEnd(VolumeNotificationBase):
             self.resource_created(order_id, action_time, remarks)
 
 
-class VolumeResizeEnd(VolumeNotificationBase):
-    """Handle the events that volume be changed
+class AlarmOnOffEnd(AlarmNotificationBase):
+    """Handle the events that instances be stopped, for now,
+    it will only handle one product: volume.size.
     """
-    event_types = ['volume.resize.end']
+
+    #NOTE(suo): 'compute.instance.shutdown2.end' is sent out
+    #           by soft shutdown operation
+    event_types = ['alarm.on/off']
 
     def process_notification(self, message):
         LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['volume_id'])
+                  message['event_type'],
+                  message['payload']['alarm_id'])
 
         # Get the order of this resource
-        resource_id = message['payload']['volume_id']
-        order = self.get_order_by_resource_id(resource_id)
-
-        # Notify master
-        quantity = message['payload']['size']
-        action_time = message['timestamp']
-        remarks = 'Volume Has Been Resized'
-        self.resource_resized(order['order_id'], action_time, quantity, remarks)
-
-
-class VolumeDeleteEnd(VolumeNotificationBase):
-    """Handle the event that volume be deleted
-    """
-    event_types = ['volume.delete.end']
-
-    def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['volume_id'])
-
-        # Get the order of this resource
-        resource_id = message['payload']['volume_id']
+        resource_id = message['payload']['alarm_id']
         order = self.get_order_by_resource_id(resource_id)
 
         # Notify master
         action_time = message['timestamp']
-        remarks = 'Volume Has Been Deleted'
+
+        if message['payload']['detail']['action'] == 'off':
+            remarks = 'Alarm Has Been Stopped.'
+            self.resource_stopped(order['order_id'], action_time, remarks)
+        elif message['payload']['detail']['action'] == 'on':
+            remarks = 'Alarm Has Been Started.'
+            self.resource_started(order['order_id'], action_time, remarks)
+
+
+class AlarmDeleteEnd(AlarmNotificationBase):
+    """Handle the event that instance be deleted
+    """
+    event_types = ['alarm.deletion']
+
+    def process_notification(self, message):
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['alarm_id'])
+
+        # Get the order of this resource
+        resource_id = message['payload']['alarm_id']
+        order = self.get_order_by_resource_id(resource_id)
+
+        # Notify master
+        action_time = message['timestamp']
+        remarks = 'Alarm Has Been Deleted'
         self.resource_deleted(order['order_id'], action_time, remarks)

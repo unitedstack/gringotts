@@ -128,6 +128,22 @@ class NotificationBase(plugin.NotificationBase):
                                           order_id,
                                           action_time, remarks)
 
+    def resource_started(self, order_id, action_time, remarks):
+        """Notify master that resource has been started
+        """
+        master_api.resource_started(context.get_admin_context(),
+                                    order_id,
+                                    action_time,
+                                    remarks)
+
+    def resource_stopped(self, order_id, action_time, remarks):
+        """Notify master that resource has been stopped
+        """
+        master_api.resource_stopped(context.get_admin_context(),
+                                    order_id,
+                                    action_time,
+                                    remarks)
+
     def resource_deleted(self, order_id, action_time, remarks):
         """Notify master that resource has been deleted
         """

@@ -19,6 +19,7 @@ class Volume(Resource):
                 'volume_id': self.id,
                 'display_name': self.name,
                 'size': self.size,
+                'volume_type': self.type,
                 'user_id': self.user_id,
                 'tenant_id': self.project_id
             },
@@ -113,6 +114,7 @@ def volume_list(project_id, region_name=None, detailed=True, project_name=None):
                                         name=volume.display_name,
                                         size=volume.size,
                                         status=status,
+                                        type=volume.volume_type,
                                         original_status=volume.status,
                                         resource_type=const.RESOURCE_VOLUME,
                                         user_id = None,

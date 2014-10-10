@@ -8,7 +8,7 @@ TEMPLATE_API_URL = "http://sendcloud.sohu.com/webapi/mail.send_template.xml"
 PARAMS = {
     'api_user': 'postmaster@unitedstack-trigger.sendcloud.org',
     'api_key': '7CVvlTcXvVDgMo8U',
-    'from': 'notice@unitedstack.com',
+    'from': 'notice@mail.unitedstack.com',
     'fromname': 'UnitedStack',
     'replyto': 'support@unitedstack.com'
 }
@@ -39,4 +39,5 @@ def send_message(to):
     r = requests.post(TEMPLATE_API_URL, files=files, data=PARAMS, verify=False)
 
 for user in users:
+    print 'sending: %s' % user
     send_message(user)

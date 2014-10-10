@@ -23,7 +23,7 @@ LOG = log.getLogger(__name__)
 
 
 ORDER_TYPE = ['instance', 'image', 'snapshot', 'volume', 'router',
-              'loadbalancer', 'floatingip', 'vpn']
+              'loadbalancer', 'floatingip', 'vpn', 'alarm']
 
 
 class OrderController(rest.RestController):

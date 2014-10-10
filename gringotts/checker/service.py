@@ -107,6 +107,7 @@ class CheckerService(os_service.Service):
         from gringotts.services import neutron
         from gringotts.services import nova
         from gringotts.services import keystone
+        from gringotts.services import ceilometer
 
         self.keystone_client = keystone
 
@@ -118,7 +119,8 @@ class CheckerService(os_service.Service):
             neutron.floatingip_list,
             neutron.router_list,
             neutron.network_list,
-            neutron.port_list
+            neutron.port_list,
+            ceilometer.alarm_list
         ]
 
         self.RESOURCE_CREATE_MAP = {
@@ -127,7 +129,8 @@ class CheckerService(os_service.Service):
             const.RESOURCE_INSTANCE: plugins.instance.InstanceCreateEnd(),
             const.RESOURCE_ROUTER: plugins.router.RouterCreateEnd(),
             const.RESOURCE_SNAPSHOT: plugins.snapshot.SnapshotCreateEnd(),
-            const.RESOURCE_VOLUME: plugins.volume.VolumeCreateEnd()
+            const.RESOURCE_VOLUME: plugins.volume.VolumeCreateEnd(),
+            const.RESOURCE_ALARM: plugins.alarm.AlarmCreateEnd()
         }
 
         self.RESOURCE_GET_MAP = {
@@ -137,6 +140,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_IMAGE: (glance.image_get, const.STATE_RUNNING),
             const.RESOURCE_FLOATINGIP: (neutron.floatingip_get, const.STATE_RUNNING),
             const.RESOURCE_ROUTER: (neutron.router_get, const.STATE_RUNNING),
+            const.RESOURCE_ALARM: (ceilometer.alarm_get, const.STATE_RUNNING),
         }
 
         self.DELETE_METHOD_MAP = {
@@ -146,6 +150,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_VOLUME: cinder.delete_volume,
             const.RESOURCE_FLOATINGIP: neutron.delete_fip,
             const.RESOURCE_ROUTER: neutron.delete_router,
+            const.RESOURCE_ALARM: ceilometer.delete_alarm,
         }
 
         self.STOP_METHOD_MAP = {
@@ -155,6 +160,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_VOLUME: cinder.stop_volume,
             const.RESOURCE_FLOATINGIP: neutron.stop_fip,
             const.RESOURCE_ROUTER: neutron.stop_router,
+            const.RESOURCE_ALARM: ceilometer.stop_alarm,
         }
 
         super(CheckerService, self).__init__(*args, **kwargs)
@@ -348,6 +354,7 @@ class CheckerService(os_service.Service):
                 continue
 
             orders = list(self.worker_api.get_active_orders(self.ctxt,
+                                                            region_id=self.region_name,
                                                             project_id=account['project_id'],
                                                             owed=True))
             if not orders:

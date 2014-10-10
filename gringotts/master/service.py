@@ -82,6 +82,7 @@ class MasterService(rpc_service.Service):
         from gringotts.services import glance
         from gringotts.services import neutron
         from gringotts.services import nova
+        from gringotts.services import ceilometer
 
         self.DELETE_METHOD_MAP = {
             const.RESOURCE_INSTANCE: nova.delete_server,
@@ -90,6 +91,7 @@ class MasterService(rpc_service.Service):
             const.RESOURCE_VOLUME: cinder.delete_volume,
             const.RESOURCE_FLOATINGIP: neutron.delete_fip,
             const.RESOURCE_ROUTER: neutron.delete_router,
+            const.RESOURCE_ALARM: ceilometer.delete_alarm,
         }
 
         self.STOP_METHOD_MAP = {
@@ -99,6 +101,7 @@ class MasterService(rpc_service.Service):
             const.RESOURCE_VOLUME: cinder.stop_volume,
             const.RESOURCE_FLOATINGIP: neutron.stop_fip,
             const.RESOURCE_ROUTER: neutron.stop_router,
+            const.RESOURCE_ALARM: ceilometer.stop_alarm,
         }
 
         super(MasterService, self).__init__(*args, **kwargs)
@@ -418,6 +421,29 @@ class MasterService(rpc_service.Service):
         # delete the date job if the order has a 30-days date job
         if self.date_jobs_after_30_days.get(order_id):
             self._delete_date_job_after_30_days(order_id)
+
+    def resource_stopped(self, ctxt, order_id, action_time, remarks):
+        LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
+                  (order_id, action_time))
+
+        result = self._close_bill(ctxt, order_id, action_time)
+        # Delete date job of owed resource
+        if result['resource_owed']:
+            self._delete_date_job(result['resource_id'])
+        self.worker_api.change_order(ctxt, order_id, const.STATE_STOPPED)
+
+        # create a bill that tell people the resource has been deleted
+        self.worker_api.create_bill(ctxt, order_id,
+                                    action_time=action_time,
+                                    remarks=remarks,
+                                    end_time=action_time)
+
+    def resource_started(self, ctxt, order_id, action_time, remarks):
+        LOG.debug('Resource created, its order_id: %s, action_time: %s',
+                  order_id, action_time)
+        result = self.worker_api.close_bill(ctxt, order_id, action_time)
+        self.worker_api.change_order(ctxt, order_id, const.STATE_RUNNING)
+        self._create_bill(ctxt, order_id, action_time, remarks)
 
     def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
         LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to: %s'
