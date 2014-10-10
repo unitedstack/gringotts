@@ -73,13 +73,17 @@ class BillingProtocol(object):
 
         Reject request if the account is owed
         """
-        project_id = env['HTTP_X_PROJECT_ID']
         request_method = env['REQUEST_METHOD']
         path_info = env['PATH_INFO']
 
         if not cfg.CONF.billing.enable_billing or \
                 request_method in set(['GET', 'OPTIONS', 'HEAD', 'DELETE']):
             return self.app(env, start_response)
+
+        try:
+            project_id = env['HTTP_X_PROJECT_ID']
+        except KeyError:
+            project_id = env['HTTP_X_AUTH_PROJECT_ID']
 
         req = webob.Request(env)
         if req.content_length:

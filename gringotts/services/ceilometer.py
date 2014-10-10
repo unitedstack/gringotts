@@ -1,6 +1,5 @@
 from oslo.config import cfg
 from ceilometerclient import client as cmclient
-from ceilometerclient.openstack.common.apiclient.exceptions import NotFound
 
 from gringotts import utils
 from gringotts import constants as const
@@ -38,7 +37,7 @@ def get_cmclient(region_name=None):
 def alarm_get(alarm_id, region_name=None):
     try:
         alarm = get_cmclient(region_name).alarms.get(alarm_id)
-    except NotFound:
+    except Exception:
         return None
     status = utils.transform_status(alarm.state)
     return Alarm(id=alarm.alarm_id,
