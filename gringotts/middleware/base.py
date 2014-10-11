@@ -80,11 +80,6 @@ class BillingProtocol(object):
                 request_method in set(['GET', 'OPTIONS', 'HEAD', 'DELETE']):
             return self.app(env, start_response)
 
-        try:
-            project_id = env['HTTP_X_PROJECT_ID']
-        except KeyError:
-            project_id = env['HTTP_X_AUTH_PROJECT_ID']
-
         req = webob.Request(env)
         if req.content_length:
             body = req.json
@@ -93,6 +88,11 @@ class BillingProtocol(object):
 
         if not self.check_if_in_blacklist(request_method, path_info, body):
             return self.app(env, start_response)
+
+        try:
+            project_id = env['HTTP_X_PROJECT_ID']
+        except KeyError:
+            project_id = env['HTTP_X_AUTH_PROJECT_ID']
 
         self.LOG.debug('Checking if the account(%s) is owed' % project_id)
 
