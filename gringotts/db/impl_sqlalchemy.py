@@ -834,6 +834,17 @@ class Connection(base.Connection):
         return query.one().count or 0
 
     @require_admin_context
+    def change_account_level(self, context, project_id, level):
+        session = db_session.get_session()
+        with session.begin():
+            account = model_query(context, sa_models.Account, session=session).\
+                filter_by(project_id=project_id).\
+                with_lockmode('update').one()
+            account.level = level
+
+        return self._row_to_db_account_model(account)
+
+    @require_admin_context
     def update_account(self, context, project_id, **data):
         session = db_session.get_session()
         with session.begin():

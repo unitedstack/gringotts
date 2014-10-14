@@ -41,6 +41,7 @@ class AccountController(rest.RestController):
     """
 
     _custom_actions = {
+        'level': ['PUT'],
         'charges': ['GET'],
         'estimate': ['GET'],
         'estimate_per_day': ['GET'],
@@ -59,6 +60,20 @@ class AccountController(rest.RestController):
             LOG.error('account %s not found' % self._id)
             raise exception.AccountNotFound(project_id=self._id)
         return account
+
+    @wsexpose(models.UserAccount, int)
+    def level(self, level):
+        if not isinstance(level, int) or level < 0 or level > 9:
+            raise exception.InvalidParameterValue(err="Invalid Level")
+
+        self.conn = pecan.request.db_conn
+        try:
+            account = self.conn.change_account_level(request.context, self._id, level)
+        except Exception as e:
+            LOG.exception('Fail to change the account level of: %s' % self._id)
+            raise exception.DBError(reason=e)
+
+        return models.UserAccount.from_db_model(account)
 
     @wsexpose(models.UserAccount)
     def get(self):
