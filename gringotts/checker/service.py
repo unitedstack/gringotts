@@ -339,7 +339,8 @@ class CheckerService(os_service.Service):
                 if cfg.CONF.checker.try_to_fix:
                     self.master_api.resource_deleted(self.ctxt,
                                                      item.order_id,
-                                                     item.deleted_at)
+                                                     item.deleted_at,
+                                                     "Resource Has Been Deleted")
 
     def _check_if_owed_resources_match_owed_orders(self,
                                                    should_stop_resources,

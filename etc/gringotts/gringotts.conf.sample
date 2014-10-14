@@ -23,6 +23,8 @@ alert_priority=2
 reserve_fip=True
 enable_bonus=False
 
+discount = 10:0, 500:0.1, 1000:0.2, 5000:0.3, 10000:0.4
+
 [waiter]
 queue_name=gringotts.notification
 initial_balance=10
