@@ -1,6 +1,8 @@
 #!/usr/bin/python
 """Plugins for executing specific actions acrronding to notification events.
 """
+import datetime
+
 from oslo.config import cfg
 from stevedore import extension
 
@@ -14,9 +16,14 @@ from gringotts.waiter.plugin import Order
 
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import timeutils
 
 
 LOG = log.getLogger(__name__)
+
+
+ISO8601_UTC_TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+
 
 OPTS = [
     cfg.StrOpt('nova_control_exchange',
@@ -201,6 +208,36 @@ class InstanceCreateEnd(ComputeNotificationBase):
             self.resource_created_again(order_id, action_time, remarks)
         else:
             self.resource_created(order_id, action_time, remarks)
+
+    def get_unit_price(self, message, status, cron_time=None):
+        unit_price = 0
+
+        if isinstance(cron_time, basestring):
+            cron_time = timeutils.parse_strtime(cron_time,
+                                                fmt=ISO8601_UTC_TIME_FORMAT)
+
+        delta = cron_time - timeutils.utcnow()
+
+        if status == const.STATE_STOPPED and delta > datetime.timedelta(hours=1):
+            return 0
+
+        # Create subscriptions for this order
+        for ext in product_items.extensions:
+            if ext.name.startswith(status):
+                unit_price += ext.obj.get_unit_price(message)
+
+        return unit_price
+
+    def change_unit_price(self, message, status, order_id):
+        """Just change the unit price that may changes, so we only consider the flavor"""
+        instance_type = message['payload']['instance_type']
+
+        product_name = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
+                                  instance_type)
+        service = const.SERVICE_COMPUTE
+        region_id = cfg.CONF.region_name
+
+        self.change_flavor_unit_price(order_id, product_name, service, region_id, status)
 
 
 class InstanceStopEnd(ComputeNotificationBase):

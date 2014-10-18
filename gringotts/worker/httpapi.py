@@ -47,6 +47,15 @@ class WorkerAPI(object):
     def destory_resource(self, ctxt, order_id):
         pass
 
+    def get_product(self, ctxt, product_name, service, region_id):
+        params = dict(name=product_name,
+                      service=service,
+                      region_id=region_id)
+        resp, body = self.client.get('/products', params=params)
+        if body:
+            return body[0]
+        return None
+
     def create_subscription(self, ctxt, order_id, type=None, **kwargs):
         _body = dict(order_id=order_id,
                      type=type,

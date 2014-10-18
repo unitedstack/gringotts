@@ -66,6 +66,15 @@ class WorkerService(rpc_service.Service):
     def destory_resource(self, ctxt, order_id):
         LOG.debug('Destroy the resource because of owed')
 
+    def get_product(self, ctxt, product_name, service, region_id):
+        filters = dict(name=product_name,
+                       service=service,
+                       region_id=region_id)
+        ps = list(self.db_conn.get_products(ctxt, filters=filters))
+        if ps:
+            return ps[0]
+        return None
+
     def create_subscription(self, ctxt, order_id, type=None, **kwargs):
         sub = dict(order_id=order_id,
                    type=type,

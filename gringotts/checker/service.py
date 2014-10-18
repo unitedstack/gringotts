@@ -88,6 +88,19 @@ class Situation4Item(object):
         return self.order_id
 
 
+class Situation5Item(object):
+    def __init__(self, order_id, resource, unit_price):
+        self.order_id = order_id
+        self.resource = resource
+        self.unit_price = unit_price
+
+    def __eq__(self, other):
+        return self.order_id == other.order_id and self.resource == other.resource
+
+    def __repr__(self):
+        return self.order_id
+
+
 class CheckerService(os_service.Service):
 
     def __init__(self, *args, **kwargs):
@@ -236,6 +249,19 @@ class CheckerService(os_service.Service):
             elif not order['cron_time']:
                 try_to_fix['3'].append(Situation3Item(order['order_id'],
                                                       resource.created_at))
+            # Situation 5: The order's unit_price is different from the
+            # resource's actual price
+            else:
+                unit_price = self.RESOURCE_CREATE_MAP[resource.resource_type].\
+                        get_unit_price(resource.to_message(),
+                                       resource.status,
+                                       cron_time=order['cron_time'])
+                order_unit_price = utils._quantize_decimal(order['unit_price'])
+                if unit_price is not None and unit_price != order_unit_price:
+                    try_to_fix['5'].append(Situation5Item(order['order_id'],
+                                                          resource,
+                                                          unit_price))
+
             resource_to_order[resource.id]['checked'] = True
 
     def _check_order_to_resource(self, resource_id, order, try_to_fix):
@@ -288,8 +314,8 @@ class CheckerService(os_service.Service):
         LOG.warn('Checking if resources match with orders')
         bad_resources_1 = []
         bad_resources_2 = []
-        try_to_fix_1 = {'1': [], '2': [], '3': [], '4': []}
-        try_to_fix_2 = {'1': [], '2': [], '3': [], '4': []}
+        try_to_fix_1 = {'1': [], '2': [], '3': [], '4': [], '5': []}
+        try_to_fix_2 = {'1': [], '2': [], '3': [], '4': [], '5': []}
         try:
             self._check_if_resources_match_orders(bad_resources_1, try_to_fix_1)
             time.sleep(30)
@@ -308,6 +334,7 @@ class CheckerService(os_service.Service):
             try_to_fix_situ_2 = [x for x in try_to_fix_2['2'] if x in try_to_fix_1['2']]
             try_to_fix_situ_3 = [x for x in try_to_fix_2['3'] if x in try_to_fix_1['3']]
             try_to_fix_situ_4 = [x for x in try_to_fix_2['4'] if x in try_to_fix_1['4']]
+            try_to_fix_situ_5 = [x for x in try_to_fix_2['5'] if x in try_to_fix_1['5']]
 
             ## Situation 1
             for resource in try_to_fix_situ_1:
@@ -341,6 +368,14 @@ class CheckerService(os_service.Service):
                                                      item.order_id,
                                                      item.deleted_at,
                                                      "Resource Has Been Deleted")
+            ## Situation 5
+            for item in try_to_fix_situ_5:
+                LOG.warn('Situation 5: The unit_price of the order(%s) is wrong, should be %s' % (item.order_id, item.unit_price))
+                if cfg.CONF.checker.try_to_fix:
+                    create_cls = self.RESOURCE_CREATE_MAP[item.resource.resource_type]
+                    create_cls.change_unit_price(item.resource.to_message(),
+                                                 item.resource.status,
+                                                 item.order_id)
 
     def _check_if_owed_resources_match_owed_orders(self,
                                                    should_stop_resources,

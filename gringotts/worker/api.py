@@ -29,6 +29,9 @@ class LocalAPI(object):
     def destory_resource(self, ctxt, order_id):
         self._service.destory_resource(ctxt, order_id)
 
+    def get_product(self, ctxt, product_name, service, region_id):
+        return self._service.get_product(ctxt, product_name, service, region_id)
+
     def create_subscription(self, ctxt, order_id, type=None, **kwargs):
         return self._service.create_subscription(ctxt, order_id,
                                                  type=type, **kwargs)

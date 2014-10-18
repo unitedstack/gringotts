@@ -9,6 +9,8 @@ worker_opts = [
                      "local, http, rpc"),
 ]
 
+cfg.CONF([], project='gringotts')
+
 worker_group = cfg.OptGroup(name='worker')
 CONF = cfg.CONF
 CONF.register_group(worker_group)

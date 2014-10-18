@@ -3,6 +3,7 @@ import copy
 
 from oslo.config import cfg
 
+from gringotts import utils as gringutils
 from gringotts import constants as const
 from gringotts import context
 from gringotts import db
@@ -16,6 +17,7 @@ from gringotts.openstack.common import log
 db_conn = db.get_connection(cfg.CONF)
 
 LOG = log.getLogger(__name__)
+
 
 worker_api = worker.API()
 master_api = master.API()
@@ -64,6 +66,17 @@ class ProductItem(plugin.PluginBase):
                                                 **collection.as_dict())
         return result
 
+    def get_unit_price(self, message):
+        """Get product unit price"""
+        collection = self.get_collection(message)
+        product = worker_api.get_product(context.get_admin_context(),
+                                         collection.product_name,
+                                         collection.service,
+                                         collection.region_id)
+        if product:
+            return collection.resource_volume * gringutils._quantize_decimal(product['unit_price'])
+        return 0
+
 
 class Order(object):
     """Some field collection that ProductItem will use to get product or
@@ -88,6 +101,34 @@ class NotificationBase(plugin.NotificationBase):
     def make_order(self, message, state=None):
         """Collect distinct fileds from different plugins
         """
+
+    def get_unit_price(self, message, status, cron_time=None):
+        return
+
+    def change_unit_price(self, message, status, order_id):
+        return
+
+    def change_order_unit_price(self, order_id, quantity, status):
+        """Change the order's subscriptions and unit price"""
+        # change subscirption's quantity
+        worker_api.change_subscription(context.get_admin_context(),
+                                       order_id, quantity, status)
+
+        # change the order's unit price
+        worker_api.change_order(context.get_admin_context(), order_id, status)
+
+    def change_flavor_unit_price(self, order_id, new_flavor, service, region_id, status):
+        """Change the order's flavor subscription and unit price"""
+        if status == const.STATE_RUNNING:
+            # change subscirption's quantity
+            worker_api.change_flavor_subscription(context.get_admin_context(),
+                                                  order_id,
+                                                  new_flavor, None,
+                                                  service, region_id,
+                                                  const.STATE_RUNNING)
+
+        # change the order's unit price
+        worker_api.change_order(context.get_admin_context(), order_id, status)
 
     def create_order(self, order_id, unit_price, unit, message, state=None):
         """Create an order for resource created

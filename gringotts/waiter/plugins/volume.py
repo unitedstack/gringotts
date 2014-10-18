@@ -143,6 +143,20 @@ class VolumeCreateEnd(VolumeNotificationBase):
         else:
             self.resource_created(order_id, action_time, remarks)
 
+    def get_unit_price(self, message, status, cron_time=None):
+        unit_price = 0
+
+        # Create subscriptions for this order
+        for ext in product_items.extensions:
+            if ext.name.startswith(status):
+                unit_price += ext.obj.get_unit_price(message)
+
+        return unit_price
+
+    def change_unit_price(self, message, status, order_id):
+        quantity = message['payload']['size']
+        self.change_order_unit_price(order_id, quantity, status)
+
 
 class VolumeResizeEnd(VolumeNotificationBase):
     """Handle the events that volume be changed
