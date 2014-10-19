@@ -4,9 +4,14 @@ from ceilometerclient import client as cmclient
 from gringotts import utils
 from gringotts import constants as const
 
+from gringotts.openstack.common import log
+
 from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception
 from gringotts.services import Resource
+
+
+LOG = log.getLogger(__name__)
 
 
 class Alarm(Resource):
@@ -78,6 +83,7 @@ def delete_alarms(project_id, region_name=None):
                                     'value': project_id}])
     for alarm in alarms:
         client.alarms.delete(alarm.alarm_id)
+        LOG.warn("Delete alarm: %s" % alarm.alarm_id)
 
 
 @wrap_exception(exc_type='delete')

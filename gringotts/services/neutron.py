@@ -4,11 +4,17 @@ from oslo.config import cfg
 from gringotts import utils
 from gringotts import constants as const
 
+from gringotts.openstack.common import log
+
 from gringotts.services import wrap_exception
 from gringotts.services import Resource
 from gringotts.services import keystone as ks_client
 from neutronclient.v2_0 import client as neutron_client
 from neutronclient.common.exceptions import NeutronClientException
+
+
+LOG = log.getLogger(__name__)
+
 
 OPTS = [
     cfg.BoolOpt('reserve_fip',
@@ -208,6 +214,7 @@ def delete_fips(project_id, region_name=None):
     # Release these floating ips
     for fip in fips:
         client.delete_floatingip(fip['id'])
+        LOG.warn("Delete floatingip: %s" % fip['id'])
 
 
 @wrap_exception(exc_type='bulk')
@@ -231,6 +238,7 @@ def delete_routers(project_id, region_name=None):
 
         # And then delete this router
         client.delete_router(router['id'])
+        LOG.warn("Delete router: %s" % router['id'])
 
 
 @wrap_exception(exc_type='delete')

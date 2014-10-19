@@ -5,9 +5,14 @@ from glanceclient.exc import NotFound
 from gringotts import utils
 from gringotts import constants as const
 
+from gringotts.openstack.common import log
+
 from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception
 from gringotts.services import Resource
+
+
+LOG = log.getLogger(__name__)
 
 
 class Image(Resource):
@@ -73,6 +78,7 @@ def delete_images(project_id, region_name=None):
     images = client.images.list(filters=filters)
     for image in images:
         client.images.delete(image.id)
+        LOG.warn("Delete image: %s" % image.id)
 
 
 @wrap_exception(exc_type='delete')

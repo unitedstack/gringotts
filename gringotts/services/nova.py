@@ -6,9 +6,14 @@ from gringotts import constants as const
 from novaclient.v1_1 import client as nova_client
 from novaclient.exceptions import NotFound
 
+from gringotts.openstack.common import log
+
 from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception
 from gringotts.services import Resource
+
+
+LOG = log.getLogger(__name__)
 
 
 class Server(Resource):
@@ -122,6 +127,7 @@ def delete_servers(project_id, region_name=None):
     servers = client.servers.list(detailed=False, search_opts=search_opts)
     for server in servers:
         client.servers.delete(server)
+        LOG.warn("Delete server: %s" % server.id)
 
 
 @wrap_exception(exc_type='delete')

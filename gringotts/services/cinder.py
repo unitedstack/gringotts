@@ -10,6 +10,10 @@ from cinderclient.v1 import client as cinder_client
 from cinderclient.exceptions import NotFound
 from gringotts.services import keystone as ks_client
 from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import log
+
+
+LOG = log.getLogger(__name__)
 
 
 class Volume(Resource):
@@ -168,6 +172,7 @@ def delete_volumes(project_id, region_name=None):
     for volume in volumes:
         client.volumes.detach(volume)
         client.volumes.delete(volume)
+        LOG.warn("Delete volume: %s" % volume.id)
 
 
 @wrap_exception(exc_type='bulk')
@@ -183,6 +188,7 @@ def delete_snapshots(project_id, region_name=None, volume_id=None):
                                          search_opts=search_opts)
     for snap in snaps:
         client.volume_snapshots.delete(snap)
+        LOG.warn("Delete snapshot: %s" % snap.id)
 
 
 @wrap_exception(exc_type='delete')
