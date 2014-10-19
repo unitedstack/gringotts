@@ -101,7 +101,7 @@ def volume_type_get(volume_type, region_name=None):
         vt = c_client.volume_types.get(volume_type)
     except NotFound:
         return None
-    return vt
+    return vt.name
 
 
 @wrap_exception(exc_type='list')

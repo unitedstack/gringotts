@@ -38,7 +38,7 @@ class SizeItem(waiter_plugin.ProductItem):
             from gringotts.services import cinder
             volume_type = cinder.volume_type_get(message['payload']['volume_type'],
                                                  region_name=cfg.CONF.region_name)
-            if volume_type and volume_type.name == 'sata':
+            if volume_type and volume_type == 'sata':
                 product_name = const.PRODUCT_SATA_VOLUME_SIZE
             else:
                 product_name = const.PRODUCT_VOLUME_SIZE
