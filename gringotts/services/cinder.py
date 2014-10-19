@@ -9,6 +9,7 @@ from gringotts.services import Resource
 from cinderclient.v1 import client as cinder_client
 from cinderclient.exceptions import NotFound
 from gringotts.services import keystone as ks_client
+from gringotts.openstack.common import uuidutils
 
 
 class Volume(Resource):
@@ -88,6 +89,9 @@ def snapshot_get(snapshot_id, region_name=None):
 
 @wrap_exception(exc_type='get')
 def volume_type_get(volume_type, region_name=None):
+    if not uuidutils.is_uuid_like(volume_type):
+        return volume_type
+
     c_client = get_cinderclient(region_name)
     try:
         vt = c_client.volume_types.get(volume_type)
