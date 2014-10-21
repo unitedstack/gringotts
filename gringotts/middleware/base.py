@@ -80,10 +80,11 @@ class BillingProtocol(object):
                 request_method in set(['GET', 'OPTIONS', 'HEAD', 'DELETE']):
             return self.app(env, start_response)
 
-        req = webob.Request(env)
-        if req.content_length:
-            body = req.json
-        else:
+        try:
+            req = webob.Request(env)
+            if req.content_length:
+                body = req.json
+        except Exception:
             body = {}
 
         if not self.check_if_in_blacklist(request_method, path_info, body):
