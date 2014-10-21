@@ -84,6 +84,8 @@ class BillingProtocol(object):
             req = webob.Request(env)
             if req.content_length:
                 body = req.json
+            else:
+                body = {}
         except Exception:
             body = {}
 
