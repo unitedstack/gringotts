@@ -10,7 +10,10 @@ from gringotts import exception
 OPTS = [
     cfg.BoolOpt('enable_billing',
                 default=False,
-                help="Open the billing or not")
+                help="Open the billing or not"),
+    cfg.StrOpt('min_balance_fip',
+               default="10",
+               help="The minimum balance to create a floatingip")
 ]
 
 
@@ -39,7 +42,7 @@ class MiniResp(object):
         else:
             self.body = [error_message]
         self.headers = list(headers)
-        self.headers.append(('Content-type', 'text/plain'))
+        self.headers.append(('Content-type', 'application/json'))
 
 
 class BillingProtocol(object):
@@ -100,11 +103,14 @@ class BillingProtocol(object):
         self.LOG.debug('Checking if the account(%s) is owed' % project_id)
 
         retry = False
+        min_balance = "0"
+        if request_method == "POST" and "floatingips" in path_info:
+            min_balance = cfg.CONF.billing.min_balance_fip
 
         try:
             self.make_billing_client()
-            if self.check_if_owed(project_id):
-                return self._reject_request(env, start_response, 402)
+            if self.check_if_owed(project_id, min_balance):
+                return self._reject_request(env, start_response, 402, min_balance)
         except AuthorizationFailure:
             retry = True
         except AccountNotFound:
@@ -115,8 +121,8 @@ class BillingProtocol(object):
         if retry:
             try:
                 self.make_billing_client(refresh=True)
-                if self.check_if_owed(project_id):
-                    return self._reject_request(env, start_response, 402)
+                if self.check_if_owed(project_id, min_balance):
+                    return self._reject_request(env, start_response, 402, min_balance)
             except AuthorizationFailure:
                 return self._reject_request(env, start_response, 401)
             except AccountNotFound:
@@ -147,12 +153,12 @@ class BillingProtocol(object):
             self.LOG.error(msg)
             raise ServiceError(msg)
 
-    def check_if_owed(self, project_id):
+    def check_if_owed(self, project_id, min_balance):
         try:
             resp, body = self.client.get('/accounts/%s' % project_id)
             if body['level'] == 9:
                 return False
-            if Decimal(str(body['balance'])) <= 0:
+            if Decimal(str(body['balance'])) <= Decimal(min_balance):
                 self.LOG.warn('The account %s is owed' % project_id)
                 return True
             return False
@@ -169,10 +175,15 @@ class BillingProtocol(object):
             self.LOG.error(msg)
             raise ServiceError(msg)
 
-    def _reject_request(self, env, start_response, code):
+    def _reject_request(self, env, start_response, code, min_balance):
+        """For 402 condition:
+        * if the minimum balance is 0, which is the most cases
+        * if the minimum balance is 10, which is used for floatingip for now.
+        """
         error_message = {
             401: ("Authentication Required", "401 Unauthorized"),
-            402: ("Payment Required", "402 PaymentRequired"),
+            402: ('{"min_balance": %s, "msg": "Payment Required"}' % min_balance,
+                  "402 PaymentRequired"),
             404: ("Account NotFound", "404 AccountNotFound"),
             500: ("Billing Service Error", "500 BillingServiceError"),
         }

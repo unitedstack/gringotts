@@ -221,7 +221,6 @@ class InstanceCreateEnd(ComputeNotificationBase):
         if status == const.STATE_STOPPED and delta > datetime.timedelta(hours=1):
             return 0
 
-        # Create subscriptions for this order
         for ext in product_items.extensions:
             if ext.name.startswith(status):
                 unit_price += ext.obj.get_unit_price(message)

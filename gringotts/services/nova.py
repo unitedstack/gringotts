@@ -99,7 +99,7 @@ def server_list(project_id, region_name=None, detailed=True, project_name=None):
         formatted_servers.append(Server(id=server.id,
                                         name=server.name,
                                         flavor_name=flavor.name,
-                                        disk_gb=flavor.disk,
+                                        disk_gb=getattr(image, "OS-EXT-IMG-SIZE:size") / (1024 * 1024 * 1024),
                                         image_name=image.name,
                                         image_id=image.id,
                                         status=status,

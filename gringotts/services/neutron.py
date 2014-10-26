@@ -252,9 +252,16 @@ def delete_fip(fip_id, region_name=None):
 
 @wrap_exception(exc_type='stop')
 def stop_fip(fip_id, region_name=None):
-    if cfg.CONF.reserve_fip:
-        return True
     client = get_neutronclient(region_name)
+
+    try:
+        fip = client.show_floatingip(fip_id).get('floatingip')
+    except NeutronClientException:
+        fip = None
+
+    if fip and fip['uos:registerno']:
+        return True
+
     update_dict = {'port_id': None}
     client.update_floatingip(fip_id,
                              {'floatingip': update_dict})
