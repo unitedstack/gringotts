@@ -216,10 +216,13 @@ class InstanceCreateEnd(ComputeNotificationBase):
             cron_time = timeutils.parse_strtime(cron_time,
                                                 fmt=ISO8601_UTC_TIME_FORMAT)
 
-        delta = cron_time - timeutils.utcnow()
+        #delta = cron_time - timeutils.utcnow()
+        #if status == const.STATE_STOPPED and delta > datetime.timedelta(hours=1):
+        #    return 0
 
-        if status == const.STATE_STOPPED and delta > datetime.timedelta(hours=1):
-            return 0
+        # didn't check the stopped instance for now
+        if status == const.STATE_STOPPED:
+            return
 
         for ext in product_items.extensions:
             if ext.name.startswith(status):

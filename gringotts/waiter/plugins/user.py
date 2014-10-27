@@ -67,8 +67,8 @@ class UserRegisterEnd(RegisterNotificationBase):
             # charge account
             type = 'bonus'
             come_from = 'system'
-            initial_balance = cfg.CONF.waiter.initial_balance
-            self.charge_account(project_id, initial_balance, type, come_from)
+            bonus = message['payload'].get('bonus', cfg.CONF.waiter.initial_balance)
+            self.charge_account(project_id, str(bonus), type, come_from)
         except Exception:
             LOG.exception('Fail to create account for the project: %s' %
                           project_id)

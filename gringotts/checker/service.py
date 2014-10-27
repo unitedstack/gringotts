@@ -52,10 +52,11 @@ cfg.CONF.register_opts(OPTS, group="checker")
 
 
 class Situation2Item(object):
-    def __init__(self, order_id, action_time, change_to):
+    def __init__(self, order_id, action_time, change_to, project_id):
         self.order_id = order_id
         self.action_time = action_time
         self.change_to = change_to
+        self.project_id = project_id
 
     def __eq__(self, other):
         return self.order_id == other.order_id and self.change_to == other.change_to
@@ -65,9 +66,10 @@ class Situation2Item(object):
 
 
 class Situation3Item(object):
-    def __init__(self, order_id, resource_created_at):
+    def __init__(self, order_id, resource_created_at, project_id):
         self.order_id = order_id
         self.resource_created_at = resource_created_at
+        self.project_id = project_id
 
     def __eq__(self, other):
         return self.order_id == other.order_id
@@ -77,9 +79,10 @@ class Situation3Item(object):
 
 
 class Situation4Item(object):
-    def __init__(self, order_id, deleted_at):
+    def __init__(self, order_id, deleted_at, project_id):
         self.order_id = order_id
         self.deleted_at = deleted_at
+        self.project_id = project_id
 
     def __eq__(self, other):
         return self.order_id == other.order_id
@@ -89,10 +92,11 @@ class Situation4Item(object):
 
 
 class Situation5Item(object):
-    def __init__(self, order_id, resource, unit_price):
+    def __init__(self, order_id, resource, unit_price, project_id):
         self.order_id = order_id
         self.resource = resource
         self.unit_price = unit_price
+        self.project_id = project_id
 
     def __eq__(self, other):
         return self.order_id == other.order_id and self.resource == other.resource
@@ -243,12 +247,14 @@ class CheckerService(os_service.Service):
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
                                                       action_time,
-                                                      resource.status))
+                                                      resource.status,
+                                                      resource.project_id))
             # Situation 3: Resource's order has been created,
             # but its bill not be created by master
             elif not order['cron_time']:
                 try_to_fix['3'].append(Situation3Item(order['order_id'],
-                                                      resource.created_at))
+                                                      resource.created_at,
+                                                      resource.project_id))
             # Situation 5: The order's unit_price is different from the
             # resource's actual price
             else:
@@ -260,7 +266,8 @@ class CheckerService(os_service.Service):
                 if unit_price is not None and unit_price != order_unit_price:
                     try_to_fix['5'].append(Situation5Item(order['order_id'],
                                                           resource,
-                                                          unit_price))
+                                                          unit_price,
+                                                          resource.project_id))
 
             resource_to_order[resource.id]['checked'] = True
 
@@ -268,7 +275,8 @@ class CheckerService(os_service.Service):
         # Situation 4: The resource of the order has been deleted
         deleted_at = utils.format_datetime(timeutils.strtime())
         try_to_fix['4'].append(Situation4Item(order['order_id'],
-                                              deleted_at))
+                                              deleted_at,
+                                              order['project_id']))
 
     def _check_if_resources_match_orders(self, bad_resources, try_to_fix):
         """Check one time to collect orders/resources that may need to fix and notify
@@ -338,14 +346,16 @@ class CheckerService(os_service.Service):
 
             ## Situation 1
             for resource in try_to_fix_situ_1:
-                LOG.warn('Situation 1: The resource(%s) has no order' % resource)
+                LOG.warn('Situation 1: In project(%s), the resource(%s) has no order' % \
+                        (resource.project_id, resource.id))
                 if cfg.CONF.checker.try_to_fix:
                     create_cls = self.RESOURCE_CREATE_MAP[resource.resource_type]
                     create_cls.process_notification(resource.to_message(),
                                                     resource.status)
             ## Situation 2
             for item in try_to_fix_situ_2:
-                LOG.warn('Situation 2: The order(%s) and its resource\'s status doesn\'t match' % item.order_id)
+                LOG.warn('Situation 2: In project(%s), the order(%s) and its resource\'s status doesn\'t match' % \
+                        (item.project_id, item.order_id))
                 if cfg.CONF.checker.try_to_fix:
                     self.master_api.resource_changed(self.ctxt,
                                                      item.order_id,
@@ -354,7 +364,8 @@ class CheckerService(os_service.Service):
                                                      remarks="System Adjust")
             ## Situation 3
             for item in try_to_fix_situ_3:
-                LOG.warn('Situation 3: The order(%s) has no bills' % item.order_id)
+                LOG.warn('Situation 3: In project(%s), the order(%s) has no bills' % \
+                        (item.project_id, item.order_id))
                 if cfg.CONF.checker.try_to_fix:
                     self.master_api.resource_created_again(self.ctxt,
                                                            item.order_id,
@@ -362,7 +373,8 @@ class CheckerService(os_service.Service):
                                                            "Sytstem Adjust")
             ## Situation 4
             for item in try_to_fix_situ_4:
-                LOG.warn('Situation 4: The resource of the order(%s) has been deleted.' % item.order_id)
+                LOG.warn('Situation 4: In project(%s), the order(%s)\'s resource has been deleted.' % \
+                        (item.project_id, item.order_id))
                 if cfg.CONF.checker.try_to_fix:
                     self.master_api.resource_deleted(self.ctxt,
                                                      item.order_id,
@@ -370,7 +382,8 @@ class CheckerService(os_service.Service):
                                                      "Resource Has Been Deleted")
             ## Situation 5
             for item in try_to_fix_situ_5:
-                LOG.warn('Situation 5: The unit_price of the order(%s) is wrong, should be %s' % (item.order_id, item.unit_price))
+                LOG.warn('Situation 5: In project(%s), the order(%s)\'s unit_price is wrong, should be %s' % \
+                        (item.project_id, item.order_id, item.unit_price))
                 if cfg.CONF.checker.try_to_fix:
                     create_cls = self.RESOURCE_CREATE_MAP[item.resource.resource_type]
                     create_cls.change_unit_price(item.resource.to_message(),
