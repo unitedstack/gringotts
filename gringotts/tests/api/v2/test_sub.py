@@ -3,7 +3,7 @@ import datetime
 from gringotts import context
 from gringotts.tests import db_fixtures
 from gringotts.tests import fake_data
-from gringotts.tests.api.v1 import FunctionalTest
+from gringotts.tests.api.v2 import FunctionalTest
 
 
 class TestSubscriptions(FunctionalTest):

@@ -85,6 +85,8 @@ def upgrade():
                        (project.domain_id, account['project_id']))
             op.execute("UPDATE `order` set domain_id='%s' where project_id='%s'" % \
                        (project.domain_id, account['project_id']))
+            op.execute("UPDATE `order` set user_id='%s' where project_id='%s' and user_id is NULL" % \
+                       (account['user_id'], account['project_id']))
             op.execute("UPDATE subscription set domain_id='%s' where project_id='%s'" % \
                        (project.domain_id, account['project_id']))
             op.execute("UPDATE bill set domain_id='%s' where project_id='%s'" % \

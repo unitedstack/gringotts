@@ -204,6 +204,10 @@ class AccountNotFound(NotFound):
     message = _("Account %(user_id)s could not be found")
 
 
+class AccountByProjectNotFound(NotFound):
+    message = _("Account %(project_id)s could not be found")
+
+
 class PreChargeNotFound(NotFound):
     message = _("Precharge %(precharge_code)s not found")
 

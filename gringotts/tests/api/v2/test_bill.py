@@ -2,7 +2,7 @@ import datetime
 
 from gringotts.tests import db_fixtures
 from gringotts.tests import fake_data
-from gringotts.tests.api.v1 import FunctionalTest
+from gringotts.tests.api.v2 import FunctionalTest
 
 
 class TestBills(FunctionalTest):
@@ -71,3 +71,45 @@ class TestBills(FunctionalTest):
         data = self.get_json(path, headers=self.headers)
 
         self.assertEqual(12, len(data))
+
+    def test_post_bill(self):
+        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
+        orders = self.get_json('/orders', headers=self.headers)
+
+        # add a hourly bill to vm1
+        order_id = orders['orders'][7]['order_id']
+
+        new_bill = {
+            "order_id": order_id,
+            "remarks": "Hourly Billing"
+        }
+
+        self.post_json('/bills', new_bill, headers=self.headers)
+
+        path = '/orders/' + order_id
+        data = self.get_json(path, headers=self.headers)
+
+        self.assertEqual(2, len(data['bills']))
+
+    def test_put_bill(self):
+        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
+        orders = self.get_json('/orders', headers=self.headers)
+
+        # colse the bill of vm1
+        order_id = orders['orders'][7]['order_id']
+
+        body = {
+            "order_id": order_id,
+            "action_time": fake_data.INSTANCE_1_STOPPED_TIME
+        }
+
+        self.put_json('/bills', body, headers=self.headers)
+
+        path = '/orders/' + order_id
+        data = self.get_json(path, headers=self.headers)
+
+        self.assertEqual(1, len(data['bills']))
+        self.assertEqual('0.0150', data['bills'][0]['total_price'])
+
+        orders = self.get_json('/orders', headers=self.headers)
+        self.assertEqual('changing', orders['orders'][7]['status'])

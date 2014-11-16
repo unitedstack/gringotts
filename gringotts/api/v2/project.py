@@ -13,7 +13,7 @@ from oslo.config import cfg
 from gringotts.api import acl
 from gringotts import exception
 from gringotts import utils as gringutils
-from gringotts.api.v1 import models
+from gringotts.api.v2 import models
 from gringotts.db import models as db_models
 from gringotts.services import keystone
 from gringotts.checker import notifier
@@ -21,10 +21,6 @@ from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
 
-OPTS = []
-
-CONF = cfg.CONF
-CONF.register_opts(OPTS)
 
 LOG = log.getLogger(__name__)
 
@@ -55,14 +51,13 @@ class ProjectController(rest.RestController):
         """Return this project"""
         return models.Project.from_db_model(self._project())
 
-    @wsexpose(models.Project, wtypes.text)
+    @wsexpose(None, wtypes.text)
     def billing_owner(self, user_id):
         """Change billing_owner of this project"""
         self.conn = pecan.request.db_conn
-        project = self.conn.change_billing_owner(request.context,
-                                                 project_id=self._id,
-                                                 user_id=user_id)
-        return project
+        self.conn.change_billing_owner(request.context,
+                                       project_id=self._id,
+                                       user_id=user_id)
 
 
 class ProjectsController(rest.RestController):
@@ -78,7 +73,6 @@ class ProjectsController(rest.RestController):
     def get_all(self, user_id=None, type=None):
         """Get all projects
         """
-
         user_id = acl.get_limited_to_user(request.headers) or user_id
         if user_id is None:
             user_id = request.headers.get('X-User-Id')

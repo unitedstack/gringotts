@@ -444,6 +444,7 @@ PRODUCT_IMAGE_LICENSE = {
 # account
 FAKE_ACCOUNT_DEMO = {
     "user_id": DEMO_USER_ID,
+    "project_id": DEMO_PROJECT_ID,
     "domain_id": DOMAIN_ID,
     "balance": 100,
     "consumption": 0,
@@ -452,6 +453,7 @@ FAKE_ACCOUNT_DEMO = {
 
 FAKE_ACCOUNT_ADMIN = {
     "user_id": ADMIN_USER_ID,
+    "project_id": ADMIN_PROJECT_ID,
     "domain_id": DOMAIN_ID,
     "balance": 8975,
     "consumption": 9527,
@@ -472,3 +474,49 @@ FAKE_PROJECT_ADMIN = {
     "domain_id": DOMAIN_ID,
     "consumption": 527
 }
+
+# user projects
+USER_PROJECTS = [
+    {
+      "description": None,
+      "name": "admin",
+      "domain_id": DOMAIN_ID,
+      "id": ADMIN_PROJECT_ID,
+      "created_at": "2014-11-16 00:00:00",
+      "users": {
+        "billing_owner": {
+            "id": ADMIN_USER_ID,
+            "name": "admin",
+        },
+        "project_owner": {
+            "id": ADMIN_USER_ID,
+            "name": "admin",
+        },
+        "project_creator": {
+            "id": ADMIN_USER_ID,
+            "name": "admin",
+        }
+      }
+    },
+    {
+      "description": None,
+      "name": "demo",
+      "domain_id": DOMAIN_ID,
+      "id": DEMO_PROJECT_ID,
+      "created_at": "2014-11-16 00:00:00",
+      "users": {
+        "billing_owner": {
+          "name": "admin",
+          "id": ADMIN_USER_ID,
+        },
+        "project_owner": {
+          "name": "demo",
+          "id": DEMO_USER_ID,
+        },
+        "project_creator": {
+          "name": "admin",
+          "id": ADMIN_USER_ID,
+        },
+      }
+    }
+]

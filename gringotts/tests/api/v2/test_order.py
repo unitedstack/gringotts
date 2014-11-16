@@ -2,7 +2,7 @@ import datetime
 
 from gringotts.tests import db_fixtures
 from gringotts.tests import fake_data
-from gringotts.tests.api.v1 import FunctionalTest
+from gringotts.tests.api.v2 import FunctionalTest
 
 
 class TestOrders(FunctionalTest):
@@ -168,3 +168,47 @@ class TestOrders(FunctionalTest):
                              limit=2, offset=2)
 
         self.assertEqual(2, len(data['bills']))
+
+    def test_post_order(self):
+        new_order = {
+            "order_id": "fake_order_id",
+            "unit_price": "0.056",
+            "unit": "hour",
+            "resource_id": "fake_resource_id",
+            "resource_name": "fake_resource_name",
+            "user_id": fake_data.DEMO_USER_ID,
+            "project_id": fake_data.DEMO_PROJECT_ID,
+            "region_id": "fake_region_id",
+            "type": "instance",
+            "status": "running"
+        }
+        self.post_json(self.PATH, new_order, headers=self.headers)
+
+        data = self.get_json(self.PATH, headers=self.headers)
+        self.assertEqual(1, data['total_count'])
+        self.assertEqual(fake_data.ADMIN_USER_ID, data['orders'][0]['user_id'])
+        self.assertEqual(fake_data.DOMAIN_ID, data['orders'][0]['domain_id'])
+
+    def test_put_order(self):
+        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
+
+        # test vm2
+        orders = self.get_json(self.PATH, headers=self.headers)
+        self.assertEqual('0.0000', orders['orders'][6]['unit_price'])
+        self.assertEqual('stopped', orders['orders'][6]['status'])
+
+        order_id = orders['orders'][6]['order_id']
+
+        body = {
+            "order_id": order_id,
+            "change_to": "running",
+            "cron_time": None,
+            "change_order_status": True,
+            "first_change_to": None
+        }
+
+        self.put_json(self.PATH, body, headers=self.headers)
+
+        orders = self.get_json(self.PATH, headers=self.headers)
+        self.assertEqual('0.0900', orders['orders'][6]['unit_price'])
+        self.assertEqual('running', orders['orders'][6]['status'])

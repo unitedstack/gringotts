@@ -35,7 +35,7 @@ class FunctionalTest(db_test_base.DBTestBase):
 
         self.config = {
             'app': {
-                'root': 'gringotts.api.v1.root.RootController',
+                'root': 'gringotts.api.root.RootController',
                 'modules': ['gringotts.api'],
                 'static_root': '%s/public' % root_dir,
                 'template_path': '%s/gringotts/api/templates' % root_dir,

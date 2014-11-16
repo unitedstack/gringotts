@@ -1,26 +1,14 @@
 import pecan
 import wsme
-import itertools
-
-from oslo.config import cfg
 
 from pecan import rest
 from pecan import request
 from wsme import types as wtypes
 from wsmeext.pecan import wsexpose
 
-from gringotts.api import acl
-from gringotts.api.v1 import models
 from gringotts import context
 from gringotts.openstack.common import log
 
-
-OPTS = [
-    cfg.ListOpt('regions',
-                default=['RegionOne'],
-                help="A list of regions that is avaliable")
-]
-cfg.CONF.register_opts(OPTS)
 
 LOG = log.getLogger(__name__)
 
@@ -42,45 +30,13 @@ class ResourcesController(rest.RestController):
         from gringotts.services import nova
         from gringotts.services import ceilometer
 
-        regions = [region_name if region_name else cfg.CONF.regions]
+        LOG.warn("deleting resources of tenant(%s) in region(%s)" % (project_id, region_name))
 
-        for region_name in regions:
-            LOG.warn("deleting resources of tenant(%s) in region(%s)" % (project_id, region_name))
-
-            # Ensure snapshots to be deleted before volume
-            cinder.delete_snapshots(project_id, region_name=region_name)
-            glance.delete_images(project_id, region_name=region_name)
-            neutron.delete_fips(project_id, region_name=region_name)
-            neutron.delete_routers(project_id, region_name=region_name)
-            nova.delete_servers(project_id, region_name=region_name)
-            ceilometer.delete_alarms(project_id, region_name=region_name)
-            cinder.delete_volumes(project_id, region_name=region_name)
-
-    @wsexpose([models.Resource], wtypes.text)
-    def get_all(self, project_id):
-        """ Get all resources of specified project_id in all regions
-        """
-        from gringotts.services import cinder
-        from gringotts.services import glance
-        from gringotts.services import neutron
-        from gringotts.services import nova
-        from gringotts.services import ceilometer
-
-        project_id = acl.get_limited_to_project(request.headers) or project_id
-        if project_id is None:
-            project_id = request.headers.get('X-Project-Id')
-
-        LIST_METHOD = [cinder.volume_list, cinder.snapshot_list,
-                       glance.image_list,
-                       neutron.network_list, neutron.router_list, neutron.floatingip_list,
-                       nova.server_list,
-                       ceilometer.alarm_list]
-        result = []
-        for method, region_name in itertools.product(LIST_METHOD, cfg.CONF.regions):
-            resources = method(project_id, region_name=region_name)
-            for resource in resources:
-                result.append(models.Resource(region_name=region_name,
-                                              resource_id=resource.id,
-                                              resource_name=resource.name,
-                                              resource_type=resource.resource_type))
-        return result
+        # Ensure snapshots to be deleted before volume
+        cinder.delete_snapshots(project_id, region_name=region_name)
+        glance.delete_images(project_id, region_name=region_name)
+        neutron.delete_fips(project_id, region_name=region_name)
+        neutron.delete_routers(project_id, region_name=region_name)
+        nova.delete_servers(project_id, region_name=region_name)
+        ceilometer.delete_alarms(project_id, region_name=region_name)
+        cinder.delete_volumes(project_id, region_name=region_name)

@@ -225,13 +225,14 @@ class Charge(Model):
     :param charge_time: The charge time
     """
 
-    def __init__(self, charge_id, user_id, domain_id, value, charge_time,
+    def __init__(self, charge_id, user_id, project_id, domain_id, value, charge_time,
                  type=None, come_from=None,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,
             charge_id=charge_id,
             user_id=user_id,
+            project_id=project_id,
             domain_id=domain_id,
             value=value,
             type=type,
@@ -259,7 +260,7 @@ class Region(Model):
 class PreCharge(Model):
     """The precharge model
     """
-    def __init__(self, code, price, used, dispatched, user_id, domain_id,
+    def __init__(self, code, price, used, dispatched, user_id, project_id, domain_id,
                  created_at=None, expired_at=None, remarks=None):
         Model.__init__(self,
                        code=code,
@@ -267,6 +268,7 @@ class PreCharge(Model):
                        used=used,
                        dispatched=dispatched,
                        user_id=user_id,
+                       project_id=project_id,
                        domain_id=domain_id,
                        created_at=created_at,
                        expired_at=expired_at,

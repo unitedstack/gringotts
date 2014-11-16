@@ -206,6 +206,7 @@ class Charge(Base):
     id = Column(Integer, primary_key=True)
     charge_id = Column(String(255))
     user_id = Column(String(255))
+    project_id = Column(String(255))
     domain_id = Column(String(255))
     value = Column(DECIMAL(20,4))
     type = Column(String(64))
@@ -247,6 +248,7 @@ class PreCharge(Base):
     deleted = Column(Boolean, default=False)
 
     user_id = Column(String(255))
+    project_id = Column(String(255))
     domain_id = Column(String(255))
 
     remarks = Column(String(255))

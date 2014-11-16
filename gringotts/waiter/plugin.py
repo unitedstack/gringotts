@@ -14,13 +14,7 @@ from gringotts import master
 from gringotts.openstack.common import log
 
 
-db_conn = db.get_connection(cfg.CONF)
-
 LOG = log.getLogger(__name__)
-
-
-worker_api = worker.API()
-master_api = master.API()
 
 
 class Collection(object):
@@ -48,6 +42,8 @@ class ProductItem(plugin.PluginBase):
 
     __metaclass__ = abc.ABCMeta
 
+    worker_api = worker.API()
+
     @abc.abstractmethod
     def get_collection(self, message):
         """Get collection from message
@@ -60,19 +56,19 @@ class ProductItem(plugin.PluginBase):
 
         LOG.debug('Create subscription for order: %s' % order_id)
 
-        result = worker_api.create_subscription(context.get_admin_context(),
-                                                order_id,
-                                                type=type,
-                                                **collection.as_dict())
+        result = self.worker_api.create_subscription(context.get_admin_context(),
+                                                     order_id,
+                                                     type=type,
+                                                     **collection.as_dict())
         return result
 
     def get_unit_price(self, message):
         """Get product unit price"""
         collection = self.get_collection(message)
-        product = worker_api.get_product(context.get_admin_context(),
-                                         collection.product_name,
-                                         collection.service,
-                                         collection.region_id)
+        product = self.worker_api.get_product(context.get_admin_context(),
+                                              collection.product_name,
+                                              collection.service,
+                                              collection.region_id)
         if product:
             return collection.resource_volume * gringutils._quantize_decimal(product['unit_price'])
         return 0
@@ -97,6 +93,9 @@ class Order(object):
 
 class NotificationBase(plugin.NotificationBase):
 
+    worker_api = worker.API()
+    master_api = master.API()
+
     @abc.abstractmethod
     def make_order(self, message, state=None):
         """Collect distinct fileds from different plugins
@@ -111,24 +110,24 @@ class NotificationBase(plugin.NotificationBase):
     def change_order_unit_price(self, order_id, quantity, status):
         """Change the order's subscriptions and unit price"""
         # change subscirption's quantity
-        worker_api.change_subscription(context.get_admin_context(),
-                                       order_id, quantity, status)
+        self.worker_api.change_subscription(context.get_admin_context(),
+                                            order_id, quantity, status)
 
         # change the order's unit price
-        worker_api.change_order(context.get_admin_context(), order_id, status)
+        self.worker_api.change_order(context.get_admin_context(), order_id, status)
 
     def change_flavor_unit_price(self, order_id, new_flavor, service, region_id, status):
         """Change the order's flavor subscription and unit price"""
         if status == const.STATE_RUNNING:
             # change subscirption's quantity
-            worker_api.change_flavor_subscription(context.get_admin_context(),
-                                                  order_id,
-                                                  new_flavor, None,
-                                                  service, region_id,
-                                                  const.STATE_RUNNING)
+            self.worker_api.change_flavor_subscription(context.get_admin_context(),
+                                                       order_id,
+                                                       new_flavor, None,
+                                                       service, region_id,
+                                                       const.STATE_RUNNING)
 
         # change the order's unit price
-        worker_api.change_order(context.get_admin_context(), order_id, status)
+        self.worker_api.change_order(context.get_admin_context(), order_id, status)
 
     def create_order(self, order_id, unit_price, unit, message, state=None):
         """Create an order for resource created
@@ -137,80 +136,80 @@ class NotificationBase(plugin.NotificationBase):
 
         LOG.debug('Create order for order_id: %s' % order_id)
 
-        worker_api.create_order(context.get_admin_context(),
-                                order_id,
-                                cfg.CONF.region_name,
-                                unit_price,
-                                unit,
-                                **order.as_dict())
+        self.worker_api.create_order(context.get_admin_context(),
+                                     order_id,
+                                     cfg.CONF.region_name,
+                                     unit_price,
+                                     unit,
+                                     **order.as_dict())
 
     def get_order_by_resource_id(self, resource_id):
-        return worker_api.get_order_by_resource_id(context.get_admin_context(),
-                                                   resource_id)
+        return self.worker_api.get_order_by_resource_id(context.get_admin_context(),
+                                                        resource_id)
 
     def create_account(self, user_id, domain_id, balance, consumption, level,
                        **kwargs):
-        worker_api.create_account(context.get_admin_context(),
-                                  user_id, domain_id, balance, consumption, level,
-                                  **kwargs)
+        self.worker_api.create_account(context.get_admin_context(),
+                                       user_id, domain_id, balance, consumption, level,
+                                       **kwargs)
 
     def resource_created(self, order_id, action_time, remarks):
         """Notify master that resource has been created
         """
-        master_api.resource_created(context.get_admin_context(),
-                                    order_id,
-                                    action_time, remarks)
+        self.master_api.resource_created(context.get_admin_context(),
+                                         order_id,
+                                         action_time, remarks)
 
     def resource_created_again(self, order_id, action_time, remarks):
         """Notify master that resource has been created
         """
-        master_api.resource_created_again(context.get_admin_context(),
-                                          order_id,
-                                          action_time, remarks)
+        self.master_api.resource_created_again(context.get_admin_context(),
+                                               order_id,
+                                               action_time, remarks)
 
     def resource_started(self, order_id, action_time, remarks):
         """Notify master that resource has been started
         """
-        master_api.resource_started(context.get_admin_context(),
-                                    order_id,
-                                    action_time,
-                                    remarks)
+        self.master_api.resource_started(context.get_admin_context(),
+                                         order_id,
+                                         action_time,
+                                         remarks)
 
     def resource_stopped(self, order_id, action_time, remarks):
         """Notify master that resource has been stopped
         """
-        master_api.resource_stopped(context.get_admin_context(),
-                                    order_id,
-                                    action_time,
-                                    remarks)
+        self.master_api.resource_stopped(context.get_admin_context(),
+                                         order_id,
+                                         action_time,
+                                         remarks)
 
     def resource_deleted(self, order_id, action_time, remarks):
         """Notify master that resource has been deleted
         """
-        master_api.resource_deleted(context.get_admin_context(),
-                                    order_id,
-                                    action_time,
-                                    remarks)
+        self.master_api.resource_deleted(context.get_admin_context(),
+                                         order_id,
+                                         action_time,
+                                         remarks)
 
     def resource_resized(self, order_id, action_time, quantity, remarks):
         """Notify master that resource has been resized
         """
-        master_api.resource_resized(context.get_admin_context(),
-                                    order_id,
-                                    action_time, quantity, remarks)
+        self.master_api.resource_resized(context.get_admin_context(),
+                                         order_id,
+                                         action_time, quantity, remarks)
 
     def resource_changed(self, order_id, action_time, change_to, remarks):
         """Notify master that resource has been changed
         """
-        master_api.resource_changed(context.get_admin_context(),
-                                    order_id,
-                                    action_time, change_to, remarks)
+        self.master_api.resource_changed(context.get_admin_context(),
+                                         order_id,
+                                         action_time, change_to, remarks)
 
     def instance_stopped(self, order_id, action_time):
         """Notify master that instance has been stopped
         """
-        master_api.instance_stopped(context.get_admin_context(),
-                                    order_id, action_time)
+        self.master_api.instance_stopped(context.get_admin_context(),
+                                         order_id, action_time)
 
     def instance_resized(self, order_id, action_time,
                          new_flavor, old_flavor, service, region_id,
@@ -218,28 +217,28 @@ class NotificationBase(plugin.NotificationBase):
         """Notify master that instance has been resized
         """
         # change subscirption's product
-        worker_api.change_flavor_subscription(context.get_admin_context(),
-                                              order_id,
-                                              new_flavor, old_flavor,
-                                              service, region_id,
-                                              const.STATE_RUNNING)
+        self.worker_api.change_flavor_subscription(context.get_admin_context(),
+                                                   order_id,
+                                                   new_flavor, old_flavor,
+                                                   service, region_id,
+                                                   const.STATE_RUNNING)
 
     def charge_account(self, user_id, value, type, come_from):
         """Charge the account
         """
-        worker_api.charge_account(context.get_admin_context(),
-                                  user_id, value, type, come_from)
+        self.worker_api.charge_account(context.get_admin_context(),
+                                       user_id, value, type, come_from)
 
     def create_project(self, user_id, project_id, domain_id, consumption):
         """Create a project whose project owner is user_id
         """
-        worker_api.create_project(context.get_admin_context(),
-                                  user_id, project_id, domain_id, consumption)
+        self.worker_api.create_project(context.get_admin_context(),
+                                       user_id, project_id, domain_id, consumption)
 
     def delete_resources(self, project_id):
         """Delete all resources of project"""
-        worker_api.delete_resources(context.get_admin_context(), project_id)
+        self.worker_api.delete_resources(context.get_admin_context(), project_id)
 
     def change_billing_owner(self, project_id, user_id):
         """Change billing owner"""
-        worker_api.change_billing_owner(context.get_admin_context(), project_id, user_id)
+        self.worker_api.change_billing_owner(context.get_admin_context(), project_id, user_id)

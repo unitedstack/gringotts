@@ -18,8 +18,8 @@ class DBTestBase(test_base.TestBase):
         # it will use default option values
         self.CONF([], project='gringotts')
 
-        #url = 'mysql://root:rachel@localhost/test'
-        url = 'sqlite://'
+        url = 'mysql://root:rachel@localhost/test'
+        #url = 'sqlite:///'
         self.CONF.set_override('connection', url, group='database')
 
         with mock.patch('gringotts.services.keystone.get_admin_user_id', return_value='mock_user_id'), \

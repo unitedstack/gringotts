@@ -12,7 +12,7 @@ from oslo.config import cfg
 from gringotts import exception
 from gringotts import utils as gringutils
 
-from gringotts.api.v1 import models
+from gringotts.api.v2 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
@@ -24,7 +24,6 @@ LOG = log.getLogger(__name__)
 class ProductController(rest.RestController):
     """Manages operations on a single product
     """
-
     def __init__(self, product_id):
         pecan.request.context['product_id'] = product_id
         self._id = product_id

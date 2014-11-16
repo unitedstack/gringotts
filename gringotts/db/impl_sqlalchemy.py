@@ -94,6 +94,8 @@ def model_query(context, model, *args, **kwargs):
     session = kwargs.get('session') or get_session()
     query = session.query(model, *args)
 
+    if gring_context.is_domain_owner_context(context) and hasattr(model, 'domain_id'):
+        query = query.filter_by(domain_id=context.domain_id)
     if gring_context.is_user_context(context) and hasattr(model, 'user_id'):
         query = query.filter_by(user_id=context.user_id)
     return query
@@ -282,6 +284,7 @@ class Connection(base.Connection):
     def _row_to_db_charge_model(row):
         return db_models.Charge(charge_id=row.charge_id,
                                 user_id=row.user_id,
+                                project_id=row.project_id,
                                 domain_id=row.domain_id,
                                 value=row.value,
                                 type=row.type,
@@ -305,6 +308,7 @@ class Connection(base.Connection):
                                    used=row.used,
                                    dispatched=row.dispatched,
                                    user_id=row.user_id,
+                                   project_id=row.project_id,
                                    domain_id=row.domain_id,
                                    created_at=row.created_at,
                                    expired_at=row.expired_at,
@@ -863,9 +867,13 @@ class Connection(base.Connection):
         return self._row_to_db_account_model(account_ref)
 
     @require_context
-    def get_account(self, context, user_id):
-        query = model_query(context, sa_models.Account).\
-            filter_by(user_id=user_id)
+    def get_account(self, context, user_id, project_id=None):
+        if project_id:
+            query = model_query(context, sa_models.Account).\
+                filter_by(project_id=project_id)
+        else:
+            query = model_query(context, sa_models.Account).\
+                filter_by(user_id=user_id)
         ref = query.one()
         return self._row_to_db_account_model(ref)
 
@@ -895,24 +903,35 @@ class Connection(base.Connection):
         return query.one().count or 0
 
     @require_admin_context
-    def change_account_level(self, context, project_id, level):
+    def change_account_level(self, context, user_id, level, project_id=None):
         session = db_session.get_session()
         with session.begin():
-            account = model_query(context, sa_models.Account, session=session).\
-                filter_by(project_id=project_id).\
-                with_lockmode('update').one()
+            if project_id:
+                account = model_query(context, sa_models.Account, session=session).\
+                    filter_by(project_id=project_id).\
+                    with_lockmode('update').one()
+            else:
+                account = model_query(context, sa_models.Account, session=session).\
+                    filter_by(user_id=user_id).\
+                    with_lockmode('update').one()
             account.level = level
 
         return self._row_to_db_account_model(account)
 
     @require_admin_context
-    def update_account(self, context, user_id, **data):
+    def update_account(self, context, user_id, project_id=None, **data):
+        """Do the charge charge account trick"""
         session = db_session.get_session()
         with session.begin():
             # add up account balance
-            account = model_query(context, sa_models.Account, session=session).\
-                filter_by(user_id=user_id).\
-                with_lockmode('update').one()
+            if project_id:
+                account = model_query(context, sa_models.Account, session=session).\
+                    filter_by(project_id=project_id).\
+                    with_lockmode('update').one()
+            else:
+                account = model_query(context, sa_models.Account, session=session).\
+                    filter_by(user_id=user_id).\
+                    with_lockmode('update').one()
 
             account.balance += data['value']
 
@@ -927,6 +946,7 @@ class Connection(base.Connection):
 
             charge = sa_models.Charge(charge_id=uuidutils.generate_uuid(),
                                       user_id=account.user_id,
+                                      project_id=account.project_id,
                                       domain_id=account.domain_id,
                                       value=data['value'],
                                       type=data.get('type'),
@@ -937,14 +957,20 @@ class Connection(base.Connection):
         return self._row_to_db_charge_model(charge)
 
     @require_admin_context
-    def set_charged_orders(self, context, project_id):
+    def set_charged_orders(self, context, user_id, project_id=None):
         """Set owed orders to charged"""
         session = db_session.get_session()
         with session.begin():
             # set owed order in all regions to charged
-            query = model_query(context, sa_models.Order, session=session).\
-                    filter_by(project_id=project_id).\
-                    filter_by(owed=True)
+            if project_id:
+                query = model_query(context, sa_models.Order, session=session).\
+                        filter_by(project_id=project_id).\
+                        filter_by(owed=True)
+            else:
+                query = model_query(context, sa_models.Order, session=session).\
+                        filter_by(user_id=user_id).\
+                        filter_by(owed=True)
+
             orders = query.filter(not_(sa_models.Order.status==const.STATE_DELETED)).\
                     all()
 
@@ -967,9 +993,12 @@ class Connection(base.Connection):
                 order.charged = False
 
     @require_context
-    def get_charges(self, context, user_id=None, start_time=None, end_time=None,
+    def get_charges(self, context, user_id=None, project_id=None, start_time=None, end_time=None,
                     limit=None, offset=None, sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.Charge)
+
+        if project_id:
+            query = query.filter_by(project_id=project_id)
 
         if user_id:
             query = query.filter_by(user_id=user_id)
@@ -986,11 +1015,14 @@ class Connection(base.Connection):
         return (self._row_to_db_charge_model(r) for r in result)
 
     @require_context
-    def get_charges_price_and_count(self, context, user_id=None,
+    def get_charges_price_and_count(self, context, user_id=None, project_id=None,
                                     start_time=None, end_time=None):
         query = model_query(context, sa_models.Charge,
                             func.count(sa_models.Charge.id).label('count'),
                             func.sum(sa_models.Charge.value).label('sum'))
+
+        if project_id:
+            query = query.filter_by(project_id=project_id)
 
         if user_id:
             query = query.filter_by(user_id=user_id)
@@ -1392,13 +1424,16 @@ class Connection(base.Connection):
                         break
 
     @require_context
-    def get_precharges(self, context, user_id, limit=None, offset=None,
-                       sort_key=None, sort_dir=None):
+    def get_precharges(self, context, user_id=None, project_id=None,
+                       limit=None, offset=None, sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.PreCharge).\
                 filter_by(deleted=False)
 
         if user_id:
             query = query.filter_by(user_id=user_id)
+
+        if project_id:
+            query = query.filter_by(project_id=project_id)
 
         result = paginate_query(context, sa_models.PreCharge,
                                 limit=limit, offset=offset,
@@ -1434,7 +1469,7 @@ class Connection(base.Connection):
         return self._row_to_db_precharge_model(precharge)
 
     @require_context
-    def use_precharge(self, context, code, user_id=None):
+    def use_precharge(self, context, code, user_id=None, project_id=None):
         session = db_session.get_session()
         with session.begin():
             try:
@@ -1452,12 +1487,20 @@ class Connection(base.Connection):
                 raise exception.PreChargeHasExpired(precharge_code=code)
 
             # Update account
-            try:
-                account = model_query(context, sa_models.Account, session=session).\
-                    filter_by(user_id=user_id).\
-                    with_lockmode('update').one()
-            except NoResultFound:
-                raise exception.AccountNotFound(user_id=user_id)
+            if project_id:
+                try:
+                    account = model_query(context, sa_models.Account, session=session).\
+                        filter_by(project_id=project_id).\
+                        with_lockmode('update').one()
+                except NoResultFound:
+                    raise exception.AccountByProjectNotFound(project_id=project_id)
+            else:
+                try:
+                    account = model_query(context, sa_models.Account, session=session).\
+                        filter_by(user_id=user_id).\
+                        with_lockmode('update').one()
+                except NoResultFound:
+                    raise exception.AccountNotFound(user_id=user_id)
 
             account.balance += precharge.price
             if account.balance >= 0:
@@ -1467,6 +1510,7 @@ class Connection(base.Connection):
             charge_time = datetime.datetime.utcnow()
             charge = sa_models.Charge(charge_id=uuidutils.generate_uuid(),
                                       user_id=account.user_id,
+                                      project_id=account.project_id,
                                       domain_id=account.domain_id,
                                       value=precharge.price,
                                       type='coupon',
@@ -1477,6 +1521,7 @@ class Connection(base.Connection):
             # Update precharge
             precharge.used = True
             precharge.user_id = user_id
+            precharge.project_id = project_id
             precharge.domain_id = account.domain_id
 
         return self._row_to_db_precharge_model(precharge)
