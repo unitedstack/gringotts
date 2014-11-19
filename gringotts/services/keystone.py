@@ -16,6 +16,69 @@ CACHE_SECONDS = 60 * 60 * 24
 MC = None
 
 
+class User(object):
+    def __init__(self, user_id, domain_id, project_id=None):
+        self.user_id = user_id
+        self.domain_id = domain_id
+        self.project_id = project_id
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __repr__(self):
+        return self.user_id
+
+    def __eq__(self, other):
+        return self.user_id == other.user_id
+
+    def to_message(self):
+        msg = {
+            'event_type': 'identity.user.create',
+            'payload': {
+                'user_id': self.user_id,
+                'domain_id': self.domain_id,
+                'project_id': self.project_id,
+            }
+        }
+        return msg
+
+
+class Project(object):
+    def __init__(self, project_id, billing_owner_id, domain_id):
+        self.project_id = project_id
+        self.domain_id = domain_id
+        self.billing_owner_id = billing_owner_id
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __repr__(self):
+        return self.project_id
+
+    def __eq__(self, other):
+        return self.project_id == other.project_id
+
+    def __hash__(self):
+        return 0
+
+    def to_message(self):
+        msg = {
+            'event_type': 'identity.project.create',
+            'payload': {
+                'billing_owner_id': self.billing_owner_id,
+                'domain_id': self.domain_id,
+                'project_id': self.project_id,
+            }
+        }
+        return msg
+
+
 def _get_cache():
     global MC
     if MC is None:
@@ -197,11 +260,12 @@ def get_uos_user(user_id):
     return r.json()['user']
 
 
-def get_projects_by_project_ids(project_ids):
+def get_projects_by_project_ids(project_ids=[]):
 
     internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url + '/US-INTERNAL'+ '/' + api
 
     query = {'ids': ','.join(project_ids)}
+
     r = requests.get(internal_api('get_projects'),
                      params=query,
                      headers={'Content-Type': 'application/json'})

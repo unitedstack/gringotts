@@ -74,8 +74,6 @@ class ProjectsController(rest.RestController):
         """Get all projects
         """
         user_id = acl.get_limited_to_user(request.headers) or user_id
-        if user_id is None:
-            user_id = request.headers.get('X-User-Id')
 
         self.conn = pecan.request.db_conn
         result = []
@@ -147,6 +145,14 @@ class ProjectsController(rest.RestController):
                                             is_historical=False,
                                             created_at=timeutils.parse_isotime(k['created_at']) if k['created_at'] else None)
                     result.append(up)
+
+        elif type.lower() == 'simple':
+            projects = self.conn.get_projects(request.context, user_id=user_id)
+            for project in projects:
+                up = models.UserProject(project_id=project.project_id,
+                                        domain_id=project.domain_id,
+                                        billing_owner=dict(user_id=project.user_id))
+                result.append(up)
 
         return result
 

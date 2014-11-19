@@ -1090,6 +1090,17 @@ class Connection(base.Connection):
         return (self._row_to_db_project_model(p) for p in projects)
 
     @require_context
+    def get_projects(self, context, user_id=None):
+        query = model_query(context, sa_models.Project)
+
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+
+        projects = query.all()
+
+        return (self._row_to_db_project_model(p) for p in projects)
+
+    @require_context
     def change_billing_owner(self, context, project_id, user_id):
         session = db_session.get_session()
         with session.begin():

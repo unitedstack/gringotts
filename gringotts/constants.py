@@ -23,6 +23,8 @@ RESOURCE_VOLUME = 'volume'
 RESOURCE_FLOATINGIP = 'floatingip'
 RESOURCE_ROUTER = 'router'
 RESOURCE_ALARM = 'alarm'
+RESOURCE_USER= 'user'
+RESOURCE_PROJECT = 'project'
 
 
 # Product Name

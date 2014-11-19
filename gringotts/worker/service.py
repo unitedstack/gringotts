@@ -186,11 +186,14 @@ class WorkerService(rpc_service.Service):
         project = db_models.Project(user_id, project_id, domain_id, consumption)
         self.db_conn.create_project(ctxt, project)
 
-    def get_projects(self, ctxt, user_id=None):
-        return self.db_conn.get_projects(ctxt, user_id=user_id)
+    def get_projects(self, ctxt, user_id=None, type=None):
+        LOG.warn("Not Implemented, use http protocol")
 
     def delete_resources(self, ctxt, project_id, region_name=None):
-        pass
+        LOG.warn("Not Implemented, use http protocol")
+
+    def get_resources(self, ctxt, project_id, region_name=None):
+        LOG.warn("Not Implemented, use http protocol")
 
     def change_billing_owner(self, ctxt, project_id, user_id):
         self.db_conn.change_billing_owner(ctxt,

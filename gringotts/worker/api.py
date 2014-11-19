@@ -106,12 +106,16 @@ class LocalAPI(object):
     def create_project(self, ctxt, user_id, project_id, domain_id, consumption):
         self._service.create_project(ctxt, user_id, project_id, domain_id, consumption)
 
-    def get_projects(self, ctxt, user_id=None):
-        return self._service.get_projects(ctxt, user_id=user_id)
+    def get_projects(self, ctxt, user_id=None, type=None):
+        return self._service.get_projects(ctxt, user_id=user_id, type=type)
 
     def delete_resources(self, ctxt, project_id, region_name=None):
         return self._service.delete_resources(ctxt, project_id,
                                               region_name=region_name)
+
+    def get_resources(self, ctxt, project_id, region_name=None):
+        return self._service.get_resources(ctxt, project_id,
+                                           region_name=region_name)
 
     def change_billing_owner(self, ctxt, project_id, user_id):
         return self._service.change_billing_owner(ctxt, project_id, user_id)

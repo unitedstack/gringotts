@@ -49,8 +49,8 @@ class ResourcesController(rest.RestController):
             ceilometer.delete_alarms(project_id, region_name=region_name)
             cinder.delete_volumes(project_id, region_name=region_name)
 
-    @wsexpose([models.Resource], wtypes.text)
-    def get_all(self, project_id):
+    @wsexpose([models.Resource], wtypes.text, wtypes.text)
+    def get_all(self, project_id, region_name=None):
         """ Get all resources of specified project_id in all regions
         """
         from gringotts.services import cinder
@@ -68,11 +68,14 @@ class ResourcesController(rest.RestController):
                        neutron.network_list, neutron.router_list, neutron.floatingip_list,
                        nova.server_list,
                        ceilometer.alarm_list]
+
         result = []
-        for method, region_name in itertools.product(LIST_METHOD, cfg.CONF.regions):
-            resources = method(project_id, region_name=region_name)
+        regions = [region_name] if region_name else cfg.CONF.regions
+
+        for method, _region_name in itertools.product(LIST_METHOD, regions):
+            resources = method(project_id, region_name=_region_name)
             for resource in resources:
-                result.append(models.Resource(region_name=region_name,
+                result.append(models.Resource(region_name=_region_name,
                                               resource_id=resource.id,
                                               resource_name=resource.name,
                                               resource_type=resource.resource_type))

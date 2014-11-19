@@ -178,15 +178,22 @@ class WorkerAPI(object):
                      consumption=consumption)
         self.client.post('/projects', body=_body)
 
-    def get_projects(self, ctxt, user_id=None):
-        params = dict(user_id=user_id)
+    def get_projects(self, ctxt, user_id=None, type=None):
+        params = dict(user_id=user_id,
+                      type=type)
         resp, body = self.client.get('/projects', params=params)
-        return body['projects']
+        return body
 
     def delete_resources(self, ctxt, project_id, region_name=None):
         params = dict(project_id=project_id,
                       region_name=region_name)
         self.client.delete('/resources', params=params)
+
+    def get_resources(self, ctxt, project_id, region_name=None):
+        params = dict(project_id=project_id,
+                      region_name=region_name)
+        resp, body = self.client.get('/resources', params=params)
+        return body
 
     def change_billing_owner(self, ctxt, project_id, user_id):
         _body = dict(user_id=user_id)

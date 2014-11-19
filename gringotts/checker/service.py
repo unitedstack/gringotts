@@ -13,6 +13,7 @@ from gringotts import constants as const
 from gringotts.checker import notifier
 from gringotts.service import prepare_service
 from gringotts.services import alert
+from gringotts.services.keystone import User,Project
 
 from gringotts.waiter import plugins
 
@@ -105,6 +106,19 @@ class Situation5Item(object):
         return self.order_id
 
 
+class Situation6Item(object):
+    def __init__(self, user_id, domain_id, project_id=None):
+        self.user_id = user_id
+        self.domain_id = domain_id
+        self.project_id = project_id
+
+    def __eq__(self, other):
+        return self.user_id == other.user_id
+
+    def __repr__(self):
+        return self.user_id
+
+
 class CheckerService(os_service.Service):
 
     def __init__(self, *args, **kwargs):
@@ -147,7 +161,9 @@ class CheckerService(os_service.Service):
             const.RESOURCE_ROUTER: plugins.router.RouterCreateEnd(),
             const.RESOURCE_SNAPSHOT: plugins.snapshot.SnapshotCreateEnd(),
             const.RESOURCE_VOLUME: plugins.volume.VolumeCreateEnd(),
-            const.RESOURCE_ALARM: plugins.alarm.AlarmCreateEnd()
+            const.RESOURCE_ALARM: plugins.alarm.AlarmCreateEnd(),
+            const.RESOURCE_USER: plugins.user.UserCreatedEnd(),
+            const.RESOURCE_PROJECT: plugins.user.ProjectCreatedEnd(),
         }
 
         self.RESOURCE_GET_MAP = {
@@ -199,7 +215,9 @@ class CheckerService(os_service.Service):
         ]
 
         center_jobs = [
-            (self.check_owed_accounts_and_notify, 24, False),
+            #(self.check_owed_accounts_and_notify, 24, False),
+            #(self.check_user_to_account, 24, True),
+            (self.check_project_to_project, 24, True),
         ]
 
         if cfg.CONF.checker.enable_non_center_jobs:
@@ -597,6 +615,136 @@ class CheckerService(os_service.Service):
                                                      str(price_per_day), days_to_owe)
         except Exception:
             LOG.exception('Some exceptions occurred when checking owed accounts')
+
+    def _figure_out_difference(self, alist, akey, blist, bkey):
+        ab = []
+        s = 0
+        l = len(blist)
+        for a in alist:
+            for i in range(s, l):
+                b = blist[i]
+                if getattr(a, akey) == b.get(bkey):
+                    s = i
+                    break
+                if getattr(a, akey) < b.get(bkey) or i == l-1:
+                    s = i
+                    ab.append(a)
+                    break
+        return ab
+
+    def _check_user_to_account(self):
+        LOG.warn("Checking if users in keystone match accounts in gringotts")
+        accounts = sorted(self.worker_api.get_accounts(self.ctxt), key=lambda account: account['user_id'])
+        users = sorted(self.keystone_client.get_user_list(), key=lambda user: user.id)
+
+        _users = self._figure_out_difference(users, 'id', accounts, 'user_id')
+        result = []
+        for u in _users:
+            result.append(User(u.id, u.domain_id,
+                               project_id=getattr(u, 'default_project_id')))
+        return result
+
+    def check_user_to_account(self):
+        try:
+            users_1 = self._check_user_to_account()
+            time.sleep(30)
+            users_2 = self._check_user_to_account()
+        except Exception:
+            LOG.exception('Some exceptions occurred when checking whether '
+                          'users match with account.')
+        finally:
+            users = [u for u in users_1 if u in users_2]
+            for user in users:
+                LOG.warn('Situation 6: The user(%s) has not been created yet' % user.user_id)
+                if cfg.CONF.checker.try_to_fix:
+                    create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_USER]
+                    create_cls.process_notification(user.to_message())
+
+    def _check_project_to_project(self):
+        LOG.warn("Checking if projects in keystone match projects in gringotts")
+        _k_projects = self.keystone_client.get_projects_by_project_ids()
+        _g_projects = self.worker_api.get_projects(self.ctxt, type='simple')
+
+        k_projects = []
+        g_projects = []
+        for kp in _k_projects:
+            billing_owner = kp['users']['billing_owner']
+            k_projects.append(Project(kp['id'],
+                                      billing_owner.get('id') if billing_owner else None,
+                                      kp['domain_id']))
+        for gp in _g_projects:
+            g_projects.append(Project(gp['project_id'],
+                                      gp['billing_owner'],
+                                      gp['domain_id']))
+
+        # projects in keystone but not in gringotts
+        creating_projects = list(set(k_projects) - set(g_projects))
+
+        # projects in gringotts but not in keystone
+        deleting_projects = []
+        _deleted_projects = list(set(g_projects) - set(k_projects))
+        for p in _deleted_projects:
+            if self.worker_api.get_resources(self.ctxt, p.project_id):
+                deleting_projects.append(p)
+
+        # projects whose billing owner is not equal to each other
+        billing_projects = [] # changing billing owner
+        projects_k = sorted(set(g_projects) & set(k_projects), key=lambda p: p.project_id)
+        projects_g = sorted(set(k_projects) & set(g_projects), key=lambda p: p.project_id)
+
+        for k, g in zip(projects_k, projects_g):
+            if k.billing_owner_id != g.billing_owner_id:
+                billing_projects.append(k)
+
+        return (creating_projects, deleting_projects, billing_projects)
+
+    def check_project_to_project(self):
+        """Check two situations:
+        1. Projects in keystone but not in gringotts, means gringotts didn't receive the create
+           project message.
+        2. Projects in gringotts but not in keystone still has resources, means projects in keystone
+           has been deleted, but its resources didn't be deleted
+        3. Check the project's billing owner in gringotts matches billing owner in keystone
+        """
+        try:
+            cp_1, dp_1, bp_1 = self._check_project_to_project()
+            time.sleep(30)
+            cp_2, dp_2, bp_2 = self._check_project_to_project()
+        except Exception:
+            LOG.exception('Some exceptions occurred when checking whether '
+                          'projects match with projects.')
+        finally:
+            creating_projects = [p for p in cp_1 if p in cp_2]
+            deleting_projects = [p for p in dp_1 if p in dp_2]
+            billing_projects = [p for p in bp_1 if p in bp_2]
+
+            for p in creating_projects:
+                LOG.warn("Situation 7: The project(%s) exists in keystone but not in gringotts, its billing owner is %s" % \
+                        (p.project_id, p.billing_owner_id))
+                if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
+                    create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_PROJECT]
+                    create_cls.process_notification(p.to_message())
+
+            for p in deleting_projects:
+                LOG.warn("Situation 8: The project(%s) has been deleted, but its resources has not been cleared" % p.project_id)
+                if cfg.CONF.checker.try_to_fix:
+                    try:
+                        self.worker_api.delete_resources(self.ctxt, p.project_id)
+                    except Exception:
+                        LOG.exception('Fail to delete all resources of project %s' % p.project_id)
+                        return
+                    LOG.info('Delete all resources of project %s successfully' % p.project_id)
+
+            for p in billing_projects:
+                LOG.warn("Situation 9: The project(%s)\'s billing owner in gringotts is not equal to keystone\'s, should be: %s" % \
+                        (p.project_id, p.billing_owner_id))
+                if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
+                    try:
+                        self.worker_api.change_billing_owner(self.ctxt, p.project_id, p.billing_owner_id)
+                    except Exception:
+                        LOG.exception('Fail to change billing owner of project %s to user %s' % (p.project_id, p.billing_owner_id))
+                        return
+                    LOG.info('Change billing owner of project %s to user %s successfully' % (p.project_id, p.billing_owner_id))
 
 
 def checker():

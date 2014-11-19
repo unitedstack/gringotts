@@ -487,6 +487,7 @@ class Projects(APIBase):
 class UserProject(APIBase):
     user_id = wtypes.text
     project_id = wtypes.text
+    domain_id = wtypes.text
     project_name = wtypes.text
     user_consumption = decimal.Decimal
     project_consumption = decimal.Decimal
