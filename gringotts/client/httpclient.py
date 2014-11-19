@@ -22,6 +22,7 @@ OpenStack Client interface. Handles the REST calls and responses.
 """
 
 import logging
+from gringotts import utils
 from six.moves.urllib import parse as urlparse
 
 try:
@@ -472,6 +473,7 @@ class HTTPClient(object):
                     service_type='billing',
                     endpoint_type='admin',
                     region_name=region_name or self.region_name)
+                self._management_url = utils.force_v2_api(self._management_url)
             except exception.EndpointNotFound:
                 _logger.warning("Failed to retrieve management_url from token")
 

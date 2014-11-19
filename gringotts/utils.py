@@ -128,3 +128,11 @@ def calculate_bonus(value):
         if value < Decimal(key):
             return value * Decimal(item)
     return 0
+
+
+def force_v2_api(url):
+    if url is None:
+        return url
+    if url.endswith('/v1'):
+        return url.replace('/v1', '/v2')
+    return url
