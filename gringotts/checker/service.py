@@ -650,6 +650,7 @@ class CheckerService(os_service.Service):
             time.sleep(30)
             users_2 = self._check_user_to_account()
         except Exception:
+            users_1 = users_2 = []
             LOG.exception('Some exceptions occurred when checking whether '
                           'users match with account.')
         finally:
@@ -711,6 +712,8 @@ class CheckerService(os_service.Service):
             time.sleep(30)
             cp_2, dp_2, bp_2 = self._check_project_to_project()
         except Exception:
+            cp_1 = dp_1 = bp_1 = []
+            cp_2 = dp_2 = bp_2 = []
             LOG.exception('Some exceptions occurred when checking whether '
                           'projects match with projects.')
         finally:
