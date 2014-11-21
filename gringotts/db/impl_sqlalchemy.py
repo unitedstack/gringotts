@@ -1046,12 +1046,12 @@ class Connection(base.Connection):
     @require_context
     def get_project(self, context, project_id):
         try:
-            r = model_query(context, sa_models.Project).\
+            project = get_session().query(sa_models.Project).\
                     filter_by(project_id=project_id).one()
         except NoResultFound:
             raise exception.ProjectNotFound(project_id=project_id)
 
-        return self._row_to_db_project_model(r)
+        return self._row_to_db_project_model(project)
 
     @require_context
     def get_user_projects(self, context, user_id=None, limit=None, offset=None):
