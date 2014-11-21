@@ -869,10 +869,10 @@ class Connection(base.Connection):
     @require_context
     def get_account(self, context, user_id, project_id=None):
         if project_id:
-            query = model_query(context, sa_models.Account).\
+            query = get_session().query(sa_models.Account).\
                 filter_by(project_id=project_id)
         else:
-            query = model_query(context, sa_models.Account).\
+            query = get_session().query(sa_models.Account).\
                 filter_by(user_id=user_id)
         ref = query.one()
         return self._row_to_db_account_model(ref)
