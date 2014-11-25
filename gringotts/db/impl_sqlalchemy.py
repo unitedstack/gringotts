@@ -1100,7 +1100,7 @@ class Connection(base.Connection):
 
     @require_context
     def get_projects_by_project_ids(self, context, project_ids):
-        projects = model_query(context, sa_models.Project).\
+        projects = get_session().query(sa_models.Project).\
                 filter(sa_models.Project.project_id.in_(project_ids)).\
                 all()
         return (self._row_to_db_project_model(p) for p in projects)
