@@ -45,10 +45,13 @@ def reset_cache():
     MC = None
 
 
-def _make_cache_key(region_id, project_id, start_time, end_time):
+def _make_cache_key(region_id, user_id, project_id, start_time, end_time):
     start_time = timeutils.isotime(start_time)
     end_time = timeutils.isotime(end_time)
-    return str("%s-%s-%s-%s" % (project_id, region_id, start_time, end_time))
+    if project_id:
+        return str("%s-%s-%s-%s" % (project_id, region_id, start_time, end_time))
+    elif user_id:
+        return str("%s-%s-%s-%s" % (user_id, region_id, start_time, end_time))
 
 
 class TrendsController(rest.RestController):
@@ -124,7 +127,7 @@ class TrendsController(rest.RestController):
                        read_cache=True):
         if read_cache:
             cache = _get_cache()
-            key = _make_cache_key(region_id, project_id, start_time, end_time)
+            key = _make_cache_key(region_id, context.user_id, project_id, start_time, end_time)
 
             bills_sum = cache.get(key)
             if not bills_sum and bills_sum != 0:
