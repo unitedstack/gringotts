@@ -31,6 +31,7 @@ class ProjectController(rest.RestController):
 
     _custom_actions = {
         'billing_owner': ['PUT'],
+        'get_billing_owner': ['GET'],
     }
 
     def __init__(self, project_id):
@@ -59,6 +60,11 @@ class ProjectController(rest.RestController):
                                        project_id=self._id,
                                        user_id=user_id)
 
+    @wsexpose(models.UserAccount)
+    def get_billing_owner(self):
+        self.conn = pecan.request.db_conn
+        account = self.conn.get_project_billing_owner(request.context, self._id)
+        return models.UserAccount.from_db_model(account)
 
 class ProjectsController(rest.RestController):
     """Manages operations on the projects collection

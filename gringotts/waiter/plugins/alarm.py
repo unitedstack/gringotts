@@ -54,13 +54,14 @@ class AlarmItem(waiter_plugin.ProductItem):
                           project_id=project_id)
 
 
-product_items = extension.ExtensionManager(
-    namespace='gringotts.alarm.product_item',
-    invoke_on_load=True,
-)
-
-
 class AlarmNotificationBase(waiter_plugin.NotificationBase):
+
+    def __init__(self):
+        super(AlarmNotificationBase, self).__init__()
+        self.product_items = extension.ExtensionManager(
+            namespace='gringotts.alarm.product_item',
+            invoke_on_load=True,
+        )
 
     @staticmethod
     def get_exchange_topics(conf):
@@ -109,7 +110,7 @@ class AlarmCreateEnd(AlarmNotificationBase):
         unit = None
 
         # Create subscriptions for this order
-        for ext in product_items.extensions:
+        for ext in self.product_items.extensions:
             # disk extension is used when instance been stopped and been suspend
             if ext.name.startswith('suspend'):
                 sub = ext.obj.create_subscription(message, order_id,

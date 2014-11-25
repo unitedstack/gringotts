@@ -42,7 +42,8 @@ class ProductItem(plugin.PluginBase):
 
     __metaclass__ = abc.ABCMeta
 
-    worker_api = worker.API()
+    def __init__(self):
+        self.worker_api = worker.API()
 
     @abc.abstractmethod
     def get_collection(self, message):
@@ -93,8 +94,9 @@ class Order(object):
 
 class NotificationBase(plugin.NotificationBase):
 
-    worker_api = worker.API()
-    master_api = master.API()
+    def __init__(self):
+        self.worker_api = worker.API()
+        self.master_api = master.API()
 
     @abc.abstractmethod
     def make_order(self, message, state=None):

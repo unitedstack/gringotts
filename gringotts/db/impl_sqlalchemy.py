@@ -1044,6 +1044,22 @@ class Connection(base.Connection):
         return self._row_to_db_project_model(project_ref)
 
     @require_context
+    def get_project_billing_owner(self, context, project_id):
+        try:
+            project = model_query(context, sa_models.Project).\
+                    filter_by(project_id=project_id).one()
+        except NoResultFound:
+            raise exception.ProjectNotFound(project_id=project_id)
+
+        try:
+            account = model_query(context, sa_models.Account).\
+                    filter_by(user_id=project.user_id).one()
+        except NoResultFound:
+            raise exception.AccountNotFound(user_id=project.user_id)
+
+        return self._row_to_db_account_model(account)
+
+    @require_context
     def get_project(self, context, project_id):
         try:
             project = get_session().query(sa_models.Project).\

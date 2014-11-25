@@ -28,7 +28,7 @@ class ServiceError(Exception):
     pass
 
 
-class AccountNotFound(Exception):
+class ProjectNotFound(Exception):
     pass
 
 
@@ -96,11 +96,11 @@ class BillingProtocol(object):
             return self.app(env, start_response)
 
         try:
-            user_id = env['HTTP_X_USER_ID']
+            project_id = env['HTTP_X_PROJECT_ID']
         except KeyError:
-            user_id = env['HTTP_X_AUTH_USER_ID']
+            project_id = env['HTTP_X_AUTH_PROJECT_ID']
 
-        self.LOG.debug('Checking if the account(%s) is owed' % user_id)
+        self.LOG.debug('Checking if the billing_owner of project(%s) is owed' % project_id)
 
         retry = False
         min_balance = "0"
@@ -109,11 +109,11 @@ class BillingProtocol(object):
 
         try:
             self.make_billing_client()
-            if self.check_if_owed(user_id, min_balance):
+            if self.check_if_owed(project_id, min_balance):
                 return self._reject_request(env, start_response, 402, min_balance)
         except AuthorizationFailure:
             retry = True
-        except AccountNotFound:
+        except ProjectNotFound:
             return self._reject_request(env, start_response, 404)
         except ServiceError:
             return self._reject_request(env, start_response, 500)
@@ -121,11 +121,11 @@ class BillingProtocol(object):
         if retry:
             try:
                 self.make_billing_client(refresh=True)
-                if self.check_if_owed(user_id, min_balance):
+                if self.check_if_owed(project_id, min_balance):
                     return self._reject_request(env, start_response, 402, min_balance)
             except AuthorizationFailure:
                 return self._reject_request(env, start_response, 401)
-            except AccountNotFound:
+            except ProjectNotFound:
                 return self._reject_request(env, start_response, 404)
             except ServiceError:
                 return self._reject_request(env, start_response, 500)
@@ -153,22 +153,22 @@ class BillingProtocol(object):
             self.LOG.error(msg)
             raise ServiceError(msg)
 
-    def check_if_owed(self, user_id, min_balance):
+    def check_if_owed(self, project_id, min_balance):
         try:
-            resp, body = self.client.get('/accounts/%s' % user_id)
+            resp, body = self.client.get('/projects/%s/get_billing_owner' % project_id)
             if body['level'] == 9:
                 return False
             if Decimal(str(body['balance'])) <= Decimal(min_balance):
-                self.LOG.warn('The account %s is owed' % user_id)
+                self.LOG.warn('The billing owner of project %s is owed' % project_id)
                 return True
             return False
         except (exception.Unauthorized, exception.AuthorizationFailure):
             self.LOG.error("Authorization Failed - rejecting request")
             raise AuthorizationFailure("Authorization Failed")
         except exception.HTTPNotFound:
-            msg = 'Can not find the account: %s' % user_id
+            msg = 'Can not find the project: %s' % project_id
             self.LOG.error(msg)
-            raise AccountNotFound(msg)
+            raise ProjectNotFound(msg)
         except Exception as e:
             msg = 'Unable to get account info from billing service, ' \
                   'for the reason: %s' % e
@@ -184,7 +184,7 @@ class BillingProtocol(object):
             401: ("Authentication Required", "401 Unauthorized"),
             402: ('{"min_balance": %s, "msg": "Payment Required"}' % min_balance,
                   "402 PaymentRequired"),
-            404: ("Account NotFound", "404 AccountNotFound"),
+            404: ("Project NotFound", "404 ProjectNotFound"),
             500: ("Billing Service Error", "500 BillingServiceError"),
         }
         resp = MiniResp(error_message[code][0], env)

@@ -64,13 +64,15 @@ class SizeItem(waiter_plugin.ProductItem):
                           project_id=project_id)
 
 
-product_items = extension.ExtensionManager(
-    namespace='gringotts.volume.product_item',
-    invoke_on_load=True,
-)
-
-
 class VolumeNotificationBase(waiter_plugin.NotificationBase):
+
+    def __init__(self):
+        super(VolumeNotificationBase, self).__init__()
+        self.product_items = extension.ExtensionManager(
+            namespace='gringotts.volume.product_item',
+            invoke_on_load=True,
+        )
+
     @staticmethod
     def get_exchange_topics(conf):
         """Return a sequence of ExchangeTopics defining the exchange and
@@ -116,7 +118,7 @@ class VolumeCreateEnd(VolumeNotificationBase):
         unit = None
 
         # Create subscriptions for this order
-        for ext in product_items.extensions:
+        for ext in self.product_items.extensions:
             if ext.name.startswith('suspend'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_SUSPEND)
@@ -147,7 +149,7 @@ class VolumeCreateEnd(VolumeNotificationBase):
         unit_price = 0
 
         # Create subscriptions for this order
-        for ext in product_items.extensions:
+        for ext in self.product_items.extensions:
             if ext.name.startswith(status):
                 unit_price += ext.obj.get_unit_price(message)
 

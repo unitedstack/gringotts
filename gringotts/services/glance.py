@@ -60,8 +60,8 @@ def image_list(project_id, region_name=None, project_name=None):
         created_at = utils.format_datetime(image.created_at)
         status = utils.transform_status(image.status)
         formatted_images.append(Image(id=image.id,
-                                      name=image.name,
-                                      size=image.size,
+                                      name=getattr(image, 'name', None),
+                                      size=getattr(image, 'size', 0),
                                       status=status,
                                       original_status=image.status,
                                       resource_type=const.RESOURCE_IMAGE,

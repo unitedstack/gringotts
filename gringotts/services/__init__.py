@@ -10,9 +10,6 @@ from gringotts.openstack.common import log
 LOG = log.getLogger(__name__)
 
 
-worker_api = worker.API()
-
-
 def wrap_exception(exc_type=None):
     """This decorator wraps a method to catch any exceptions that may
     get thrown. It logs the exception, and may sends message to notification
@@ -22,6 +19,7 @@ def wrap_exception(exc_type=None):
         def wrapped(uuid, *args, **kwargs):
             try:
                 if exc_type == 'delete' or exc_type == 'stop':
+                    worker_api = worker.API()
                     order = worker_api.get_order_by_resource_id(context.get_admin_context(),
                                                                 uuid)
                     account = worker_api.get_account(context.get_admin_context(),
