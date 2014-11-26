@@ -490,7 +490,7 @@ class Connection(base.Connection):
         If start_time is None or end_time is None, will ignore the datetime
         range, and return all orders
         """
-        query = model_query(context, sa_models.Order)
+        query = get_session().query(sa_models.Order)
 
         if type:
             query = query.filter_by(type=type)
@@ -553,7 +553,7 @@ class Connection(base.Connection):
                    charged=None, within_one_hour=None):
         """Get all active orders
         """
-        query = model_query(context, sa_models.Order)
+        query = get_session().query(sa_models.Order)
 
         if type:
             query = query.filter_by(type=type)
@@ -753,7 +753,7 @@ class Connection(base.Connection):
                               start_time=None, end_time=None,
                               limit=None, offset=None, sort_key=None,
                               sort_dir=None):
-        query = model_query(context, sa_models.Bill).\
+        query = get_session().query(sa_models.Bill).\
             filter_by(order_id=order_id)
         if type:
             query = query.filter_by(type=type)
@@ -799,8 +799,8 @@ class Connection(base.Connection):
     @require_context
     def get_bills_count(self, context, order_id=None, project_id=None,
                         type=None, start_time=None, end_time=None):
-        query = model_query(context, sa_models.Bill,
-                            func.count(sa_models.Bill.id).label('count'))
+        query = get_session().query(sa_models.Bill,
+                                    func.count(sa_models.Bill.id).label('count'))
         if order_id:
             query = query.filter_by(order_id=order_id)
         if project_id:
@@ -819,10 +819,17 @@ class Connection(base.Connection):
     @require_context
     def get_bills_sum(self, context, region_id=None, start_time=None, end_time=None,
                       order_id=None, project_id=None, type=None):
-        query = model_query(context, sa_models.Bill,
-                            func.sum(sa_models.Bill.total_price).label('sum'))
+        query = get_session().query(sa_models.Bill,
+                                    func.sum(sa_models.Bill.total_price).label('sum'))
+
+        # really bad hack
         if order_id:
             query = query.filter_by(order_id=order_id)
+        elif gring_context.is_domain_owner_context(context):
+            query = query.filter_by(domain_id=context.domain_id)
+        elif gring_context.is_user_context(context):
+            query = query.filter_by(user_id=context.user_id)
+
         if project_id:
             query = query.filter_by(project_id=project_id)
         if type:

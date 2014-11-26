@@ -75,6 +75,17 @@ class SummaryController(rest.RestController):
             user_id=None, project_id=None):
         """Get summary of all kinds of orders
         """
+        # bad hack
+        if not request.context.is_admin and not project_id:
+            summaries = []
+            for order_type in ORDER_TYPE:
+                summaries.append(models.Summary.transform(total_count=0,
+                                                          order_type=order_type,
+                                                          total_price=gringutils._quantize_decimal(0)))
+            return models.Summaries.transform(total_price=gringutils._quantize_decimal(0),
+                                              total_count=0,
+                                              summaries=summaries)
+
         conn = pecan.request.db_conn
 
         # Get all orders of this particular context one time
@@ -229,6 +240,11 @@ class OrdersController(rest.RestController):
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
+        # bad hack
+        if not request.context.is_admin and not project_id:
+            return models.Orders.transform(total_count=0,
+                                           orders=[])
+
         conn = pecan.request.db_conn
         orders_db, total_count = conn.get_orders(request.context,
                                                  type=type,
