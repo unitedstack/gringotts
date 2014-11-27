@@ -525,24 +525,30 @@ class Connection(base.Connection):
             return (self._row_to_db_order_model(o) for o in result)
 
     @require_admin_context
-    def get_active_order_count(self, context, region_id=None, owed=None):
+    def get_active_order_count(self, context, region_id=None, owed=None, type=None):
         query = model_query(context, sa_models.Order,
                             func.count(sa_models.Order.id).label('count'))
         if region_id:
             query = query.filter_by(region_id=region_id)
         if owed:
             query = query.filter_by(owed=owed)
+        if type:
+            query = query.filter_by(type=type)
+
         query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
         return query.one().count or 0
 
     @require_admin_context
-    def get_stopped_order_count(self, context, region_id=None, owed=None):
+    def get_stopped_order_count(self, context, region_id=None, owed=None, type=None):
         query = model_query(context, sa_models.Order,
                             func.count(sa_models.Order.id).label('count'))
         if region_id:
             query = query.filter_by(region_id=region_id)
         if owed:
             query = query.filter_by(owed=owed)
+        if type:
+            query = query.filter_by(type=type)
+
         query = query.filter(sa_models.Order.status == const.STATE_STOPPED)
         query = query.filter(sa_models.Order.unit_price == gringutils._quantize_decimal('0'))
         return query.one().count or 0

@@ -112,7 +112,7 @@ class AlarmCreateEnd(AlarmNotificationBase):
         # Create subscriptions for this order
         for ext in self.product_items.extensions:
             # disk extension is used when instance been stopped and been suspend
-            if ext.name.startswith('suspend'):
+            if ext.name.startswith('stopped'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_SUSPEND)
                 if sub and state==const.STATE_SUSPEND:

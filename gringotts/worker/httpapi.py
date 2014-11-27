@@ -99,8 +99,9 @@ class WorkerAPI(object):
                      first_change_to=first_change_to)
         self.client.put('/orders', body=_body)
 
-    def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):
+    def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None, type=None):
         params = dict(status=status,
+                      type=type,
                       project_id=project_id,
                       owed=owed,
                       region_id=region_id)
@@ -122,16 +123,18 @@ class WorkerAPI(object):
         return []
 
 
-    def get_active_order_count(self, ctxt, region_id=None, owed=None):
+    def get_active_order_count(self, ctxt, region_id=None, owed=None, type=None):
         params = dict(region_id=region_id,
-                      owed=owed)
+                      owed=owed,
+                      type=type)
         resp, body = self.client.get('/orders/count',
                                      params=params)
         return body
 
-    def get_stopped_order_count(self, ctxt, region_id=None, owed=None):
+    def get_stopped_order_count(self, ctxt, region_id=None, owed=None, type=None):
         params = dict(region_id=region_id,
-                      owed=owed)
+                      owed=owed,
+                      type=type)
         resp, body = self.client.get('/orders/stopped',
                                      params=params)
         return body

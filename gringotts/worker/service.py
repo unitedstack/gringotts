@@ -118,9 +118,10 @@ class WorkerService(rpc_service.Service):
                       first_change_to=first_change_to)
         self.db_conn.update_order(ctxt, **kwargs)
 
-    def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):
+    def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None, type=None):
         return self.db_conn.get_orders(ctxt, status=status,
                                        project_id=project_id,
+                                       type=type,
                                        owed=owed,
                                        region_id=region_id)
 
@@ -133,15 +134,17 @@ class WorkerService(rpc_service.Service):
                                               charged=charged,
                                               region_id=region_id)
 
-    def get_active_order_count(self, ctxt, region_id=None, owed=None):
+    def get_active_order_count(self, ctxt, region_id=None, owed=None, type=None):
         return self.db_conn.get_active_order_count(ctxt,
                                                    region_id=region_id,
-                                                   owed=owed)
+                                                   owed=owed,
+                                                   type=type)
 
-    def get_stopped_order_count(self, ctxt, region_id=None, owed=None):
+    def get_stopped_order_count(self, ctxt, region_id=None, owed=None, type=None):
         return self.db_conn.get_stopped_order_count(ctxt,
                                                     region_id=region_id,
-                                                    owed=owed)
+                                                    owed=owed,
+                                                    type=type)
 
     def get_order_by_resource_id(self, ctxt, resource_id):
         return self.db_conn.get_order_by_resource_id(ctxt, resource_id)

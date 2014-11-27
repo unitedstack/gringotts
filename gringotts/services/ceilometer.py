@@ -54,18 +54,16 @@ def alarm_get(alarm_id, region_name=None):
 
 @wrap_exception(exc_type='list')
 def alarm_list(project_id, region_name=None, project_name=None):
-    alarms = get_cmclient(region_name).alarms.list(q=[{'field': 'enabled',
-                                                       'value': 'True'},
-                                                      {'field': 'project_id',
+    alarms = get_cmclient(region_name).alarms.list(q=[{'field': 'project_id',
                                                        'value': project_id}])
     formatted_alarms = []
     for alarm in alarms:
         created_at = utils.format_datetime(alarm.created_at)
-        status = utils.transform_status(alarm.state)
+        status = utils.transform_status(str(alarm.enabled))
         formatted_alarms.append(Alarm(id=alarm.alarm_id,
                                       name=alarm.name,
                                       status=status,
-                                      original_status=alarm.state,
+                                      original_status=str(alarm.enabled),
                                       resource_type=const.RESOURCE_ALARM,
                                       user_id=alarm.user_id,
                                       project_id=project_id,

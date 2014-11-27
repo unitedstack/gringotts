@@ -269,7 +269,7 @@ class CheckerService(os_service.Service):
                                                       resource.project_id))
             # Situation 3: Resource's order has been created,
             # but its bill not be created by master
-            elif not order['cron_time']:
+            elif not order['cron_time'] and order['status'] != const.STATE_STOPPED:
                 try_to_fix['3'].append(Situation3Item(order['order_id'],
                                                       resource.created_at,
                                                       resource.project_id))
@@ -499,7 +499,7 @@ class CheckerService(os_service.Service):
             # checking 30 days orders
             datejob_30_days_count = self.master_api.get_datejob_count_30_days(self.ctxt)
             stopped_order_count = self.worker_api.get_stopped_order_count(
-                self.ctxt, self.region_name)
+                self.ctxt, self.region_name, type=const.RESOURCE_INSTANCE)
             LOG.warn('Checked, There are %s 30-days date jobs, and %s stopped orders' %
                      (datejob_30_days_count, stopped_order_count))
         except Exception:

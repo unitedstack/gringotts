@@ -57,12 +57,13 @@ class LocalAPI(object):
                                    change_order_status=change_order_status,
                                    first_change_to=first_change_to)
 
-    def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None):
+    def get_orders(self, ctxt, status=None, project_id=None, owed=None, region_id=None, type=None):
         return self._service.get_orders(ctxt,
                                         status=status,
                                         project_id=project_id,
                                         owed=owed,
-                                        region_id=region_id)
+                                        region_id=region_id,
+                                        type=type)
 
     def get_active_orders(self, ctxt, user_id=None, project_id=None, owed=None, charged=None,
                           region_id=None):
@@ -73,15 +74,17 @@ class LocalAPI(object):
                                                charged=charged,
                                                region_id=region_id)
 
-    def get_active_order_count(self, ctxt, region_id=None, owed=None):
+    def get_active_order_count(self, ctxt, region_id=None, owed=None, type=None):
         return self._service.get_active_order_count(ctxt,
                                                     region_id=region_id,
-                                                    owed=owed)
+                                                    owed=owed,
+                                                    type=type)
 
-    def get_stopped_order_count(self, ctxt, region_id=None, owed=None):
+    def get_stopped_order_count(self, ctxt, region_id=None, owed=None, type=None):
         return self._service.get_stopped_order_count(ctxt,
                                                      region_id=region_id,
-                                                     owed=owed)
+                                                     owed=owed,
+                                                     type=type)
 
     def get_order_by_resource_id(self, ctxt, resource_id):
         return self._service.get_order_by_resource_id(ctxt, resource_id)

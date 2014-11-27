@@ -92,9 +92,8 @@ STATE_MAPPING = {
     'SHUTOFF': const.STATE_STOPPED,
     'SUSPENDED': const.STATE_SUSPEND,
     'PAUSED': const.STATE_SUSPEND,
-    'insufficient data': const.STATE_RUNNING,
-    'ok': const.STATE_RUNNING,
-    'alarm': const.STATE_RUNNING,
+    'True': const.STATE_RUNNING,
+    'False': const.STATE_STOPPED,
 }
 
 

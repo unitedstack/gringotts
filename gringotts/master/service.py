@@ -163,7 +163,8 @@ class MasterService(rpc_service.Service):
     def load_30_days_date_jobs(self):
         # load change unit price date job
         orders = self.worker_api.get_orders(self.ctxt, status=const.STATE_STOPPED,
-                                            region_id=cfg.CONF.region_name)
+                                            region_id=cfg.CONF.region_name,
+                                            type=const.RESOURCE_INSTANCE)
         for order in orders:
             if not order['cron_time']:
                 LOG.warn('There is no cron_time for the stopped order: %s' % order)

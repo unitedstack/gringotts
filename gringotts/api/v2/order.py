@@ -158,24 +158,26 @@ class ResourceController(rest.RestController):
 class CountController(rest.RestController):
     """Get number of active order
     """
-    @wsexpose(int, wtypes.text, bool)
-    def get(self, region_id, owed=None):
+    @wsexpose(int, wtypes.text, bool, wtypes.text)
+    def get(self, region_id, owed=None, type=None):
         conn = pecan.request.db_conn
         order_count = conn.get_active_order_count(request.context,
                                                   region_id=region_id,
-                                                  owed=owed)
+                                                  owed=owed,
+                                                  type=type)
         return order_count
 
 
 class StoppedOrderCountController(rest.RestController):
     """Get number of active order
     """
-    @wsexpose(int, wtypes.text, bool)
-    def get(self, region_id, owed=None):
+    @wsexpose(int, wtypes.text, bool, wtypes.text)
+    def get(self, region_id, owed=None, type=None):
         conn = pecan.request.db_conn
         order_count = conn.get_stopped_order_count(request.context,
                                                    region_id=region_id,
-                                                   owed=owed)
+                                                   owed=owed,
+                                                   type=type)
         return order_count
 
 
