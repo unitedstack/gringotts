@@ -528,7 +528,7 @@ class CheckerService(os_service.Service):
                         continue
 
                     contact = self.keystone_client.get_uos_user(account['user_id'])
-                    _projects = self.worker_api.get_projects(self.ctxt, user_id=account['user_id'])
+                    _projects = self.worker_api.get_projects(self.ctxt, user_id=account['user_id'], type='simple')
 
                     orders_dict = {}
                     for project in _projects:
@@ -578,7 +578,7 @@ class CheckerService(os_service.Service):
                     if not orders:
                         continue
 
-                    _projects = self.worker_api.get_projects(self.ctxt, user_id=account['user_id'])
+                    _projects = self.worker_api.get_projects(self.ctxt, user_id=account['user_id'], type='simple')
 
                     estimation = {}
                     for project in _projects:

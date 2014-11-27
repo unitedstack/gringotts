@@ -153,12 +153,22 @@ class ProjectsController(rest.RestController):
                     result.append(up)
 
         elif type.lower() == 'simple':
-            projects = self.conn.get_projects(request.context, user_id=user_id)
-            for project in projects:
-                up = models.UserProject(project_id=project.project_id,
-                                        domain_id=project.domain_id,
-                                        billing_owner=dict(user_id=project.user_id))
-                result.append(up)
+            g_projects = list(self.conn.get_projects(request.context, user_id=user_id))
+            project_ids = [p.project_id for p in g_projects]
+
+            if not project_ids:
+                LOG.warn('User %s has no payed projects' % user_id)
+                return []
+
+            k_projects = keystone.get_projects_by_project_ids(project_ids)
+
+            for k, g in itertools.product(k_projects, g_projects):
+                if k['id'] == g.project_id:
+                    up = models.UserProject(project_id=g.project_id,
+                                            project_name=k['name'],
+                                            domain_id=g.domain_id,
+                                            billing_owner=dict(user_id=g.user_id))
+                    result.append(up)
 
         return result
 
