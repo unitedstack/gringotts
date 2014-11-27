@@ -73,7 +73,8 @@ def volume_get(volume_id, region_name=None):
                   name=volume.display_name,
                   status=status,
                   original_status=volume.status,
-                  resource_type=const.RESOURCE_VOLUME)
+                  resource_type=const.RESOURCE_VOLUME,
+                  attachments=volume.attachments)
 
 
 @wrap_exception(exc_type='get')
@@ -128,6 +129,7 @@ def volume_list(project_id, region_name=None, detailed=True, project_name=None):
                                         user_id = None,
                                         project_id = project_id,
                                         project_name=project_name,
+                                        attachments=volume.attachments,
                                         created_at=created_at))
     return formatted_volumes
 
@@ -170,7 +172,8 @@ def delete_volumes(project_id, region_name=None):
 
     # Force delete or detach and then delete
     for volume in volumes:
-        client.volumes.detach(volume)
+        for attachment in volume['attachments']:
+            client.volumes.detach(volume, attachment['attachment_id'])
         client.volumes.delete(volume)
         LOG.warn("Delete volume: %s" % volume.id)
 
@@ -204,7 +207,9 @@ def delete_volume(volume_id, region_name=None):
         client.volume_snapshots.delete(snap)
 
     # detach volume from instance
-    client.volumes.detach(volume_id)
+    volume = volume_get(volume_id, region_name=region_name)
+    for attachment in volume.attachments:
+        client.volumes.detach(volume_id, attachment['attachment_id'])
 
     # wait 10 seconds to delete this volume
     time.sleep(10)
