@@ -13,6 +13,7 @@ from oslo.config import cfg
 from gringotts import exception
 from gringotts import utils as gringutils
 
+from gringotts.services import keystone
 from gringotts.api.v2 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
@@ -75,17 +76,49 @@ class SummaryController(rest.RestController):
             user_id=None, project_id=None):
         """Get summary of all kinds of orders
         """
-        # bad hack
+        # bad hack, will be removed in second stage
         if not request.context.is_admin and not project_id:
+            projects = keystone.get_projects_by_user(request.context.user_id)
+            conn = pecan.request.db_conn
+
+            total_price = gringutils._quantize_decimal(0)
+            total_count = 0
             summaries = []
+
             for order_type in ORDER_TYPE:
-                summaries.append(models.Summary.transform(total_count=0,
+                order_total_price = gringutils._quantize_decimal(0)
+                order_total_count = 0
+
+                for project in projects:
+                    # Get all orders of this particular context one time
+                    orders_db = list(conn.get_orders(request.context,
+                                                     start_time=start_time,
+                                                     end_time=end_time,
+                                                     user_id=user_id,
+                                                     type=order_type,
+                                                     project_id=project['id'],
+                                                     region_id=region_id))
+
+                    # One user's order records will not be very large, so we can
+                    # traverse them directly
+                    for order in orders_db:
+                        price, count = self._get_order_price_and_count(order,
+                                                                       start_time=start_time,
+                                                                       end_time=end_time)
+                        order_total_price += price
+                        order_total_count += count
+
+                summaries.append(models.Summary.transform(total_count=order_total_count,
                                                           order_type=order_type,
-                                                          total_price=gringutils._quantize_decimal(0)))
-            return models.Summaries.transform(total_price=gringutils._quantize_decimal(0),
-                                              total_count=0,
+                                                          total_price=order_total_price))
+                total_price += order_total_price
+                total_count += order_total_count
+
+            return models.Summaries.transform(total_price=total_price,
+                                              total_count=total_count,
                                               summaries=summaries)
 
+        # good way to go
         conn = pecan.request.db_conn
 
         # Get all orders of this particular context one time
@@ -242,10 +275,39 @@ class OrdersController(rest.RestController):
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
-        # bad hack
+        # bad hack, will be removed in next stage
         if not request.context.is_admin and not project_id:
-            return models.Orders.transform(total_count=0,
-                                           orders=[])
+            projects = keystone.get_projects_by_user(request.context.user_id)
+
+            conn = pecan.request.db_conn
+            total_count = 0
+            orders = []
+
+            for project in projects:
+                orders_db, count = conn.get_orders(request.context,
+                                                   type=type,
+                                                   status=status,
+                                                   start_time=start_time,
+                                                   end_time=end_time,
+                                                   owed=owed,
+                                                   limit=limit,
+                                                   offset=offset,
+                                                   with_count=True,
+                                                   region_id=region_id,
+                                                   user_id=user_id,
+                                                   project_id=project['id'])
+                for order in orders_db:
+                    price = self._get_order_price(order,
+                                                  start_time=start_time,
+                                                  end_time=end_time)
+
+                    order.total_price = gringutils._quantize_decimal(price)
+
+                    orders.append(models.Order.from_db_model(order))
+                total_count += count
+
+            return models.Orders.transform(total_count=total_count,
+                                           orders=orders)
 
         conn = pecan.request.db_conn
         orders_db, total_count = conn.get_orders(request.context,
