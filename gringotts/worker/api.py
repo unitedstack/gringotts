@@ -36,6 +36,11 @@ class LocalAPI(object):
         return self._service.create_subscription(ctxt, order_id,
                                                  type=type, **kwargs)
 
+    def get_subscriptions(self, ctxt, order_id=None, type=None):
+        return self._service.get_subscriptions(ctxt,
+                                               order_id=order_id,
+                                               type=type)
+
     def change_subscription(self, ctxt, order_id, quantity, change_to):
         self._service.change_subscription(ctxt, order_id, quantity, change_to)
 

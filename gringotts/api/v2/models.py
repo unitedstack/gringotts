@@ -189,6 +189,7 @@ class Subscription(APIBase):
     user_id = wtypes.text
     project_id = wtypes.text
     created_at =  wtypes.text
+    type = wtypes.text
 
 
 class SubscriptionPostBody(APIBase):

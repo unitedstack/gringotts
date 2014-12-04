@@ -45,6 +45,7 @@ class ResourcesController(rest.RestController):
             glance.delete_images(project_id, region_name=region_name)
             neutron.delete_fips(project_id, region_name=region_name)
             neutron.delete_routers(project_id, region_name=region_name)
+            neutron.delete_listeners(project_id, region_name=region_name)
             nova.delete_servers(project_id, region_name=region_name)
             ceilometer.delete_alarms(project_id, region_name=region_name)
             cinder.delete_volumes(project_id, region_name=region_name)
@@ -65,7 +66,8 @@ class ResourcesController(rest.RestController):
 
         LIST_METHOD = [cinder.volume_list, cinder.snapshot_list,
                        glance.image_list,
-                       neutron.network_list, neutron.router_list, neutron.floatingip_list,
+                       neutron.network_list, neutron.router_list,
+                       neutron.floatingip_list, neutron.listener_list,
                        nova.server_list,
                        ceilometer.alarm_list]
 

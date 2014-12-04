@@ -11,6 +11,7 @@ from gringotts.services import Resource
 from gringotts.services import keystone as ks_client
 from neutronclient.v2_0 import client as neutron_client
 from neutronclient.common.exceptions import NeutronClientException
+from gringotts.openstack.common import timeutils
 
 
 LOG = log.getLogger(__name__)
@@ -50,6 +51,24 @@ class Router(Resource):
                 'router': {
                     'id': self.id,
                     'name': self.name,
+                    'tenant_id': self.project_id
+                }
+            },
+            'timestamp': self.created_at
+        }
+        return msg
+
+
+class Listener(Resource):
+    def to_message(self):
+        msg = {
+            'event_type': 'listener.create.end',
+            'payload': {
+                'listener': {
+                    'id': self.id,
+                    'name': self.name,
+                    'admin_state_up': self.admin_state_up,
+                    'connection_limit': self.connection_limit,
                     'tenant_id': self.project_id
                 }
             },
@@ -304,3 +323,66 @@ def delete_router(router_id, region_name=None):
 @wrap_exception(exc_type='stop')
 def stop_router(router_id, region_name=None):
     return True
+
+
+@wrap_exception(exc_type='list')
+def listener_list(project_id, region_name=None, project_name=None):
+    client = get_neutronclient(region_name)
+    if project_id:
+        listeners = client.list_listeners(tenant_id=project_id).get('listeners')
+    else:
+        listeners = client.list_listeners().get('listeners')
+
+    formatted_listeners = []
+    for listener in listeners:
+        status = utils.transform_status(listener['status'])
+        admin_state = const.STATE_RUNNING if listener['admin_state_up'] else const.STATE_STOPPED
+        created_at = utils.format_datetime(listener.get('created_at', timeutils.strtime()))
+        formatted_listeners.append(Listener(id=listener['id'],
+                                            name=listener['name'],
+                                            admin_state_up=listener['admin_state_up'],
+                                            admin_state=admin_state,
+                                            connection_limit=listener['connection_limit'],
+                                            project_id=listener['tenant_id'],
+                                            project_name=project_name,
+                                            resource_type=const.RESOURCE_LISTENER,
+                                            status=status,
+                                            original_status=listener['status'],
+                                            created_at=created_at))
+    return formatted_listeners
+
+
+@wrap_exception(exc_type='bulk')
+def delete_listeners(project_id, region_name=None):
+    client = get_neutronclient(region_name)
+    listeners = client.list_listeners(tenant_id=project_id).get('listeners')
+    for listener in listeners:
+        client.delete_listener(listener['id'])
+
+
+@wrap_exception(exc_type='get')
+def listener_get(listener_id, region_name=None):
+    try:
+        listener = get_neutronclient(region_name).show_listener(listener_id).get('listener')
+    except NeutronClientException:
+        return None
+
+    status = utils.transform_status(listener['status'])
+    return Listener(id=listener['id'],
+                    name=listener['name'],
+                    resource_type=const.RESOURCE_LISTENER,
+                    status=status,
+                    original_status=listener['status'])
+
+
+@wrap_exception(exc_type='stop')
+def stop_listener(listener_id, region_name=None):
+    client = get_neutronclient(region_name)
+    update_dict = {'admin_state_up': False}
+    client.update_listener(listener_id, {'listener': update_dict})
+
+
+@wrap_exception(exc_type='delete')
+def delete_listener(listener_id, region_name=None):
+    client = get_neutronclient(region_name)
+    client.delete_listener(listener_id)

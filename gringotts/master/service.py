@@ -433,7 +433,7 @@ class MasterService(rpc_service.Service):
             self._delete_date_job(result['resource_id'])
         self.worker_api.change_order(ctxt, order_id, const.STATE_STOPPED)
 
-        # create a bill that tell people the resource has been deleted
+        # create a bill that tell people the resource has been stopped
         self.worker_api.create_bill(ctxt, order_id,
                                     action_time=action_time,
                                     remarks=remarks,

@@ -3,7 +3,7 @@ from gringotts.middleware import base
 
 
 UUID_RE = r"([0-9a-f]{32}|[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12})"
-RESOURCE_RE = r"(routers|floatingips)"
+RESOURCE_RE = r"(routers|floatingips|lbaas/listeners)"
 
 
 def change_fip_ratelimit_action(method, path_info, body):
@@ -17,11 +17,18 @@ def create_resource_action(method, path_info, body):
         return True
     return False
 
+def update_listener(method, path_info, body):
+    if method == 'PUT' and re.match(r"^/lbaas/listeners/%s([.][^.]+)?$" % UUID_RE, path_info) and \
+            (body['listener'].has_key('connection_limit') or \
+             body['listener'].has_key('admin_state_up')):
+        return True
+    return False
 
 class NeutronBillingProtocol(base.BillingProtocol):
     black_list  = [
         create_resource_action,
         change_fip_ratelimit_action,
+        update_listener,
     ]
 
 

@@ -536,6 +536,8 @@ class Connection(base.Connection):
             query = query.filter_by(type=type)
 
         query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
+        if not owed:
+            query = query.filter(not_(sa_models.Order.cron_time == None))
         return query.one().count or 0
 
     @require_admin_context

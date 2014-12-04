@@ -27,6 +27,12 @@ LOG = log.getLogger(__name__)
 class SubsController(rest.RestController):
     """The controller of resources
     """
+    @wsexpose([models.Subscription], wtypes.text, wtypes.text)
+    def get_all(self, order_id=None, type=None):
+        conn = pecan.request.db_conn
+        subs = conn.get_subscriptions_by_order_id(request.context, order_id, type)
+        return [models.Subscription.from_db_model(s) for s in subs]
+
     @wsexpose(models.Subscription, body=models.SubscriptionPostBody)
     def post(self, data):
         conn = pecan.request.db_conn

@@ -84,6 +84,9 @@ class WorkerService(rpc_service.Service):
                    **kwargs)
         return self.db_conn.create_subscription(ctxt, **sub)
 
+    def get_subscriptions(self, ctxt, order_id=None, type=None):
+        LOG.warn("Not Implemented, use http protocol")
+
     def change_subscription(self, ctxt, order_id, quantity, change_to):
         kwargs = dict(order_id=order_id,
                       quantity=quantity,

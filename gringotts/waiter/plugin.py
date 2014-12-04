@@ -244,3 +244,8 @@ class NotificationBase(plugin.NotificationBase):
     def change_billing_owner(self, project_id, user_id):
         """Change billing owner"""
         self.worker_api.change_billing_owner(context.get_admin_context(), project_id, user_id)
+
+    def get_subscriptions(self, order_id=None, type=None):
+        """Get subscription of specific order"""
+        return self.worker_api.get_subscriptions(context.get_admin_context(),
+                                                 order_id=order_id, type=type)

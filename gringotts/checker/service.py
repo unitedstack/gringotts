@@ -151,6 +151,7 @@ class CheckerService(os_service.Service):
             neutron.router_list,
             neutron.network_list,
             neutron.port_list,
+            neutron.listener_list,
             ceilometer.alarm_list
         ]
 
@@ -159,6 +160,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_IMAGE: plugins.image.ImageCreateEnd(),
             const.RESOURCE_INSTANCE: plugins.instance.InstanceCreateEnd(),
             const.RESOURCE_ROUTER: plugins.router.RouterCreateEnd(),
+            const.RESOURCE_LISTENER: plugins.listener.ListenerCreateEnd(),
             const.RESOURCE_SNAPSHOT: plugins.snapshot.SnapshotCreateEnd(),
             const.RESOURCE_VOLUME: plugins.volume.VolumeCreateEnd(),
             const.RESOURCE_ALARM: plugins.alarm.AlarmCreateEnd(),
@@ -173,6 +175,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_IMAGE: (glance.image_get, const.STATE_RUNNING),
             const.RESOURCE_FLOATINGIP: (neutron.floatingip_get, const.STATE_RUNNING),
             const.RESOURCE_ROUTER: (neutron.router_get, const.STATE_RUNNING),
+            const.RESOURCE_LISTENER: (neutron.listener_get, const.STATE_RUNNING),
             const.RESOURCE_ALARM: (ceilometer.alarm_get, const.STATE_RUNNING),
         }
 
@@ -183,6 +186,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_VOLUME: cinder.delete_volume,
             const.RESOURCE_FLOATINGIP: neutron.delete_fip,
             const.RESOURCE_ROUTER: neutron.delete_router,
+            const.RESOURCE_LISTENER: neutron.delete_listener,
             const.RESOURCE_ALARM: ceilometer.delete_alarm,
         }
 
@@ -193,6 +197,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_VOLUME: cinder.stop_volume,
             const.RESOURCE_FLOATINGIP: neutron.stop_fip,
             const.RESOURCE_ROUTER: neutron.stop_router,
+            const.RESOURCE_LISTENER: neutron.stop_listener,
             const.RESOURCE_ALARM: ceilometer.stop_alarm,
         }
 
@@ -261,7 +266,14 @@ class CheckerService(os_service.Service):
             # Situation 2: There may exist resource whose status doesn't match with its order's
             if resource.status == const.STATE_ERROR:
                 bad_resources.append(resource)
-            elif resource.status != order['status']:
+            elif hasattr(resource, 'admin_state') and resource.admin_state != order['status']:
+                ## for loadbalancer listener
+                action_time = utils.format_datetime(timeutils.strtime())
+                try_to_fix['2'].append(Situation2Item(order['order_id'],
+                                                      action_time,
+                                                      resource.admin_state,
+                                                      resource.project_id))
+            elif not hasattr(resource, 'admin_state') and resource.status != order['status']:
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
                                                       action_time,
@@ -278,7 +290,7 @@ class CheckerService(os_service.Service):
             else:
                 unit_price = self.RESOURCE_CREATE_MAP[resource.resource_type].\
                         get_unit_price(resource.to_message(),
-                                       resource.status,
+                                       resource.admin_state if hasattr(resource, 'admin_state') else resource.status,
                                        cron_time=order['cron_time'])
                 order_unit_price = utils._quantize_decimal(order['unit_price'])
                 if unit_price is not None and unit_price != order_unit_price:

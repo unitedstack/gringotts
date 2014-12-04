@@ -66,6 +66,14 @@ class WorkerAPI(object):
         resp, body = self.client.post('/subs', body=_body)
         return body
 
+    def get_subscriptions(self, ctxt, order_id=None, type=None):
+        params = dict(type=type,
+                      order_id=order_id)
+        resp, body = self.client.get('/subs', params=params)
+        if body:
+            return body
+        return None
+
     def change_subscription(self, ctxt, order_id, quantity, change_to):
         _body = dict(order_id=order_id,
                      quantity=quantity,

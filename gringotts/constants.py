@@ -21,6 +21,7 @@ RESOURCE_IMAGE = 'image'
 RESOURCE_SNAPSHOT = 'snapshot'
 RESOURCE_VOLUME = 'volume'
 RESOURCE_FLOATINGIP = 'floatingip'
+RESOURCE_LISTENER = 'listener'
 RESOURCE_ROUTER = 'router'
 RESOURCE_ALARM = 'alarm'
 RESOURCE_USER= 'user'
@@ -35,6 +36,7 @@ PRODUCT_SATA_VOLUME_SIZE = 'sata.volume.size'
 PRODUCT_FLOATINGIP = 'ip.floating'
 PRODUCT_ROUTER = 'router'
 PRODUCT_ALARM = 'alarm'
+PRODUCT_LISTENER = 'listener'
 
 
 # Bill status
