@@ -3,12 +3,6 @@ import json
 import requests
 import datetime
 
-from keystoneclient.v3 import client
-from cinderclient.v1 import client as cinder_client
-from neutronclient.v2_0 import client as neutron_client
-from novaclient.v1_1 import client as nova_client
-
-
 CLOUDS = {"uos": {"os_auth_url": "http://i.l7.0.uc.ustack.in:35357/v3",
                   "regions": ["RegionOne", "zhsh"],
                   "admin_user": "admin",
@@ -33,7 +27,7 @@ CLOUDS = {"uos": {"os_auth_url": "http://i.l7.0.uc.ustack.in:35357/v3",
 
 
 def force_v3_api(url):
-    if url is None:
+    if url is none:
         return url
     if url.endswith('/v2.0'):
         return url.replace('/v2.0', '/v3')
@@ -41,7 +35,7 @@ def force_v3_api(url):
 
 
 def get_ks_client(cloud):
-    ks_client = client.Client(user_domain_name="Default",
+    ks_client = client.Client(user_domain_name="Default"
                               username=cloud['admin_user'],
                               password=cloud['admin_password'],
                               project_domain_name="Default",
@@ -51,26 +45,18 @@ def get_ks_client(cloud):
     return ks_client
 
 
-def get_token(ks_client):
-    return ks_client.auth_token
+def get_token():
+    return get_ks_client().auth_token
 
 
-def get_admin_tenant_id(ks_client):
-    return ks_client.project_id
+def get_admin_tenant_id():
+    return get_ks_client().project_id
 
 
-def get_user_list(ks_client):
-    return ks_client.users.list()
-
-
-def get_project_list(ks_client):
-    return ks_client.projects.list()
-
-
-def _get_catalog(ks_client):
+def _get_catalog(cloud):
     try:
-        endpoints = ks_client.endpoints.list()
-        services = ks_client.services.list()
+        endpoints = get_ks_client(cloud).endpoints.list()
+        services = get_ks_client(cloud).services.list()
     except Exception as e:
         LOG.exception('failed to load endpoints from kesytone:%s' % e)
         return []
@@ -95,11 +81,11 @@ def _get_catalog(ks_client):
     return catalog
 
 
-def get_endpoint(ks_client, region_name, service_type):
-    catalog = _get_catalog(ks_client)
+def get_endpoint(cloud, region_name, service_type):
+    catalog = _get_catalog(cloud)
 
     endpoint_type = 'admin'
-    project_id = get_admin_tenant_id(ks_client)
+    project_id = get_admin_tenant_id()
 
     for service in catalog:
         if service['type'] != service_type:
@@ -115,9 +101,9 @@ def get_endpoint(ks_client, region_name, service_type):
                     {'tenant_id': project_id, 'project_id': project_id})
 
 
-def get_novaclient(ks_client, cloud, region_name=None):
-    endpoint = get_endpoint(ks_client, region_name, 'compute')
-    auth_token = get_token(ks_client)
+def get_novaclient(cloud, region_name=None):
+    endpoint = get_endpoint(cloud, region_name, 'compute')
+    auth_token = get_token()
 
     c = nova_client.Client(cloud['admin_user'],
                            cloud['admin_password'],
@@ -130,19 +116,19 @@ def get_novaclient(ks_client, cloud, region_name=None):
     return c
 
 
-def server_list(ks_client, cloud, project_id=None, region_name=None):
+def server_list(cloud, project_id=None, region_name=None):
     search_opts = {'all_tenants': 1}
 
     if project_id:
         search_opts.update(project_id=project_id)
 
-    return get_novaclient(ks_client, cloud, region_name).servers.list(detailed=False,
-                                                                      search_opts=search_opts)
+    return get_novaclient(cloud, region_name).servers.list(detailed=False,
+                                                           search_opts=search_opts)
+ 
 
-
-def get_cinderclient(ks_client, cloud, region_name=None):
-    endpoint = get_endpoint(ks_client, region_name, 'volume')
-    auth_token = get_token(ks_client)
+def get_cinderclient(cloud, region_name=None):
+    endpoint = get_endpoint(cloud, region_name, 'volume')
+    auth_token = get_token()
     c = cinder_client.Client(cloud['admin_user'],
                              cloud['admin_password'],
                              None,
@@ -152,28 +138,28 @@ def get_cinderclient(ks_client, cloud, region_name=None):
     return c
 
 
-def volume_list(ks_client, cloud, project_id=None, region_name=None):
+def volume_list(cloud, project_id=None, region_name=None):
     """To see all volumes in the cloud as admin.
     """
-    c_client = get_cinderclient(ks_client, cloud, region_name)
+    c_client = get_cinderclient(cloud, region_name)
     search_opts = {'all_tenants': 1}
     if project_id:
        search_opts.update(project_id=project_id)
     if c_client is None:
         return []
     return c_client.volumes.list(detailed=False, search_opts=search_opts)
+ 
 
-
-def get_neutronclient(ks_client, region_name=None):
-    endpoint = get_endpoint(ks_client, region_name, 'network')
-    auth_token = get_token(ks_client)
+def get_neutronclient(cloud, region_name=None):
+    endpoint = get_endpoint(cloud, region_name, 'network')
+    auth_token = get_token()
     c = neutron_client.Client(token=auth_token,
                               endpoint_url=endpoint)
     return c
 
 
-def floatingip_list(ks_client, project_id=None, region_name=None):
-    client = get_neutronclient(ks_client, region_name)
+def floatingip_list(cloud, project_id=None, region_name=None):
+    client = get_neutronclient(cloud, region_name)
     if project_id:
         fips = client.list_floatingips(tenant_id=project_id).get('floatingips')
     else:
@@ -182,26 +168,20 @@ def floatingip_list(ks_client, project_id=None, region_name=None):
     return fips
 
 
-today = datetime.date.today()
+resource_count = []
+for region in REGIONS:
+    line = (region,)
+    line = line + tuple((get_resource_count(region, type) for type in RESOURCE_TYPE))
+    resource_count.append(line)
+
+yesterday = datetime.date.today() - datetime.timedelta(days=1)
 
 # send email
-content = u""
-for cloud_name, cloud in CLOUDS.items():
-    ks_client = get_ks_client(cloud)
-
-    users = get_user_list(ks_client)
-    projects = get_project_list(ks_client)
-    content += u"<p>%s云, 用户数: %s, 项目数：%s</p>" % (cloud_name, len(users), len(projects))
-
-    content += u"<table border=\"1\" style=\"border-collapse:collapse;\"><thead><tr><th>区域</th><th>主机</th><th>云硬盘</th><th>公网IP</th></tr></thead>"
-    for region_name in cloud['regions']:
-        servers = server_list(ks_client, cloud, region_name=region_name)
-        volumes = volume_list(ks_client, cloud, region_name=region_name)
-        fips = floatingip_list(ks_client, region_name=region_name)
-
-        content += u"<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % \
-                    (region_name, len(servers), len(volumes), len(fips))
-    content += u"</table><br/>"
+content = u"<p>[%s]资源报表:</p>" % yesterday
+content += u"<table border=\"1\" style=\"border-collapse:collapse;\"><thead><tr><th>区域</th><th>主机</th><th>云硬盘</th><th>公网IP</th></tr></thead>"
+for line in resource_count:
+    content += u"<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (line[0], line[1], line[2], line[3])
+content += u"</table><br/>"
 
 url="https://sendcloud.sohu.com/webapi/mail.send.xml"
 
@@ -210,8 +190,8 @@ params = {"api_user": "postmaster@unitedstack-trigger.sendcloud.org",
           "from": "notice@mail.unitedstack.com",
           "fromname": "UnitedStack",
           #"to": "support@unitedstack.com",
-          "to": ["guangyu@unitedstack.com", "578579544@qq.com"],
-          "subject": '[UnitedStack][%s]资源报表' % today,
+          "to": "guangyu@unitedstack.com",
+          "subject": '[UnitedStack][%s]资源报表' % yesterday,
           "template_invoke_name": "register",
           "html": content.encode('utf-8')}
 
