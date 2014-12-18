@@ -91,6 +91,7 @@ class MasterService(rpc_service.Service):
             const.RESOURCE_VOLUME: cinder.delete_volume,
             const.RESOURCE_FLOATINGIP: neutron.delete_fip,
             const.RESOURCE_ROUTER: neutron.delete_router,
+            const.RESOURCE_LISTENER: neutron.delete_listener,
             const.RESOURCE_ALARM: ceilometer.delete_alarm,
         }
 
@@ -100,6 +101,7 @@ class MasterService(rpc_service.Service):
             const.RESOURCE_SNAPSHOT: cinder.stop_snapshot,
             const.RESOURCE_VOLUME: cinder.stop_volume,
             const.RESOURCE_FLOATINGIP: neutron.stop_fip,
+            const.RESOURCE_LISTENER: neutron.stop_listener,
             const.RESOURCE_ROUTER: neutron.stop_router,
             const.RESOURCE_ALARM: ceilometer.stop_alarm,
         }

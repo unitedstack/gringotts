@@ -522,8 +522,11 @@ class CheckerService(os_service.Service):
         LOG.warn('Notifying owed accounts')
         try:
             accounts = list(self.worker_api.get_accounts(self.ctxt))
-
-            for account in accounts:
+        except Exception:
+            LOG.exception("Fail to get all accounts")
+            accounts = []
+        for account in accounts:
+            try:
                 if account['level'] == 9:
                     continue
 
@@ -625,8 +628,8 @@ class CheckerService(os_service.Service):
                     contact = self.keystone_client.get_uos_user(account['user_id'])
                     self.notifier.notify_before_owed(self.ctxt, account, contact, projects,
                                                      str(price_per_day), days_to_owe)
-        except Exception:
-            LOG.exception('Some exceptions occurred when checking owed accounts')
+            except Exception:
+                LOG.exception('Some exceptions occurred when checking owed account: %s' % account['user_id'])
 
     def _figure_out_difference(self, alist, akey, blist, bkey):
         ab = []
