@@ -5,9 +5,9 @@ from gringotts.client import client
 
 OS_AUHT_URL = 'http://localhost:35357/v3'
 
-client = client.Client(username='admin',
+client = client.Client(username='demo',
                        password='rachel',
-                       project_name='admin',
+                       project_name='demo',
                        auth_url=OS_AUHT_URL)
 
 
@@ -43,5 +43,5 @@ if __name__ == '__main__':
     except ValueError:
         sys.exit("Invalid level, should be an integer")
 
-    project_id = get_uos_user(email)['default_project_id']
+    project_id = get_uos_user(email)['id']
     change_account_level(project_id, level)

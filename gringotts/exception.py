@@ -460,7 +460,7 @@ class Forbidden(HTTPClientError):
     to it.
     """
     http_status = 403
-    message = "2orbidden"
+    message = "Forbidden"
 
 
 class HTTPNotFound(HTTPClientError):

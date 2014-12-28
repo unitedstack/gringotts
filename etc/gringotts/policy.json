@@ -1,4 +1,11 @@
 {
     "context_is_admin":  "role:admin",
-    "context_is_domain_owner": "role:domain_owner"
+    "context_is_domain_owner": "role:domain_owner",
+
+    "uos_admin": "role:uos_admin or role:admin",
+    "uos_staff": "role:uos_staff or rule:uos_admin",
+    "uos_accountant": "role:uos_accountant or rule:uos_admin",
+
+    "account:charge": "rule:uos_accountant",
+    "account:level": "rule:uos_accountant
 }

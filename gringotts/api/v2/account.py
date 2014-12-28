@@ -10,6 +10,7 @@ from wsme import types as wtypes
 from oslo.config import cfg
 
 from gringotts import master
+from gringotts.policy import check_policy
 from gringotts import exception
 from gringotts import utils as gringutils
 from gringotts.api.v2 import models
@@ -50,6 +51,9 @@ class AccountController(rest.RestController):
 
     @wsexpose(models.UserAccount, int)
     def level(self, level):
+
+        check_policy(request.context, "account:level")
+
         if not isinstance(level, int) or level < 0 or level > 9:
             raise exception.InvalidParameterValue(err="Invalid Level")
 
@@ -71,6 +75,8 @@ class AccountController(rest.RestController):
     def put(self, data):
         """Charge the account
         """
+        check_policy(request.context, "account:charge")
+
         # Check the charge value
         if not data.value or data.value < 0 or data.value > 100000:
             raise exception.InvalidChargeValue(value=data.value)

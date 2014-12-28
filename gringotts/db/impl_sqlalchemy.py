@@ -922,29 +922,28 @@ class Connection(base.Connection):
         session = db_session.get_session()
         with session.begin():
             if project_id:
-                account = model_query(context, sa_models.Account, session=session).\
+                account = session.query(sa_models.Account).\
                     filter_by(project_id=project_id).\
                     with_lockmode('update').one()
             else:
-                account = model_query(context, sa_models.Account, session=session).\
+                account = session.query(sa_models.Account).\
                     filter_by(user_id=user_id).\
                     with_lockmode('update').one()
             account.level = level
 
         return self._row_to_db_account_model(account)
 
-    @require_admin_context
     def update_account(self, context, user_id, project_id=None, **data):
         """Do the charge charge account trick"""
         session = db_session.get_session()
         with session.begin():
             # add up account balance
             if project_id:
-                account = model_query(context, sa_models.Account, session=session).\
+                account = session.query(sa_models.Account).\
                     filter_by(project_id=project_id).\
                     with_lockmode('update').one()
             else:
-                account = model_query(context, sa_models.Account, session=session).\
+                account = session.query(sa_models.Account).\
                     filter_by(user_id=user_id).\
                     with_lockmode('update').one()
 
@@ -971,18 +970,17 @@ class Connection(base.Connection):
 
         return self._row_to_db_charge_model(charge)
 
-    @require_admin_context
     def set_charged_orders(self, context, user_id, project_id=None):
         """Set owed orders to charged"""
         session = db_session.get_session()
         with session.begin():
             # set owed order in all regions to charged
             if project_id:
-                query = model_query(context, sa_models.Order, session=session).\
+                query = session.query(sa_models.Order).\
                         filter_by(project_id=project_id).\
                         filter_by(owed=True)
             else:
-                query = model_query(context, sa_models.Order, session=session).\
+                query = session.query(sa_models.Order).\
                         filter_by(user_id=user_id).\
                         filter_by(owed=True)
 
@@ -994,23 +992,21 @@ class Connection(base.Connection):
                 order.date_time = None
                 order.charged = True
 
-    @require_admin_context
     def reset_charged_orders(self, context, order_ids):
         session = db_session.get_session()
         with session.begin():
             for order_id in order_ids:
                 try:
-                    order = model_query(context, sa_models.Order, session=session).\
+                    order = session.query(sa_models.Order).\
                             filter_by(order_id=order_id).\
                             one()
                 except NoResultFound:
                     continue
                 order.charged = False
 
-    @require_context
     def get_charges(self, context, user_id=None, project_id=None, start_time=None, end_time=None,
                     limit=None, offset=None, sort_key=None, sort_dir=None):
-        query = model_query(context, sa_models.Charge)
+        query = get_session().query(sa_models.Charge)
 
         if project_id:
             query = query.filter_by(project_id=project_id)
@@ -1029,12 +1025,11 @@ class Connection(base.Connection):
 
         return (self._row_to_db_charge_model(r) for r in result)
 
-    @require_context
     def get_charges_price_and_count(self, context, user_id=None, project_id=None,
                                     start_time=None, end_time=None):
-        query = model_query(context, sa_models.Charge,
-                            func.count(sa_models.Charge.id).label('count'),
-                            func.sum(sa_models.Charge.value).label('sum'))
+        query = get_session().query(sa_models.Charge,
+                                    func.count(sa_models.Charge.id).label('count'),
+                                    func.sum(sa_models.Charge.value).label('sum'))
 
         if project_id:
             query = query.filter_by(project_id=project_id)

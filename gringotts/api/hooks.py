@@ -58,6 +58,7 @@ class ContextHook(hooks.PecanHook):
         auth_token = state.request.headers.get('X-Auth-Token')
         is_admin = acl.context_is_admin(state.request.headers)
         is_domain_owner = acl.context_is_domain_owner(state.request.headers)
+        roles = state.request.headers.get('X-Roles', "").split(",")
 
         state.request.context = RequestContext(
             auth_token=auth_token,
@@ -65,7 +66,8 @@ class ContextHook(hooks.PecanHook):
             project_id=project_id,
             domain_id=domain_id,
             is_admin=is_admin,
-            is_domain_owner=is_domain_owner)
+            is_domain_owner=is_domain_owner,
+            roles=roles)
 
 
 class LimitHook(hooks.PecanHook):
