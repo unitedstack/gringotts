@@ -81,11 +81,15 @@ class AccountController(rest.RestController):
         if not data.value or data.value < 0 or data.value > 100000:
             raise exception.InvalidChargeValue(value=data.value)
 
+        remarks = data.remarks if data.remarks != wsme.Unset else None
+        operator=request.context.user_id,
+
         self.conn = pecan.request.db_conn
 
         try:
             charge = self.conn.update_account(request.context,
                                               self._id,
+                                              operator=operator,
                                               **data.as_dict())
             has_bonus = False
             if cfg.CONF.enable_bonus and data['type'] != 'bonus':
@@ -95,7 +99,9 @@ class AccountController(rest.RestController):
                                                      self._id,
                                                      type='bonus',
                                                      value=value,
-                                                     come_from='system')
+                                                     come_from='system',
+                                                     operator=operator,
+                                                     remarks=remarks)
                     has_bonus = True
 
             self.conn.set_charged_orders(request.context, self._id)
@@ -118,7 +124,10 @@ class AccountController(rest.RestController):
                                                      contact,
                                                      data['type'],
                                                      charge.value,
-                                                     bonus = bonus.value if has_bonus else 0)
+                                                     bonus = bonus.value if has_bonus else 0,
+                                                     operator=operator,
+                                                     operator_name=request.context.user_name,
+                                                     remarks=remarks)
         return models.Charge.from_db_model(charge)
 
     @wsexpose(models.Charges, datetime.datetime, datetime.datetime, int, int)
@@ -200,14 +209,59 @@ class AccountController(rest.RestController):
         return round(float(price_per_day), 4)
 
 
+class ChargeController(rest.RestController):
+
+
+    @wsexpose(models.Charges, datetime.datetime, datetime.datetime, int, int)
+    def get(self, start_time=None, end_time=None, limit=None, offset=None):
+        """Get all charges of all account
+        """
+        check_policy(request.context, "charges:all")
+
+        users = {}
+        def _get_user(user_id):
+            user = users.get(user_id)
+            if user:
+                return user
+            contact = keystone.get_uos_user(user_id)
+            users[user_id] = models.User(user_id=user_id,
+                                         user_name=contact['name'])
+            return users[user_id]
+
+        self.conn = pecan.request.db_conn
+        charges = self.conn.get_charges(request.context,
+                                        limit=limit,
+                                        offset=offset,
+                                        start_time=start_time,
+                                        end_time=end_time)
+        charges_list = []
+        for charge in charges:
+            acharge = models.Charge.from_db_model(charge)
+            acharge.actor = _get_user(charge.operator)
+            acharge.target = _get_user(charge.user_id)
+            charges_list.append(acharge)
+
+        total_price, total_count = self.conn.get_charges_price_and_count(
+            request.context, start_time=start_time, end_time=end_time)
+        total_price = gringutils._quantize_decimal(total_price)
+
+        return models.Charges.transform(total_price=total_price,
+                                        total_count=total_count,
+                                        charges=charges_list)
+
+
 class AccountsController(rest.RestController):
     """Manages operations on the accounts collection
     """
+
+    charges = ChargeController()
+
     @pecan.expose()
     def _lookup(self, user_id, *remainder):
         if remainder and not remainder[-1]:
             remainder = remainder[:-1]
-        return AccountController(user_id), remainder
+        if len(user_id) == 32:
+            return AccountController(user_id), remainder
 
     @wsexpose(models.AdminAccounts, bool, int, int)
     def get_all(self, owed=None, limit=None, offset=None):

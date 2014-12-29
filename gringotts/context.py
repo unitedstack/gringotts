@@ -40,10 +40,11 @@ class RequestContext(object):
     accesses the system, as well as additional request information.
     """
 
-    def __init__(self, auth_token=None, user_id=None, project_id=None, domain_id=None,
+    def __init__(self, auth_token=None, user_id=None, user_name=None, project_id=None, domain_id=None,
                  is_admin=False, is_domain_owner=False, request_id=None, roles=[]):
         self.auth_token = auth_token
         self.user_id = user_id
+        self.user_name = user_name
         self.project_id = project_id
         self.domain_id = domain_id
         self.is_admin = is_admin
@@ -55,6 +56,7 @@ class RequestContext(object):
 
     def to_dict(self):
         return {'user_id': self.user_id,
+                'user_name': self.user_name,
                 'project_id': self.project_id,
                 'domain_id': self.domain_id,
                 'is_admin': self.is_admin,

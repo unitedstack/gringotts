@@ -90,6 +90,7 @@ class PrechargeController(rest.RestController):
         conn = pecan.request.db_conn
         user_id = pecan.request.context.user_id
         project_id = pecan.request.context.project_id
+        user_name = pecan.request.context.user_name
 
         key = str("gring-precharge-limit-%s" % user_id)
         cache = _get_cache()
@@ -150,7 +151,10 @@ class PrechargeController(rest.RestController):
                                                          account, contact,
                                                          'coupon',
                                                          price,
-                                                         bonus=0)
+                                                         bonus=0,
+                                                         operator=user_id,
+                                                         operator_name=user_name,
+                                                         remarks='coupon')
         left_count = int(cache.get(key))
 
         if left_count == 0:

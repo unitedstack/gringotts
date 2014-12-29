@@ -212,6 +212,8 @@ class Charge(Base):
     type = Column(String(64))
     come_from = Column(String(255))
     charge_time = Column(DateTime)
+    operator = Column(String(64))
+    remarks = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)

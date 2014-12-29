@@ -43,7 +43,7 @@ def alert_client():
 
 def alert_bad_resources(resources):
     to = cfg.CONF.alert_to
-    subject = "[Alert in Region: %s] There are some bad resources in ustack cloud" % cfg.CONF.region_name
+    subject = "[%s][%s] There are some bad resources in ustack cloud" % (cfg.CONF.cloud_name, cfg.CONF.region_name)
     tags = 'resource;report'
     priority = cfg.CONF.alert_priority
 

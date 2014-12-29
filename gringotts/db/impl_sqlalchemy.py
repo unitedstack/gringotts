@@ -289,6 +289,8 @@ class Connection(base.Connection):
                                 value=row.value,
                                 type=row.type,
                                 come_from=row.come_from,
+                                operator=row.operator,
+                                remarks=row.remarks,
                                 charge_time=row.charge_time,
                                 created_at=row.created_at,
                                 updated_at=row.updated_at)
@@ -933,7 +935,7 @@ class Connection(base.Connection):
 
         return self._row_to_db_account_model(account)
 
-    def update_account(self, context, user_id, project_id=None, **data):
+    def update_account(self, context, user_id, project_id=None, operator=None, **data):
         """Do the charge charge account trick"""
         session = db_session.get_session()
         with session.begin():
@@ -965,7 +967,9 @@ class Connection(base.Connection):
                                       value=data['value'],
                                       type=data.get('type'),
                                       come_from=data.get('come_from'),
-                                      charge_time=charge_time)
+                                      charge_time=charge_time,
+                                      operator=operator,
+                                      remarks=data.get('remarks'))
             session.add(charge)
 
         return self._row_to_db_charge_model(charge)
@@ -1552,7 +1556,9 @@ class Connection(base.Connection):
                                       value=precharge.price,
                                       type='coupon',
                                       come_from="coupon",
-                                      charge_time=charge_time)
+                                      charge_time=charge_time,
+                                      operator=account.user_id,
+                                      remarks='coupon')
             session.add(charge)
 
             # Update precharge

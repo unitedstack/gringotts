@@ -423,13 +423,24 @@ class Trend(APIBase):
     consumption = decimal.Decimal
 
 
+class User(APIBase):
+    """UOS user model
+    """
+    user_id = wtypes.text
+    user_name = wtypes.text
+
+
 class Charge(APIBase):
     """Charge to account
     """
+    charge_id = wtypes.text
     value = decimal.Decimal
     type = wtypes.text
     come_from = wtypes.text
     charge_time = wtypes.text
+    target = User
+    actor = User
+    remarks = wtypes.text
 
 
 class Charges(APIBase):

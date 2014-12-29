@@ -26,17 +26,17 @@ class NotifierService(object):
             self.notifiers.append(extensions['email'].obj)
             self.notifiers.append(extensions['sms'].obj)
 
-    def notify_before_owed(self, context, account, contact, projects, price_per_day, days_to_owe):
+    def notify_before_owed(self, context, account, contact, projects, price_per_day, days_to_owe, **kwargs):
         for notifier in self.notifiers:
-            notifier.notify_before_owed(context, account, contact, projects, price_per_day, days_to_owe)
+            notifier.notify_before_owed(context, account, contact, projects, price_per_day, days_to_owe, kwargs)
 
-    def notify_has_owed(self, context, account, contact, projects):
+    def notify_has_owed(self, context, account, contact, projects, **kwargs):
         for notifier in self.notifiers:
-            notifier.notify_has_owed(context, account, contact, projects)
+            notifier.notify_has_owed(context, account, contact, projects, kwargs)
 
-    def notify_account_charged(self, context, account, contact, type, value, bonus=None):
+    def notify_account_charged(self, context, account, contact, type, value, bonus=None, **kwargs):
         for notifier in self.notifiers:
-            notifier.notify_account_charged(context, account, contact, type, value, bonus=bonus)
+            notifier.notify_account_charged(context, account, contact, type, value, bonus=bonus, kwargs=kwargs)
 
 
 class Notifier(object):
@@ -45,17 +45,17 @@ class Notifier(object):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def notify_has_owed(context, account, contact, projects):
+    def notify_has_owed(context, account, contact, projects, **kwargs):
         """Notify account has owed
         """
 
     @abc.abstractmethod
     def notify_before_owed(context, account, contact, projects,
-                           price_per_day, days_to_owe):
+                           price_per_day, days_to_owe, **kwargs):
         """Notify account who will owe in days_to_owe
         """
 
     @abc.abstractmethod
-    def notify_account_charged(context, account, contact, type, value, bonus=None):
+    def notify_account_charged(context, account, contact, type, value, bonus=None, **kwargs):
         """Notify account has charged successfully
         """

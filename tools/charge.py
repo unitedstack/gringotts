@@ -26,7 +26,8 @@ def get_uos_user(email):
 def charge_account(project_id, value, type, come_from):
     body = dict(value=value,
                 type=type,
-                come_from=come_from)
+                come_from=come_from,
+                remarks="guangyu")
     client.put('/accounts/%s' % project_id, body=body)
 
 

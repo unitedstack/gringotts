@@ -53,6 +53,7 @@ class ContextHook(hooks.PecanHook):
 
     def before(self, state):
         user_id = state.request.headers.get('X-User-Id')
+        user_name = state.request.headers.get("X-User-Name")
         project_id = state.request.headers.get('X-Project-Id')
         domain_id = state.request.headers.get('X-Domain-Id')
         auth_token = state.request.headers.get('X-Auth-Token')
@@ -63,6 +64,7 @@ class ContextHook(hooks.PecanHook):
         state.request.context = RequestContext(
             auth_token=auth_token,
             user_id=user_id,
+            user_name=user_name,
             project_id=project_id,
             domain_id=domain_id,
             is_admin=is_admin,

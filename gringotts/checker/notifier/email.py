@@ -2,6 +2,8 @@
 
 from gringotts import notifier as gring_notifier
 
+from oslo.config import cfg
+
 from gringotts.checker import notifier
 from gringotts.openstack.common import log
 from gringotts.openstack.common.gettextutils import _
@@ -13,7 +15,7 @@ LOG = log.getLogger(__name__)
 class EmailNotifier(notifier.Notifier):
 
     @staticmethod
-    def notify_has_owed(context, account, contact, projects):
+    def notify_has_owed(context, account, contact, projects, **kwargs):
         # Get account info
         account_name = contact.get('real_name') or contact['email'].split('@')[0]
         mobile_number = contact.get('mobile_number') or "unknown"
@@ -69,7 +71,7 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.owed', payload)
 
     @staticmethod
-    def notify_before_owed(context, account, contact, projects, price_per_day, days_to_owe):
+    def notify_before_owed(context, account, contact, projects, price_per_day, days_to_owe, **kwargs):
         # Get account info
         account_name = contact.get('real_name') or contact['email'].split('@')[0]
         mobile_number = contact.get('mobile_number') or "unknown"
@@ -125,7 +127,7 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.will_owed', payload)
 
     @staticmethod
-    def notify_account_charged(context, account, contact, type, value, bonus=None):
+    def notify_account_charged(context, account, contact, type, value, bonus=None, **kwargs):
         # Notify user
         account_name = contact.get('real_name') or contact['email'].split('@')[0]
         if type == 'bonus':
@@ -153,9 +155,9 @@ class EmailNotifier(notifier.Notifier):
 
         # Notify us
         if type == 'bonus':
-            subject = u"[UnitedStack] 系统为用户[%s]充值[￥%s]" % (account_name, value)
+            subject = u"[UnitedStack][%s] 系统为用户[%s]充值[￥%s]" % (cfg.CONF.cloud_name, account_name, value)
         else:
-            subject = u"[UnitedStack] 用户[%s]成功充值[￥%s]" % (account_name, value)
+            subject = u"[UnitedStack][%s] 用户[%s]成功充值[￥%s]" % (cfg.CONF.cloud_name, account_name, value)
         payload = {
             'actions': {
                 'email': {

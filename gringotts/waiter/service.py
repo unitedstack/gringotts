@@ -36,6 +36,9 @@ OPTS_GLOBAL = [
     cfg.StrOpt('region_name',
                default='RegionOne',
                help='The region this waiter is deployed'),
+    cfg.StrOpt('cloud_name',
+               default="localhost",
+               help="The environment this service is running")
 ]
 
 cfg.CONF.register_opts(OPTS, group="waiter")
