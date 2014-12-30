@@ -10,6 +10,7 @@ from gringotts.api.v2 import precharge
 from gringotts.api.v2 import fix
 from gringotts.api.v2 import resource
 from gringotts.api.v2 import project
+from gringotts.api.v2 import download
 
 from gringotts.api.v2 import models
 
@@ -26,6 +27,7 @@ class V2Controller(rest.RestController):
     fix = fix.FixController()
     resources = resource.ResourcesController()
     projects = project.ProjectsController()
+    downloads = download.DownloadsController()
 
     @wsexpose(models.Version)
     def get(self):

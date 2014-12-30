@@ -82,7 +82,7 @@ class AccountController(rest.RestController):
             raise exception.InvalidChargeValue(value=data.value)
 
         remarks = data.remarks if data.remarks != wsme.Unset else None
-        operator=request.context.user_id,
+        operator=request.context.user_id
 
         self.conn = pecan.request.db_conn
 

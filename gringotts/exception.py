@@ -97,6 +97,11 @@ class PreChargeException(GringottsException):
     """PreCharge failed
     """
 
+class InvalidOutputFormat(GringottsException):
+    message = _("Invalid output format: %(output_format)s")
+    code = 400
+
+
 class PreChargeHasDispatched(GringottsException):
     message = _("Precharge %(precharge_code)s has been dispatched")
     code = 400
