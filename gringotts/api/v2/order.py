@@ -10,6 +10,7 @@ from wsme import types as wtypes
 
 from oslo.config import cfg
 
+from gringotts.api import acl
 from gringotts import exception
 from gringotts import utils as gringutils
 
@@ -76,47 +77,21 @@ class SummaryController(rest.RestController):
             user_id=None, project_id=None):
         """Get summary of all kinds of orders
         """
-        # bad hack, will be removed in second stage
-        if not request.context.is_admin and not project_id:
-            projects = keystone.get_projects_by_user(request.context.user_id)
-            conn = pecan.request.db_conn
+        limit_user_id, __ = acl.get_limited_to_accountant(request.headers)
 
-            total_price = gringutils._quantize_decimal(0)
-            total_count = 0
-            summaries = []
-
-            for order_type in ORDER_TYPE:
-                order_total_price = gringutils._quantize_decimal(0)
-                order_total_count = 0
-
-                for project in projects:
-                    # Get all orders of this particular context one time
-                    orders_db = list(conn.get_orders(request.context,
-                                                     start_time=start_time,
-                                                     end_time=end_time,
-                                                     user_id=user_id,
-                                                     type=order_type,
-                                                     project_id=project['id'],
-                                                     region_id=region_id))
-
-                    # One user's order records will not be very large, so we can
-                    # traverse them directly
-                    for order in orders_db:
-                        price, count = self._get_order_price_and_count(order,
-                                                                       start_time=start_time,
-                                                                       end_time=end_time)
-                        order_total_price += price
-                        order_total_count += count
-
-                summaries.append(models.Summary.transform(total_count=order_total_count,
-                                                          order_type=order_type,
-                                                          total_price=order_total_price))
-                total_price += order_total_price
-                total_count += order_total_count
-
-            return models.Summaries.transform(total_price=total_price,
-                                              total_count=total_count,
-                                              summaries=summaries)
+        if limit_user_id: # normal user
+            user_id = None
+            projects = keystone.get_projects_by_user(limit_user_id)
+            _project_ids = [project['id'] for project in projects]
+            if project_id:
+                project_ids = [project_id] if project_id in _project_ids else _project_ids
+            else:
+                project_ids = _project_ids
+        else: # accountant
+            if project_id: # look up specified project
+                project_ids = [project_id]
+            else: # look up all projects
+                project_ids = None
 
         # good way to go
         conn = pecan.request.db_conn
@@ -126,7 +101,7 @@ class SummaryController(rest.RestController):
                                          start_time=start_time,
                                          end_time=end_time,
                                          user_id=user_id,
-                                         project_id=project_id,
+                                         project_ids=project_ids,
                                          region_id=region_id))
 
         total_price = gringutils._quantize_decimal(0)
@@ -275,39 +250,21 @@ class OrdersController(rest.RestController):
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
-        # bad hack, will be removed in next stage
-        if not request.context.is_admin and not project_id:
-            projects = keystone.get_projects_by_user(request.context.user_id)
+        limit_user_id, __ = acl.get_limited_to_accountant(request.headers)
 
-            conn = pecan.request.db_conn
-            total_count = 0
-            orders = []
-
-            for project in projects:
-                orders_db, count = conn.get_orders(request.context,
-                                                   type=type,
-                                                   status=status,
-                                                   start_time=start_time,
-                                                   end_time=end_time,
-                                                   owed=owed,
-                                                   limit=limit,
-                                                   offset=offset,
-                                                   with_count=True,
-                                                   region_id=region_id,
-                                                   user_id=user_id,
-                                                   project_id=project['id'])
-                for order in orders_db:
-                    price = self._get_order_price(order,
-                                                  start_time=start_time,
-                                                  end_time=end_time)
-
-                    order.total_price = gringutils._quantize_decimal(price)
-
-                    orders.append(models.Order.from_db_model(order))
-                total_count += count
-
-            return models.Orders.transform(total_count=total_count,
-                                           orders=orders)
+        if limit_user_id: # normal user
+            user_id = None
+            projects = keystone.get_projects_by_user(limit_user_id)
+            _project_ids = [project['id'] for project in projects]
+            if project_id:
+                project_ids = [project_id] if project_id in _project_ids else _project_ids
+            else:
+                project_ids = _project_ids
+        else: # accountant
+            if project_id: # look up specified project
+                project_ids = [project_id]
+            else: # look up all projects
+                project_ids = None
 
         conn = pecan.request.db_conn
         orders_db, total_count = conn.get_orders(request.context,
@@ -321,7 +278,7 @@ class OrdersController(rest.RestController):
                                                  with_count=True,
                                                  region_id=region_id,
                                                  user_id=user_id,
-                                                 project_id=project_id)
+                                                 project_ids=project_ids)
         orders = []
         for order in orders_db:
             price = self._get_order_price(order,

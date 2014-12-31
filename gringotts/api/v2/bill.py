@@ -11,6 +11,7 @@ from wsme import types as wtypes
 
 from oslo.config import cfg
 
+from gringotts.api import acl
 from gringotts import exception
 from gringotts import utils as gringutils
 
@@ -57,13 +58,19 @@ def _make_cache_key(region_id, user_id, project_id, start_time, end_time):
 class TrendsController(rest.RestController):
     """Summary every order type's consumption
     """
-    @wsexpose([models.Trend], datetime.datetime, wtypes.text, wtypes.text, wtypes.text)
-    def get(self, today=None, type=None, project_id=None, region_id=None):
+    @wsexpose([models.Trend], datetime.datetime, wtypes.text, wtypes.text, wtypes.text, wtypes.text)
+    def get(self, today=None, type=None, user_id=None, project_id=None, region_id=None):
         """Get summary of all kinds of orders in the latest 12 month or 12 day
 
         :param today: Client's today wee hour
         :param type: month, day
         """
+        limit_user_id, __ = acl.get_limited_to_accountant(request.headers)
+        if limit_user_id:
+            user_id = limit_user_id
+        elif not user_id: # accountant can look up any user, if not sepcify, look up itself
+            user_id = request.context.user_id
+
         conn = pecan.request.db_conn
         trends = []
         periods = []
@@ -109,6 +116,7 @@ class TrendsController(rest.RestController):
                 read_cache = False
             bills_sum = self._get_bills_sum(request.context,
                                             conn,
+                                            user_id=user_id,
                                             project_id=project_id,
                                             region_id=region_id,
                                             start_time=periods[i][0],
@@ -123,7 +131,7 @@ class TrendsController(rest.RestController):
 
         return trends
 
-    def _get_bills_sum(self, context, conn, project_id, region_id, start_time, end_time,
+    def _get_bills_sum(self, context, conn, user_id, project_id, region_id, start_time, end_time,
                        read_cache=True):
         if read_cache:
             cache = _get_cache()
@@ -132,6 +140,7 @@ class TrendsController(rest.RestController):
             bills_sum = cache.get(key)
             if not bills_sum and bills_sum != 0:
                 bills_sum = conn.get_bills_sum(context,
+                                               user_id=user_id,
                                                project_id=project_id,
                                                region_id=region_id,
                                                start_time=start_time,
@@ -139,6 +148,7 @@ class TrendsController(rest.RestController):
                 cache.set(key, bills_sum, BILL_CACHE_SECONDS)
         else:
             bills_sum = conn.get_bills_sum(context,
+                                           user_id=user_id,
                                            project_id=project_id,
                                            region_id=region_id,
                                            start_time=start_time,

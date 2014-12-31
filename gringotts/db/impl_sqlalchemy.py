@@ -487,7 +487,7 @@ class Connection(base.Connection):
     def get_orders(self, context, start_time=None, end_time=None, type=None,
                    status=None, limit=None, offset=None, sort_key=None,
                    sort_dir=None, with_count=False, region_id=None,
-                   user_id=None, project_id=None, owed=None):
+                   user_id=None, project_ids=None, owed=None):
         """Get orders that have bills during start_time and end_time.
         If start_time is None or end_time is None, will ignore the datetime
         range, and return all orders
@@ -502,8 +502,8 @@ class Connection(base.Connection):
             query = query.filter_by(region_id=region_id)
         if user_id:
             query = query.filter_by(user_id=user_id)
-        if project_id:
-            query = query.filter_by(project_id=project_id)
+        if project_ids is not None:
+            query = query.filter(sa_models.Project.project_id.in_(project_ids))
         if owed:
             query = query.filter_by(owed=owed)
 
@@ -828,18 +828,14 @@ class Connection(base.Connection):
 
     @require_context
     def get_bills_sum(self, context, region_id=None, start_time=None, end_time=None,
-                      order_id=None, project_id=None, type=None):
+                      order_id=None, user_id=None, project_id=None, type=None):
         query = get_session().query(sa_models.Bill,
                                     func.sum(sa_models.Bill.total_price).label('sum'))
 
-        # really bad hack
         if order_id:
             query = query.filter_by(order_id=order_id)
-        elif gring_context.is_domain_owner_context(context):
-            query = query.filter_by(domain_id=context.domain_id)
-        elif gring_context.is_user_context(context):
-            query = query.filter_by(user_id=context.user_id)
-
+        if user_id:
+            query = query.filter_by(user_id=user_id)
         if project_id:
             query = query.filter_by(project_id=project_id)
         if type:
