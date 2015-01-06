@@ -430,6 +430,13 @@ class User(APIBase):
     user_name = wtypes.text
 
 
+class SimpleProject(APIBase):
+    """UOS project model
+    """
+    project_id = wtypes.text
+    project_name = wtypes.text
+
+
 class Charge(APIBase):
     """Charge to account
     """
