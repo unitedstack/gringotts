@@ -128,8 +128,11 @@ class EmailNotifier(notifier.Notifier):
 
     @staticmethod
     def notify_account_charged(context, account, contact, type, value, bonus=None, **kwargs):
-        # Notify user
         account_name = contact.get('real_name') or contact['email'].split('@')[0]
+        mobile_number = contact.get('mobile_number') or "unknown"
+        company = contact.get('company') or "unknown"
+
+        # Notify user
         if type == 'bonus':
             subject = u"[UnitedStack] 您好，%s，系统为您充值[￥%s]" % (account_name, value)
         else:
@@ -164,6 +167,12 @@ class EmailNotifier(notifier.Notifier):
                     'template': 'charge_to_admin',
                     'context': {
                         'type': type,
+                        'real_name': account_name,
+                        'mobile': mobile_number,
+                        'company': company,
+                        'operator_name': kwargs.get('operator_name'),
+                        'operator': kwargs.get('operator'),
+                        'remarks': kwargs.get('remarks'),
                         'email': contact['email'],
                         'value': str(value),
                         'balance': str(account['balance']),

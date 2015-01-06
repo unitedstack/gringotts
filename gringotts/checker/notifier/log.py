@@ -19,5 +19,5 @@ class LogNotifier(notifier.Notifier):
 
     @staticmethod
     def notify_account_charged(context, account, contact, type, value, bonus=None, **kwargs):
-        LOG.warn('account %s charged %s, system bonus: %s, contact: %s' %
-                 (account, value, bonus, contact))
+        LOG.warn('account %s charged %s, system bonus: %s, contact: %s, others: %s' %
+                 (account, value, bonus, contact, kwargs))

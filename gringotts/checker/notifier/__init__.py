@@ -28,15 +28,15 @@ class NotifierService(object):
 
     def notify_before_owed(self, context, account, contact, projects, price_per_day, days_to_owe, **kwargs):
         for notifier in self.notifiers:
-            notifier.notify_before_owed(context, account, contact, projects, price_per_day, days_to_owe, kwargs)
+            notifier.notify_before_owed(context, account, contact, projects, price_per_day, days_to_owe, **kwargs)
 
     def notify_has_owed(self, context, account, contact, projects, **kwargs):
         for notifier in self.notifiers:
-            notifier.notify_has_owed(context, account, contact, projects, kwargs)
+            notifier.notify_has_owed(context, account, contact, projects, **kwargs)
 
     def notify_account_charged(self, context, account, contact, type, value, bonus=None, **kwargs):
         for notifier in self.notifiers:
-            notifier.notify_account_charged(context, account, contact, type, value, bonus=bonus, kwargs=kwargs)
+            notifier.notify_account_charged(context, account, contact, type, value, bonus=bonus, **kwargs)
 
 
 class Notifier(object):
