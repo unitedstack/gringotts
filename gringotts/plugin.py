@@ -7,6 +7,11 @@ import fnmatch
 from oslo.config import cfg
 import six
 
+from gringotts.openstack.common import log
+
+
+LOG = log.getLogger(__name__)
+
 # Import this option so every Notification plugin can use it freely.
 cfg.CONF.import_opt('notification_topics',
                     'gringotts.openstack.common.notifier.rpc_notifier')
@@ -64,4 +69,5 @@ class NotificationBase(PluginBase):
         """
         if self._handle_event_type(notification['event_type'],
                                    self.event_types):
+            LOG.warn('Handling notification: %s', notification.get('event_type'))
             self.process_notification(notification)

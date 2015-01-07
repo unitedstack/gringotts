@@ -503,7 +503,7 @@ class Connection(base.Connection):
         if user_id:
             query = query.filter_by(user_id=user_id)
         if project_ids is not None:
-            query = query.filter(sa_models.Project.project_id.in_(project_ids))
+            query = query.filter(sa_models.Order.project_id.in_(project_ids))
         if owed:
             query = query.filter_by(owed=owed)
 

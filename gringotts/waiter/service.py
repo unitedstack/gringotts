@@ -106,7 +106,6 @@ class WaiterService(rpc_service.Service):
         bus, this method receives it. See _setup_subscription().
 
         """
-        LOG.debug('notification %r', notification.get('event_type'))
         self.notification_manager.map(self._process_notification_for_ext,
                                       notification=notification)
 
