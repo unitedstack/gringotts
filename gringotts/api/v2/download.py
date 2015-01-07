@@ -143,7 +143,7 @@ class OrdersController(rest.RestController):
             if project:
                 return project
             project = keystone.get_project(project_id)
-            project_name = project['name'] if project else None
+            project_name = project.name if project else None
             projects[project_id] = models.SimpleProject(project_id=project_id,
                                                         project_name=project_name)
             return projects[project_id]
@@ -152,8 +152,8 @@ class OrdersController(rest.RestController):
                    u"用户ID", u"用户名称", u"项目ID", u"项目名称", u"创建时间")
         data = []
 
-        adata = (u"过滤条件: 用户ID: %s, 项目ID: %s, 区域: %s, 起始时间: %s,  结束时间: %s" %
-                 (user_id, project_id, region_id, start_time, end_time),
+        adata = (u"过滤条件: 资源类型: %s, 资源状态: %s，用户ID: %s, 项目ID: %s, 区域: %s, 起始时间: %s,  结束时间: %s" %
+                 (type, status, user_id, project_id, region_id, start_time, end_time),
                  "", "", "", "", "", "", "", "", "", "", "")
         data.append(adata)
 
