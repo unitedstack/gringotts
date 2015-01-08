@@ -386,3 +386,18 @@ def stop_listener(listener_id, region_name=None):
 def delete_listener(listener_id, region_name=None):
     client = get_neutronclient(region_name)
     client.delete_listener(listener_id)
+
+
+@wrap_exception(exc_type='put')
+def quota_update(project_id, user_id=None, region_name=None, **kwargs):
+    """
+    kwargs = {"floatingip": 10,
+              "network": 20,
+              "router": 1024,
+              ...}
+    """
+    client = get_neutronclient(region_name)
+    body = {
+        "quota": kwargs
+    }
+    client.update_quota(project_id, body=body)

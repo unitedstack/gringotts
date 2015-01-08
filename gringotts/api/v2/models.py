@@ -522,3 +522,35 @@ class Resource(APIBase):
     resource_id = wtypes.text
     resource_name = wtypes.text
     resource_type = wtypes.text
+
+
+class ComputeQuota(APIBase):
+    instances = int
+    cores = int
+    ram = int
+
+
+class VolumeQuota(APIBase):
+    volume_type = wtypes.text
+    gigabytes = int
+    snapshots = int
+    volumes = int
+
+
+class NetworkQuota(APIBase):
+    floatingip = int
+    network = int
+    router = int
+    subnet = int
+    loadbalancer = int
+    listener = int
+    pool = int
+
+
+class Quota(APIBase):
+    project_id = wtypes.text
+    user_id = wtypes.text
+    region_name = wtypes.text
+    compute = ComputeQuota
+    volume = [VolumeQuota]
+    network = NetworkQuota

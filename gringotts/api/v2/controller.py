@@ -11,6 +11,7 @@ from gringotts.api.v2 import fix
 from gringotts.api.v2 import resource
 from gringotts.api.v2 import project
 from gringotts.api.v2 import download
+from gringotts.api.v2 import quotas
 
 from gringotts.api.v2 import models
 
@@ -28,6 +29,7 @@ class V2Controller(rest.RestController):
     resources = resource.ResourcesController()
     projects = project.ProjectsController()
     downloads = download.DownloadsController()
+    quotas = quotas.QuotasController()
 
     @wsexpose(models.Version)
     def get(self):

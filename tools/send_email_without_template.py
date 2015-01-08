@@ -40,31 +40,16 @@ import time
 #    </div>
 #"""
 
-subject = u"[UnitedStack] 北京1区 12月14日中午 网络故障报告"
+subject = u"[UnitedStack] subject"
 content = u"""
 <div style="padding-top:0px;padding-bottom:0px;font-size:12px;background-color:#f1f1f1;font-family:Lucida Grande,Lucida Sans,Lucida Sans Unicode,Arial,Helvetica,Verdana,sans-serif;">
 <div style="margin:auto;max-width:800px;">
 <div style="height:60px;background-color:#00b1c8;border-top-left-radius:5px;border-top-right-radius:5px;"><img src="http://ustackemail.qiniudn.com/logo.png" style="width:183px;height:36px;margin-top:11px;margin-left:33px;" /></div>
 <div style="min-height:155px;background-color:#fff;border-bottom-left-radius:5px;border-bottom-right-radius:5px;color:#142728;padding:25px 30px;font-size:14px;line-height:20px;">
 <div style="maring-bottom:10px;">尊敬的UnitedStack用户，</div>
-
 <pre style="white-space: pre-wrap;">
-您好！
-
-因局方机房网络故障，北京1区的北京地区联通线路中断，UStack官网及用户网络服务均受影响，而移动、电信线路和省外线路则一切正常。
-由于此为局方未知故障，目前已紧急切换至备用线路，我们将密切关注之后故障处理过程。造成贵方不便，我方表示深深的歉意。
-
-故障时间：2014年12月14日 10:47 - 11:46
-影响范围：北京1区 对北京地区的联通线路，移动/电信线路和省外线路不受影响。
-影响业务：控制台不可用，北京1区用户网络部分中断。使用备用线路期间有可能导致延时增大。
-故障原因：疑似物理光缆中断，具体原因需要等局方官方报告。
-
-感谢您对UStack云平台的长期理解与支持！
- 
-UnitedStack（北京）科技有限公司
-2014年12月14日
+content
 </pre>
-
 </div>
 <div style="margin:auto;text-align:center;width:100%;background-color:#fff;color:#9e9e9e;padding-top:16px;padding-bottom:16px;font-size:12px;"><a href="http://www.ustack.com" style="color:#9e9e9e;text-decoration:none;">UnitedStack Inc. - www.ustack.com</a></div>
 </div>
@@ -80,10 +65,14 @@ params = {"use_maillist": "true",
           "fromname": "UnitedStack",
           #"to": "all_users@maillist.sendcloud.org",
           #"to": "active_users@maillist.sendcloud.org",
-          "to": "active_users_in_lg@maillist.sendcloud.org",
-          #"to": "test@maillist.sendcloud.org",
+          #"to": "active_users_in_lg@maillist.sendcloud.org",
+          #"to": "active_users_in_zhsh@maillist.sendcloud.org",
+          "to": "test@maillist.sendcloud.org",
           "subject": subject,
           "html": content.encode('utf-8')}
 
-r = requests.post(url, data=params)
-print r.text
+if "subject" not in subject:
+    r = requests.post(url, data=params)
+    print r.text
+else:
+    print "Change subject and content please"

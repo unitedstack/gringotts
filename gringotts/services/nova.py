@@ -141,3 +141,17 @@ def stop_server(instance_id, region_name=None):
     client = get_novaclient(region_name)
     client.servers.stop(instance_id)
     return True
+
+
+@wrap_exception(exc_type='put')
+def quota_update(project_id, user_id=None, region_name=None, **kwargs):
+    """
+    kwargs = {"instances": 10,
+              "cores": 20,
+              "ram": 1024,
+              "user_id": "xxxxxxxxx"}
+    """
+    client = get_novaclient(region_name)
+    if user_id:
+        kwargs.update(user_id=user_id)
+    client.quotas.update(project_id, **kwargs)

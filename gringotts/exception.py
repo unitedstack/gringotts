@@ -117,6 +117,11 @@ class PreChargeHasExpired(GringottsException):
     code = 400
 
 
+class InvalidQuotaParameter(GringottsException):
+    message = _("Must specify project_id and region_name in request body")
+    code = 400
+
+
 class Overlimit(GringottsException):
     code = 423
     message = _("%(api)s is called overlimited")

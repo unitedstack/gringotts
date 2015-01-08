@@ -228,3 +228,33 @@ def delete_snapshot(snap_id, region_name=None):
 @wrap_exception(exc_type='stop')
 def stop_snapshot(snap_id, region_id=None):
     return True
+
+@wrap_exception(exc_type='put')
+def quota_update(project_id, user_id=None, region_name=None, **kwargs):
+    """
+    kwargs = {"volume_type": "ssd",
+              "volumes": 10,
+              "snapshots": 20,
+              "gigabytes": 1024}
+    """
+    try:
+        volume_type = kwargs.pop('volume_type')
+    except KeyError:
+        volume_type = None
+
+    client = get_cinderclient(region_name)
+    old_quota = client.quotas.get(project_id)._info
+
+    body = {}
+    for k, v in kwargs.iteritems():
+        k_x = "%s_%s" % (k, volume_type) if volume_type else k
+        body[k_x] = v
+
+        if volume_type:
+            total = 0
+            prefix = "%s_" % k
+            for ko, vo in old_quota.iteritems():
+                if ko.startswith(prefix) and ko != k_x:
+                    total += vo
+            body[k] = v + total
+    client.quotas.update(project_id, **body)
