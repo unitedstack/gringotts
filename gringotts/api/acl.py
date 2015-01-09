@@ -60,6 +60,24 @@ def get_limited_to_accountant(headers):
     return None, None
 
 
+def get_limited_to_support(headers):
+    """Return the user and project the request should be limited to.
+
+    :param headers: HTTP headers dictionary
+    :return: A tuple of (user, project), set to None if there's no limit on
+    one of these.
+
+    """
+    global _ENFORCER
+    if not _ENFORCER:
+        _ENFORCER = policy.Enforcer()
+    if not _ENFORCER.enforce('uos_support',
+                             {},
+                             {'roles': headers.get('X-Roles', "").split(",")}):
+        return headers.get('X-User-Id'), headers.get('X-Project-Id')
+    return None, None
+
+
 def get_limited_to_project(headers):
     """Return the project the request should be limited to.
 

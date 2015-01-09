@@ -31,7 +31,7 @@ class QuotasController(rest.RestController):
         from gringotts.services import neutron
         from gringotts.services import nova
 
-        project_id = acl.get_limited_to_project(request.headers)
+        __, project_id = acl.get_limited_to_support(request.headers)
         if project_id:
             raise exception.NotAuthorized
 
