@@ -28,6 +28,11 @@ LOG = log.getLogger(__name__)
 class OrderController(rest.RestController):
     """For one single order, getting its detail consumptions
     """
+
+    _custom_actions = {
+        'order': ['GET'],
+    }
+
     def __init__(self, order_id):
         self._id = order_id
 
@@ -63,6 +68,12 @@ class OrderController(rest.RestController):
 
         return models.Bills.transform(total_count=total_count,
                                       bills=bills_list)
+
+    @wsexpose(models.Order)
+    def order(self):
+        conn = pecan.request.db_conn
+        order = conn.get_order(request.context, self._id)
+        return models.Order.from_db_model(order)
 
 
 class SummaryController(rest.RestController):

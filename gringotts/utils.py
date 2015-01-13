@@ -129,9 +129,17 @@ def calculate_bonus(value):
     return 0
 
 
-def force_v2_api(url):
+def version_api(url, version=None):
     if url is None:
         return url
+
     if url.endswith('/v1'):
-        return url.replace('/v1', '/v2')
-    return url
+        url = url.replace('/v1', '/')
+    elif url.endswith('/v2'):
+        url = url.replace('/v2', '/')
+
+    if version is None:
+        return url + 'v2'
+    else:
+        version = "v%s" % version[-1]
+        return url + version

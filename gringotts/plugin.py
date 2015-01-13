@@ -69,5 +69,4 @@ class NotificationBase(PluginBase):
         """
         if self._handle_event_type(notification['event_type'],
                                    self.event_types):
-            LOG.warn('Handling notification: %s', notification.get('event_type'))
             self.process_notification(notification)

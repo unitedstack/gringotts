@@ -312,6 +312,7 @@ class BillResult(APIBase):
     user_id = wtypes.text
     project_id = wtypes.text
     resource_type = wtypes.text
+    resource_name = wtypes.text
     resource_id = wtypes.text
     region_id = wtypes.text
     resource_owed = bool
@@ -620,3 +621,55 @@ class Quota(APIBase):
 class Estimate(APIBase):
     price_per_day = decimal.Decimal
     remaining_day = int
+
+
+class ExtData(APIBase):
+    resource_id = wtypes.text
+    resource_name = wtypes.text
+    resource_type = wtypes.text
+    region_id = wtypes.text
+    order_id = wtypes.text
+
+
+class PayRequest(APIBase):
+    reqId = wtypes.text
+    accountNum = wtypes.text
+    money = decimal.Decimal
+    type = wtypes.text
+    remark = wtypes.text
+    extData = ExtData
+
+    # flag to determine deduct the account actually or not
+    deduct = wsme.wsattr(bool, default=True)
+
+
+class Response(APIBase):
+    code = wtypes.text
+    total = wtypes.text
+    message = wtypes.text
+
+
+class Pay(APIBase):
+    transactionNum = wtypes.text
+    money = decimal.Decimal
+    createDate = wtypes.text
+
+
+class GetBalance(APIBase):
+    money = decimal.Decimal
+
+
+class CheckReq(APIBase):
+    status = wtypes.text
+
+
+class PayResponse(Response):
+    data = [Pay]
+
+
+class GetBalanceResponse(Response):
+    data = [GetBalance]
+
+
+class CheckReqResponse(Response):
+    data = [CheckReq]

@@ -12,7 +12,9 @@ from wsme import types as wtypes
 from oslo.config import cfg
 
 from gringotts.api import acl
+from gringotts.api.app import external_client
 from gringotts import exception
+from gringotts import worker
 from gringotts import utils as gringutils
 
 from gringotts.api.v2 import models
@@ -197,6 +199,9 @@ class BillsController(rest.RestController):
     trends = TrendsController()
     detail = DetailController()
 
+    def __init__(self):
+        self.worker_api = worker.API(external_client())
+
     @wsexpose(models.Bills, datetime.datetime, datetime.datetime,
               wtypes.text, wtypes.text)
     def get_all(self, start_time=None, end_time=None, type=None,
@@ -212,14 +217,63 @@ class BillsController(rest.RestController):
         return models.Bills.transform(
             total_price=gringutils._quantize_decimal(total_price))
 
+
     @wsexpose(models.BillResult, body=models.BillBody)
     def post(self, data):
+        """Four steps to create a bill:
+
+        1. get user_id via order_id
+        2. get external account balance via user_id
+        3. create a bill
+        4. deduct external account
+
+        If one of (1, 2, 3) step fails, just raise exception to stop the procedure,
+        it will create this bill in next regular deducting circle.
+
+        But if the 4th step fails, we should save the deducting record in our system
+        to sync with the external system when it works again.
+        """
         conn = pecan.request.db_conn
+        external_balance = None
+        ctxt = request.context
+
         try:
-            result = conn.create_bill(request.context, data['order_id'],
+            if cfg.CONF.external_billing.enable:
+                # 1. get user_id via order_id
+                user_id = conn.get_order(ctxt, data.order_id).user_id
+
+                # 2. get external account balance via user_id
+                external_balance = self.worker_api.get_external_balance(ctxt, user_id)['data'][0]['money']
+
+            # 3. create bill
+            result = conn.create_bill(ctxt, data['order_id'],
                                       action_time=data['action_time'],
                                       remarks=data['remarks'],
-                                      end_time=data['end_time'])
+                                      end_time=data['end_time'],
+                                      external_balance=external_balance)
+
+            if cfg.CONF.external_billing.enable and result['type'] >= 0:
+                # 4. deduct external account
+                req_id = uuidutils.generate_uuid()
+                extdata = dict(resource_id=result['resource_id'],
+                               resource_name=result['resource_name'],
+                               resource_type=result['resource_type'],
+                               region_id=result['region_id'],
+                               order_id=data.order_id)
+                try:
+                   self.worker_api.deduct_external_account(ctxt, user_id, str(result['deduct_value']),
+                                                           type="1",
+                                                           remark="come from ustack",
+                                                           req_id=req_id,
+                                                           **extdata)
+                except Exception as e:
+                    LOG.exception("Fail to deduct external account, as reason: %s" % e)
+                    conn.deduct_account(ctxt, user_id, deduct=False,
+                                        money=result['deduct_value'],
+                                        reqId=req_id,
+                                        type="1",
+                                        remark="create bill backup",
+                                        extData=extdata)
             LOG.debug('Create bill for order %s successfully.' % data['order_id'])
             return models.BillResult(**result)
         except Exception:
@@ -228,10 +282,59 @@ class BillsController(rest.RestController):
 
     @wsexpose(models.BillResult, body=models.BillBody)
     def put(self, data):
+        """Four steps to close a bill:
+
+        1. get user_id via order_id
+        2. get external account balance via user_id
+        3. close the bill
+        4. deduct external account
+
+        If one of (1, 2, 3) step fails, just raise exception to stop the procedure,
+        it will create this bill in next regular deducting circle.
+
+        But if the 4th step fails, we should save the deducting record in our system
+        to sync with the external system when it works again.
+        """
+
         conn = pecan.request.db_conn
+        external_balance = None
+        ctxt = request.context
+
         try:
+            if cfg.CONF.external_billing.enable:
+                # 1. get user_id via order_id
+                user_id = conn.get_order(ctxt, data.order_id).user_id
+
+                # 2. get external account balance via user_id
+                external_balance = self.worker_api.get_external_balance(ctxt, user_id)['data'][0]['money']
+
+            # 3. close the bill
             result = conn.close_bill(request.context, data['order_id'],
-                                     action_time=data['action_time'])
+                                     action_time=data['action_time'],
+                                     external_balance=external_balance)
+
+            if cfg.CONF.external_billing.enable and result['type'] >= 0:
+                # 4. deduct external account
+                req_id = uuidutils.generate_uuid()
+                extdata = dict(resource_id=result['resource_id'],
+                               resource_name=result['resource_name'],
+                               resource_type=result['resource_type'],
+                               region_id=result['region_id'],
+                               order_id=data.order_id)
+                try:
+                   self.worker_api.deduct_external_account(ctxt, user_id, str(result['deduct_value']),
+                                                           type="1",
+                                                           remark="come from ustack",
+                                                           req_id=req_id,
+                                                           **extdata)
+                except Exception as e:
+                    LOG.exception("Fail to deduct external account, as reason: %s" % e)
+                    conn.deduct_account(ctxt, user_id, deduct=False,
+                                        money=result['deduct_value'],
+                                        reqId=req_id,
+                                        type="1",
+                                        remark="close bill backup",
+                                        extData=extdata)
             LOG.debug('Close bill for order %s successfully.' % data['order_id'])
             return models.BillResult(**result)
         except Exception:

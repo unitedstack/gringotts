@@ -302,3 +302,18 @@ class UserProject(Base):
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime, default=timeutils.utcnow)
+
+
+class Deduct(Base):
+
+    __tablename__ = 'deduct'
+
+    id = Column(Integer, primary_key=True)
+    req_id = Column(String(255))
+    deduct_id = Column(String(255))
+    type = Column(String(64))
+    money = Column(DECIMAL(20, 4))
+    remark = Column(String(255))
+
+    order_id = Column(String(255))
+    created_at = Column(DateTime, default=timeutils.utcnow)

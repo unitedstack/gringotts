@@ -4,6 +4,7 @@ from gringotts import exception
 from gringotts.openstack.common import log
 from gringotts.client import client
 from gringotts.openstack.common import timeutils
+from gringotts.openstack.common import uuidutils
 
 LOG = log.getLogger(__name__)
 
@@ -15,7 +16,11 @@ cfg.CONF.import_group('service_credentials', 'gringotts.service')
 
 class WorkerAPI(object):
 
-    def __init__(self):
+    def __init__(self, external_client=None):
+        # external client
+        self.external_client = external_client
+
+        # internal client
         os_cfg = cfg.CONF.service_credentials
         self.client = client.Client(user_domain_name=os_cfg.user_domain_name,
                                     username=os_cfg.os_username,
@@ -153,6 +158,10 @@ class WorkerAPI(object):
                                      params=params)
         return body
 
+    def get_order(self, ctxt, order_id):
+        resp, body = self.client.get('/orders/%s/order' % order_id)
+        return body
+
     def reset_charged_orders(self, ctxt, order_ids):
         _body = dict(order_ids=order_ids)
         self.client.put('/orders/reset', body=_body)
@@ -172,8 +181,8 @@ class WorkerAPI(object):
         resp, body = self.client.get('/accounts', params=params)
         return body['accounts']
 
-    def get_account(self, ctxt, project_id):
-        resp, body = self.client.get('/accounts/%s' % project_id)
+    def get_account(self, ctxt, user_id):
+        resp, body = self.client.get('/accounts/%s' % user_id)
         return body
 
     def charge_account(self, ctxt, user_id, value, type, come_from):
@@ -212,3 +221,113 @@ class WorkerAPI(object):
 
     def fix_order(self, ctxt, order_id):
         raise NotImplementedError()
+
+    def create_deduct(self, ctxt, user_id, money, type="1", remark=None, req_id=None, **kwargs):
+        """Only create deduct record in database, not deduct account
+        """
+        req_id = req_id if req_id else uuidutils.generate_uuid()
+
+        _body = dict(reqId=req_id,
+                     accountNum=user_id,
+                     money=money,
+                     type=type,
+                     remark=remark,
+                     extData=kwargs,
+                     deduct=False)
+
+        failed = False
+
+        try:
+            __, body = self.client.put('/pay', body=_body)
+            if body['code'] != "0":
+                failed = True
+        except Exception:
+            failed = True
+
+        if failed:
+            LOG.warn("Fail to backup the deduct: user_id: %s, money: %s" % (user_id, money))
+
+    def deduct_external_account(self, ctxt, user_id, money, type="1", remark=None, req_id=None, **kwargs):
+        """Deduct the account from external billing system
+
+        if failed, will check the account was deducted successfully:
+            if successfull:
+                will return gracefully
+            if failed:
+                will deduct the account again
+                if successfull:
+                    return gracefully
+                elif failed:
+                    raise Exception
+        elif successfull:
+            will return gracefully
+        """
+        if not self.external_client:
+            return
+
+        req_id = req_id if req_id else uuidutils.generate_uuid()
+
+        _body = dict(reqId=req_id,
+                     accountNum=user_id,
+                     money=money,
+                     type=type,
+                     remark=remark,
+                     extData=kwargs)
+
+        failed = False
+        retry = False
+
+        # deduct first
+        try:
+            __, body = self.external_client.put('/pay', body=_body)
+            if body['code'] != "0":
+                failed = True
+        except Exception:
+            failed = True
+
+        # check
+        # if checking itself is failed, then we think the deduction is failed
+        if failed:
+            params = dict(reqId=req_id)
+            try:
+                __, body = self.external_client.get('/checkReq', params=params)
+                if body['code'] != "0":
+                    raise Exception
+            except Exception:
+                msg = "Deduct external account(%s) failed, deduct money(%s), req_id(%s)" % \
+                        (user_id, money, req_id)
+                LOG.exception(msg)
+                raise exception.DeductError(user_id=user_id,
+                                            money=money,
+                                            req_id=req_id)
+            if body['data'][0]['status'] != "0":
+                retry = True
+
+        # retry
+        if retry:
+            try:
+                __, body = self.external_client.put('/pay', body=_body)
+                if body['code'] != "0":
+                    raise Exception
+            except Exception:
+                msg = "Deduct external account(%s) failed, deduct money(%s), req_id(%s)" % \
+                        (user_id, money, req_id)
+                LOG.exception(msg)
+                raise exception.DeductError(user_id=user_id,
+                                            money=money,
+                                            req_id=req_id)
+
+    def get_external_balance(self, ctxt, user_id):
+        if not self.external_client:
+            return
+
+        params = dict(accountNum=user_id)
+        try:
+            __, body = self.external_client.get('/getBalance',
+                                                params=params)
+            if body['code'] != "0":
+                raise Exception
+        except Exception:
+            LOG.exception("Fail to get external balance of account: %s" % user_id)
+            raise exception.GetBalanceFailed(user_id=user_id)
+        return body

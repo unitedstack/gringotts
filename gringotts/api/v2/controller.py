@@ -12,6 +12,7 @@ from gringotts.api.v2 import resource
 from gringotts.api.v2 import project
 from gringotts.api.v2 import download
 from gringotts.api.v2 import quotas
+from gringotts.api.v2 import deduct
 
 from gringotts.api.v2 import models
 
@@ -30,6 +31,9 @@ class V2Controller(rest.RestController):
     projects = project.ProjectsController()
     downloads = download.DownloadsController()
     quotas = quotas.QuotasController()
+    pay = deduct.PayController()
+    checkReq = deduct.CheckReqController()
+    getBalance = deduct.GetBalanceController()
 
     @wsexpose(models.Version)
     def get(self):

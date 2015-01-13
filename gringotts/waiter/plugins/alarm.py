@@ -99,9 +99,9 @@ class AlarmCreateEnd(AlarmNotificationBase):
     event_types = ['alarm.creation']
 
     def process_notification(self, message, state=None):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['alarm_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['alarm_id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -149,9 +149,9 @@ class AlarmOnOffEnd(AlarmNotificationBase):
     event_types = ['alarm.on/off']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['alarm_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['alarm_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['alarm_id']
@@ -174,9 +174,9 @@ class AlarmDeleteEnd(AlarmNotificationBase):
     event_types = ['alarm.deletion']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['alarm_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['alarm_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['alarm_id']

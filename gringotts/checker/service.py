@@ -223,15 +223,15 @@ class CheckerService(os_service.Service):
         with different period
         """
         non_center_jobs = [
-            (self.check_if_resources_match_orders, 2, True),
-            (self.check_if_owed_resources_match_owed_orders, 2, True),
-            (self.check_if_cronjobs_match_orders, 1, True),
+            #(self.check_if_resources_match_orders, 2, True),
+            #(self.check_if_owed_resources_match_owed_orders, 2, True),
+            #(self.check_if_cronjobs_match_orders, 1, True),
         ]
 
         center_jobs = [
-            (self.check_owed_accounts_and_notify, 24, False),
-            (self.check_user_to_account, 2, True),
-            (self.check_project_to_project, 2, True),
+            (self.check_owed_accounts_and_notify, 24, True),
+            #(self.check_user_to_account, 2, True),
+            #(self.check_project_to_project, 2, True),
         ]
 
         if cfg.CONF.checker.enable_non_center_jobs:
@@ -559,6 +559,16 @@ class CheckerService(os_service.Service):
                         orders_dict[project['project_id']] = []
 
                     for order in orders:
+                        # check if the resource exists
+                        resource = self.RESOURCE_GET_MAP[order['type']][0](order['resource_id'],
+                                                                           region_name=self.region_name)
+                        if not resource:
+                            # alert that the resource not exists
+                            LOG.warn("The resource(%s|%s) may has been deleted" % \
+                                     (order['type'], order['resource_id']))
+                            alert.wrong_billing_order(order, 'resource_deleted')
+                            continue
+
                         order_d = {}
                         order_d['order_id'] = order['order_id']
                         order_d['region_id'] = order['region_id']
@@ -612,6 +622,16 @@ class CheckerService(os_service.Service):
 
                     price_per_hour = 0
                     for order in orders:
+                        # check if the resource exists
+                        resource = self.RESOURCE_GET_MAP[order['type']][0](order['resource_id'],
+                                                                           region_name=self.region_name)
+                        if not resource:
+                            # alert that the resource not exists
+                            LOG.warn("The resource(%s|%s) may has been deleted" % \
+                                     (order['type'], order['resource_id']))
+                            alert.wrong_billing_order(order, 'resource_deleted')
+                            continue
+
                         price_per_hour += utils._quantize_decimal(order['unit_price'])
                         estimation[order['project_id']] += utils._quantize_decimal(order['unit_price'])
 

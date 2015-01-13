@@ -98,9 +98,9 @@ class ListenerCreateEnd(ListenerNotificationBase):
     event_types = ['listener.create.end']
 
     def process_notification(self, message, state=None):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['listener']['id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['listener']['id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -167,9 +167,9 @@ class ListenerUpdateEnd(ListenerNotificationBase):
     event_types = ['listener.update.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['listener']['id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['listener']['id'])
 
         quantity = int(message['payload']['listener']['connection_limit']) / 1000
         admin_state_up = message['payload']['listener']['admin_state_up']
@@ -212,9 +212,9 @@ class ListenerDeleteEnd(ListenerNotificationBase):
     event_types = ['listener.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['listener']['id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['listener']['id'])
 
         # Get the order of this resource
         resource_id = message['payload']['listener']['id']
@@ -232,9 +232,9 @@ class LoadBalancerDeleteEnd(ListenerNotificationBase):
     event_types = ['loadbalancer.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['loadbalancer_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['loadbalancer_id'])
 
         listener_ids = message['payload']['loadbalancer'].get('listener_ids') or []
 

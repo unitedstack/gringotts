@@ -93,6 +93,10 @@ class Timeout(GringottsException):
     """The request time out"""
 
 
+class SSLError(GringottsException):
+    """The request ssl error"""
+
+
 class PreChargeException(GringottsException):
     """PreCharge failed
     """
@@ -119,6 +123,11 @@ class PreChargeHasExpired(GringottsException):
 
 class InvalidQuotaParameter(GringottsException):
     message = _("Must specify project_id and region_name in request body")
+    code = 400
+
+
+class InvalidDeductParameter(GringottsException):
+    message = _("Must specify reqId, accountNum, money and extdata.order_id")
     code = 400
 
 
@@ -163,6 +172,19 @@ class DBError(GringottsException):
 
 class DuplicatedProduct(GringottsException):
     message = _("Duplicated Product: %(reason)s")
+
+
+class DuplicatedDeduct(GringottsException):
+    message = _("Duplicated deduct req_id: %(req_id)s")
+    code = 400
+
+
+class DeductError(GringottsException):
+    message = _("Deduct Failed: account: %(user_id)s, money: %(money)s, req_id: %(req_id)s")
+
+
+class GetBalanceFailed(GringottsException):
+    message = _("Fail to get balance of the account: %(user_id)s")
 
 
 class Invalid(GringottsException):
@@ -211,7 +233,11 @@ class EndpointNotFound(NotFound):
 
 
 class AccountNotFound(NotFound):
-    message = _("Account %(user_id)s could not be found")
+    message = _("Account %(user_id)s not found")
+
+
+class DeductNotFound(NotFound):
+    message = _("Deduct req_id %(req_id)s not found")
 
 
 class AccountByProjectNotFound(NotFound):

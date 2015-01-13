@@ -98,8 +98,8 @@ class ImageCreateEnd(ImageNotificationBase):
     event_types = ['image.activate']
 
     def process_notification(self, message, state=None):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'], message['payload']['id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -142,8 +142,8 @@ class ImageDeleteEnd(ImageNotificationBase):
     event_types = ['image.delete']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'], message['payload']['id'])
 
         # Get the order of this resource
         resource_id = message['payload']['id']

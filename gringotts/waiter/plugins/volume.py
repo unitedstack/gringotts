@@ -108,8 +108,9 @@ class VolumeCreateEnd(VolumeNotificationBase):
     event_types = ['volume.create.end']
 
     def process_notification(self, message, state=None):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['volume_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['volume_id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -166,8 +167,9 @@ class VolumeResizeEnd(VolumeNotificationBase):
     event_types = ['volume.resize.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['volume_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['volume_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['volume_id']
@@ -186,8 +188,9 @@ class VolumeDeleteEnd(VolumeNotificationBase):
     event_types = ['volume.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['volume_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['volume_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['volume_id']

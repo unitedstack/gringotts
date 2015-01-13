@@ -99,8 +99,9 @@ class ShareCreateEnd(ShareNotificationBase):
     event_types = ['share.create.end']
 
     def process_notification(self, message, state=None):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['share_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['share_id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -157,8 +158,9 @@ class ShareDeleteEnd(ShareNotificationBase):
     event_types = ['share.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['share_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['share_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['share_id']

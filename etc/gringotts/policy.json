@@ -11,5 +11,9 @@
     "account:all": "rule:uos_accountant",
     "account:charge": "rule:uos_accountant",
     "account:level": "rule:uos_accountant",
-    "charges:all": "rule:uos_accountant or rule:uos_staff"
+    "charges:all": "rule:uos_accountant or rule:uos_staff",
+
+    "deduct:account_pay": "rule:context_is_admin",
+    "deduct:account_get": "rule:context_is_admin",
+    "deduct:check_req": "rule:context_is_admin"
 }

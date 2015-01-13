@@ -52,8 +52,9 @@ class UserRegisterEnd(RegisterNotificationBase):
     event_types = ['identity.account.register']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, user_id: %s',
-                  message['event_type'], message['payload']['user_id'])
+        LOG.warn('Do action for event: %s, user_id: %s',
+                 message['event_type'],
+                 message['payload']['user_id'])
         # create account
         try:
             user_id = message['payload']['user_id']
@@ -105,8 +106,9 @@ class UserCreatedEnd(RegisterNotificationBase):
     event_types = ['identity.user.create']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, user_id: %s',
-                  message['event_type'], message['payload']['user_id'])
+        LOG.warn('Do action for event: %s, user_id: %s',
+                 message['event_type'],
+                 message['payload']['user_id'])
         # create account
         try:
             user_id = message['payload']['user_id']
@@ -140,8 +142,9 @@ class ProjectCreatedEnd(RegisterNotificationBase):
     event_types = ['identity.project.create']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, project_id: %s',
-                  message['event_type'], message['payload']['project_id'])
+        LOG.warn('Do action for event: %s, project_id: %s',
+                 message['event_type'],
+                 message['payload']['project_id'])
         try:
             user_id = message['payload']['billing_owner_id']
             project_id = message['payload']['project_id']
@@ -163,8 +166,9 @@ class ProjectDeletedEnd(RegisterNotificationBase):
     event_types = ['identity.project.delete']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, project_id: %s',
-                  message['event_type'], message['payload']['project_id'])
+        LOG.warn('Do action for event: %s, project_id: %s',
+                 message['event_type'],
+                 message['payload']['project_id'])
         try:
             project_id = message['payload']['project_id']
             self.delete_resources(project_id)
@@ -181,8 +185,9 @@ class BillingOwnerChangedEnd(RegisterNotificationBase):
     event_types = ['identity.billing_owner.changed']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, project_id: %s',
-                  message['event_type'], message['payload']['project_id'])
+        LOG.warn('Do action for event: %s, project_id: %s',
+                 message['event_type'],
+                 message['payload']['project_id'])
         try:
             project_id = message['payload']['project_id']
             user_id = message['payload']['billing_owner_id']

@@ -299,6 +299,16 @@ class Connection(base.Connection):
                                 updated_at=row.updated_at)
 
     @staticmethod
+    def _row_to_db_deduct_model(row):
+        return db_models.Deduct(req_id=row.req_id,
+                                deduct_id=row.deduct_id,
+                                type=row.type,
+                                money=row.money,
+                                remark=row.remark,
+                                order_id=row.order_id,
+                                created_at=row.created_at)
+
+    @staticmethod
     def _row_to_db_region_model(row):
         return db_models.Region(region_id=row.region_id,
                                 name=row.name,
@@ -1004,6 +1014,37 @@ class Connection(base.Connection):
 
         return self._row_to_db_charge_model(charge), is_first_charge
 
+    @require_admin_context
+    def deduct_account(self, context, user_id, deduct=True, **data):
+        """Deduct account by user_id"""
+        session = db_session.get_session()
+        with session.begin():
+            if deduct:
+                account = session.query(sa_models.Account).\
+                    filter_by(user_id=user_id).\
+                    with_lockmode('update').one()
+                account.balance -= data['money']
+
+            deduct = sa_models.Deduct(req_id=data['reqId'],
+                                      deduct_id=uuidutils.generate_uuid(),
+                                      type=data.get('type'),
+                                      money=data['money'],
+                                      remark=data.get('remark'),
+                                      order_id=data['extData']['order_id'])
+            session.add(deduct)
+        return self._row_to_db_deduct_model(deduct)
+
+    @require_admin_context
+    def get_deduct(self, context, req_id):
+        """Get deduct by deduct id"""
+        try:
+            deduct = get_session().query(sa_models.Deduct).\
+                    filter_by(req_id=req_id).\
+                    one()
+        except NoResultFound:
+            raise exception.DeductNotFound(req_id=req_id)
+        return self._row_to_db_deduct_model(deduct)
+
     def set_charged_orders(self, context, user_id, project_id=None):
         """Set owed orders to charged"""
         session = db_session.get_session()
@@ -1212,7 +1253,8 @@ class Connection(base.Connection):
                                                   domain_id=project.domain_id))
 
     @require_admin_context
-    def create_bill(self, context, order_id, action_time=None, remarks=None, end_time=None):
+    def create_bill(self, context, order_id, action_time=None, remarks=None, end_time=None,
+                    external_balance=None):
         """There are three type of results:
         0, Create bill successfully, including account is owed and order is owed,
            or account is not owed and balance is greater than 0
@@ -1222,7 +1264,7 @@ class Connection(base.Connection):
            owed and balance is less than 0
         """
         session = db_session.get_session()
-        result = {'type': 0, 'resource_owed': False}
+        result = {'type': -1, 'resource_owed': False}
         with session.begin():
             # Get order
             order = model_query(context, sa_models.Order, session=session).\
@@ -1306,6 +1348,11 @@ class Connection(base.Connection):
                 LOG.error('Could not find the account: %s' % project.user_id)
                 raise exception.AccountNotFound(user_id=project.user_id)
 
+            # override account balance before deducting
+            if external_balance is not None:
+                external_balance = gringutils._quantize_decimal(external_balance)
+                account.balance = external_balance
+
             account.balance -= order.unit_price
             account.consumption += order.unit_price
             account.updated_at = datetime.datetime.utcnow()
@@ -1313,9 +1360,11 @@ class Connection(base.Connection):
             result['user_id'] = account.user_id
             result['project_id'] = project.project_id
             result['resource_type'] = order.type
+            result['resource_name'] = order.resource_name
             result['resource_id'] = order.resource_id
             result['region_id'] = order.region_id
-            result['resource_owed'] = False
+            result['deduct_value'] = order.unit_price
+            result['type'] = 0 # 0 means deduct account normally
 
             if not cfg.CONF.enable_owe:
                 return result
@@ -1363,9 +1412,9 @@ class Connection(base.Connection):
             return False
 
     @require_admin_context
-    def close_bill(self, context, order_id, action_time):
+    def close_bill(self, context, order_id, action_time, external_balance=None):
         session = db_session.get_session()
-        result = {'type': 0, 'resource_owed': False}
+        result = {'type': -1, 'resource_owed': False}
         with session.begin():
             # get order
             order = model_query(context, sa_models.Order, session=session).\
@@ -1433,23 +1482,35 @@ class Connection(base.Connection):
             except NoResultFound:
                 LOG.error('Could not find the account: %s' % order.project_id)
                 raise exception.AccountNotFound(project_id=order.project_id)
+
+            # override account balance before deducting
+            if external_balance is not None:
+                external_balance = gringutils._quantize_decimal(external_balance)
+                account.balance = external_balance
+
             account.balance += more_fee
             account.consumption -= more_fee
             account.updated_at = datetime.datetime.utcnow()
+
+            result['user_id'] = account.user_id
+            result['project_id'] = project.project_id
+            result['resource_type'] = order.type
+            result['resource_name'] = order.resource_name
+            result['resource_id'] = order.resource_id
+            result['region_id'] = order.region_id
+            result['deduct_value'] = -more_fee
+            result['type'] = 0 # 0 means deduct account normally
 
             if not cfg.CONF.enable_owe:
                 return result
 
             if account.owed and account.balance > 0:
                 result['type'] = 1
-                result['user_id'] = account.user_id
-                result['project_id'] = project.project_id
                 account.owed = False
 
             # deleted by people
             if order.owed and action_time < order.date_time:
                 result['resource_owed'] = True
-                result['resource_id'] = order.resource_id
 
             return result
 

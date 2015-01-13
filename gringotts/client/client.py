@@ -12,199 +12,185 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import six
 import logging
+import requests
+from urllib import urlencode
+
+from stevedore import driver
 
 from gringotts import exception
-from gringotts.client import httpclient
 from gringotts.openstack.common import jsonutils
 
 
 _logger = logging.getLogger(__name__)
 
 
-class Client(httpclient.HTTPClient):
-    """Client for the OpenStack Identity API v3.
+class Client(object):
+    """Client for Gringotts"""
 
-    :param string user_id: User ID for authentication. (optional)
-    :param string username: Username for authentication. (optional)
-    :param string user_domain_id: User's domain ID for authentication.
-                                  (optional)
-    :param string user_domain_name: User's domain name for authentication.
-                                    (optional)
-    :param string password: Password for authentication. (optional)
-    :param string token: Token for authentication. (optional)
-    :param string domain_id: Domain ID for domain scoping. (optional)
-    :param string domain_name: Domain name for domain scoping. (optional)
-    :param string project_id: Project ID for project scoping. (optional)
-    :param string project_name: Project name for project scoping. (optional)
-    :param string project_domain_id: Project's domain ID for project
-                                     scoping. (optional)
-    :param string project_domain_name: Project's domain name for project
-                                       scoping. (optional)
-    :param string tenant_name: Tenant name. (optional)
-                               The tenant_name keyword argument is deprecated,
-                               use project_name instead.
-    :param string tenant_id: Tenant id. (optional)
-                             The tenant_id keyword argument is deprecated,
-                             use project_id instead.
-    :param string auth_url: Identity service endpoint for authorization.
-    :param string region_name: Name of a region to select when choosing an
-                               endpoint from the service catalog.
-    :param string endpoint: A user-supplied endpoint URL for the identity
-                            service.  Lazy-authentication is possible for API
-                            service calls if endpoint is set at
-                            instantiation. (optional)
-    :param integer timeout: Allows customization of the timeout for client
-                            http requests. (optional)
-    """
+    def __init__(self, auth_plugin="token",
+                 verify=True, cert=None, timeout=None, *args, **kwargs):
+        """Initialize a new Client
 
-    version = 'v3'
+        As much as possible the parameters to this class reflect and are passed
+        directly to the requests library.
 
-    def __init__(self, **kwargs):
-        """Initialize a new client."""
-        super(Client, self).__init__(**kwargs)
-
-        if self.management_url is None:
-            self.authenticate()
-
-    def serialize(self, entity):
-        return jsonutils.dumps(entity, sort_keys=True)
-
-    def process_token(self, **kwargs):
-        """Extract and process information from the new auth_ref.
-
-        And set the relevant authentication information.
+        :param auth_plugin: support two auth plugins: sign and token, default is token
+        :param verify: The verification arguments to pass to requests. These
+                       are of the same form as requests expects, so True or
+                       False to verify (or not) against system certificates or
+                       a path to a bundle or CA certs to check against.
+                       (optional, defaults to True)
+        :param cert: A client certificate to pass to requests. These are of the
+                     same form as requests expects. Either a single filename
+                     containing both the certificate and key or a tuple
+                     containing the path to the certificate then a path to the
+                     key. (optional)
+        :param float timeout: A timeout to pass to requests. This should be a
+                              numerical value indicating some amount
+                              (or fraction) of seconds or 0 for no timeout.
+                              (optional, defaults to 0)
         """
-        super(Client, self).process_token(**kwargs)
-        if self.auth_ref.domain_scoped:
-            if not self.auth_ref.domain_id:
-                raise exception.AuthorizationFailure(
-                    "Token didn't provide domain_id")
-            if self.auth_ref.management_url:
-                self._management_url = self.auth_ref.management_url[0]
-            self.domain_name = self.auth_ref.domain_name
-            self.domain_id = self.auth_ref.domain_id
+        self.auth_plugin = driver.DriverManager('gringotts.client_auth_plugin',
+                                                auth_plugin,
+                                                invoke_on_load=True,
+                                                invoke_args=args,
+                                                invoke_kwds=kwargs)
 
-    def get_raw_token_from_identity_service(self, auth_url, user_id=None,
-                                            username=None,
-                                            user_domain_id=None,
-                                            user_domain_name=None,
-                                            password=None,
-                                            domain_id=None, domain_name=None,
-                                            project_id=None, project_name=None,
-                                            project_domain_id=None,
-                                            project_domain_name=None,
-                                            token=None,
-                                            trust_id=None,
-                                            **kwargs):
-        """Authenticate against the Keystone v3 Identity API.
+        self.auth_plugin = self.auth_plugin.driver
+        self.session = requests.Session()
+        self.verify = verify
+        self.cert = cert
+        self.timeout = None
 
-        :returns: (``resp``, ``body``) if authentication was successful.
-        :raises: AuthorizationFailure if unable to authenticate or validate
-                 the existing authorization token
-        :raises: Unauthorized if authentication fails due to invalid token
+        if timeout is not None:
+            self.timeout = float(timeout)
 
+    @staticmethod
+    def _decode_body(resp):
+        if resp.text:
+            try:
+                body_resp = jsonutils.loads(resp.text)
+            except (ValueError, TypeError):
+                body_resp = None
+                _logger.debug("Could not decode JSON from body: %s"
+                              % resp.text)
+        else:
+            _logger.debug("No body was returned.")
+            body_resp = None
+
+        return body_resp
+
+    def request(self, url, method, **kwargs):
+        """Send an http request with the specified characteristics.
+
+        Wrapper around requests.request to handle tasks such as
+        setting headers, JSON encoding/decoding, and error handling.
         """
+        # url
+        url = self.auth_plugin.get_endpoint() + url
+
+        # headers
+        headers = kwargs.setdefault('headers', dict())
+        headers['User-Agent'] = "python-gringclient"
+ 
+        # others
+        if self.cert:
+            kwargs.setdefault('cert', self.cert)
+        if self.timeout is not None:
+            kwargs.setdefault('timeout', self.timeout)
+        kwargs.setdefault('verify', self.verify)
+
+        # body
         try:
-            return self._do_auth(
-                auth_url,
-                user_id=user_id,
-                username=username,
-                user_domain_id=user_domain_id,
-                user_domain_name=user_domain_name,
-                password=password,
-                domain_id=domain_id,
-                domain_name=domain_name,
-                project_id=project_id,
-                project_name=project_name,
-                project_domain_id=project_domain_id,
-                project_domain_name=project_domain_name,
-                token=token,
-                trust_id=trust_id)
-        except (exception.AuthorizationFailure, exception.Unauthorized):
-            _logger.debug('Authorization failed.')
-            raise
-        except Exception as e:
-            raise exception.AuthorizationFailure('Authorization failed: '
-                                                  '%s' % e)
+            kwargs['data'] = jsonutils.dumps(kwargs.pop('body'))
+            headers['Content-Type'] = 'application/json'
+        except KeyError:
+            pass
 
-    def _do_auth(self, auth_url, user_id=None, username=None,
-                 user_domain_id=None, user_domain_name=None, password=None,
-                 domain_id=None, domain_name=None,
-                 project_id=None, project_name=None, project_domain_id=None,
-                 project_domain_name=None, token=None, trust_id=None):
-        headers = {}
-        if auth_url is None:
-            raise ValueError("Cannot authenticate without a valid auth_url")
-        url = auth_url + "/auth/tokens"
-        body = {'auth': {'identity': {}}}
-        ident = body['auth']['identity']
+        # params
+        try:
+            kwargs['params'] = self.auth_plugin.filter_params(kwargs['params'])
+        except KeyError:
+            pass
 
-        if token:
-            headers['X-Auth-Token'] = token
+        # NOTE(suo): It is because signauture auth method will sign the
+        # body, so we should put headers after body
+        headers.update(self.auth_plugin.get_auth_headers(**kwargs))
 
-            ident['methods'] = ['token']
-            ident['token'] = {}
-            ident['token']['id'] = token
+        # build curl log
+        string_parts = ['curl -i']
 
-        if password:
-            ident['methods'] = ['password']
-            ident['password'] = {}
-            ident['password']['user'] = {}
-            user = ident['password']['user']
-            user['password'] = password
+        if method:
+            string_parts.extend([' -X ', method])
 
-            if user_id:
-                user['id'] = user_id
-            elif username:
-                user['name'] = username
+        query_string = "?%s" % urlencode(kwargs.get('params')) if kwargs.get('params') else ""
+        string_parts.extend([' ', url + query_string])
 
-                if user_domain_id or user_domain_name:
-                    user['domain'] = {}
-                if user_domain_id:
-                    user['domain']['id'] = user_domain_id
-                elif user_domain_name:
-                    user['domain']['name'] = user_domain_name
+        if headers:
+            for header in six.iteritems(headers):
+                string_parts.append(' -H "%s: %s"' % header)
 
-        if (domain_id or domain_name) and (project_id or project_name):
-            raise ValueError('Authentication cannot be scoped to both domain'
-                             ' and project.')
+        data = kwargs.get('data')
+        if data:
+            string_parts.append(' -d \'%s\'' % data)
 
-        if domain_id or domain_name:
-            body['auth']['scope'] = {}
-            scope = body['auth']['scope']
-            scope['domain'] = {}
+        _logger.debug('REQ: %s', ''.join(string_parts))
 
-            if domain_id:
-                scope['domain']['id'] = domain_id
-            elif domain_name:
-                scope['domain']['name'] = domain_name
+        # send request
+        resp = self._send_request(url, method, **kwargs)
 
-        if project_id or project_name:
-            body['auth']['scope'] = {}
-            scope = body['auth']['scope']
-            scope['project'] = {}
+        if resp.status_code >= 400:
+            _logger.debug('Request returned failure status: %s',
+                          resp.status_code)
+            raise exception.from_response(resp, method, url)
 
-            if project_id:
-                scope['project']['id'] = project_id
-            elif project_name:
-                scope['project']['name'] = project_name
+        return resp, self._decode_body(resp)
 
-                if project_domain_id or project_domain_name:
-                    scope['project']['domain'] = {}
-                if project_domain_id:
-                    scope['project']['domain']['id'] = project_domain_id
-                elif project_domain_name:
-                    scope['project']['domain']['name'] = project_domain_name
+    def _send_request(self, url, method, **kwargs):
+        try:
+            resp = self.session.request(method, url, **kwargs)
+        except requests.exceptions.SSLError:
+            msg = 'SSL exception connecting to %s' % url
+            raise exception.SSLError(msg)
+        except requests.exceptions.Timeout:
+            msg = 'Request to %s timed out' % url
+            raise exception.Timeout(msg)
+        except requests.exceptions.ConnectionError:
+            msg = 'Unable to establish connection to %s' % url
+            raise exception.ConnectionError(message=msg)
 
-        if trust_id:
-            body['auth']['scope'] = {}
-            scope = body['auth']['scope']
-            scope['OS-TRUST:trust'] = {}
-            scope['OS-TRUST:trust']['id'] = trust_id
+        _logger.debug('RESP: [%s] %s\nRESP BODY: %s\n',
+                      resp.status_code, resp.headers, resp.text)
 
-        if not (ident or token):
-            raise ValueError('Authentication method required (e.g. password)')
+        # NOTE(jamielennox): The requests lib will handle the majority of
+        # redirections. Where it fails is when POSTs are redirected which
+        # is apparently something handled differently by each browser which
+        # requests forces us to do the most compliant way (which we don't want)
+        # see: https://en.wikipedia.org/wiki/Post/Redirect/Get
+        # Nova and other direct users don't do this. Is it still relevant?
+        if resp.status_code in (301, 302, 305):
+            # Redirected. Reissue the request to the new location.
+            return self._send_request(resp.headers['location'],
+                                      method, **kwargs)
 
-        resp, body = self.request(url, 'POST', body=body, headers=headers)
-        return resp, body
+        return resp
+
+    def get(self, url, **kwargs):
+        return self.request(url, 'GET', **kwargs)
+
+    def head(self, url, **kwargs):
+        return self.request(url, 'HEAD', **kwargs)
+
+    def post(self, url, **kwargs):
+        return self.request(url, 'POST', **kwargs)
+
+    def put(self, url, **kwargs):
+        return self.request(url, 'PUT', **kwargs)
+
+    def patch(self, url, **kwargs):
+        return self.request(url, 'PATCH', **kwargs)
+
+    def delete(self, url, **kwargs):
+        return self.request(url, 'DELETE', **kwargs)

@@ -164,9 +164,9 @@ class InstanceCreateEnd(ComputeNotificationBase):
     event_types = ['compute.instance.create.end']
 
     def process_notification(self, message, state=None):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['instance_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['instance_id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -254,9 +254,9 @@ class InstanceStopEnd(ComputeNotificationBase):
                    'compute.instance.shutdown2.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['instance_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['instance_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
@@ -275,9 +275,9 @@ class InstanceStartEnd(ComputeNotificationBase):
                    'compute.instance.reboot.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['instance_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['instance_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
@@ -296,9 +296,9 @@ class InstanceResizeEnd(ComputeNotificationBase):
     event_types = ['compute.instance.local_resize.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['instance_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['instance_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
@@ -330,9 +330,9 @@ class InstanceDeleteEnd(ComputeNotificationBase):
     event_types = ['compute.instance.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['instance_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['instance_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
@@ -351,9 +351,9 @@ class InstanceSuspendEnd(ComputeNotificationBase):
     event_types = ['compute.instance.suspend']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['instance_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['instance_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
@@ -372,9 +372,9 @@ class InstanceResumeEnd(ComputeNotificationBase):
     event_types = ['compute.instance.resume']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'],
-                  message['payload']['instance_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['instance_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['instance_id']

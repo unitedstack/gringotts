@@ -11,7 +11,9 @@ from wsme import types as wtypes
 from oslo.config import cfg
 
 from gringotts import constants as const
+from gringotts import worker
 from gringotts.api import acl
+from gringotts.api.app import external_client
 from gringotts import exception
 from gringotts import utils as gringutils
 from gringotts.api.v2 import models
@@ -36,8 +38,9 @@ class ProjectController(rest.RestController):
         'estimate': ['GET'],
     }
 
-    def __init__(self, project_id):
+    def __init__(self, project_id, worker_api):
         self._id = project_id
+        self.worker_api = worker_api
 
     def _project(self):
         self.conn = pecan.request.db_conn
@@ -66,6 +69,12 @@ class ProjectController(rest.RestController):
     def get_billing_owner(self):
         self.conn = pecan.request.db_conn
         account = self.conn.get_project_billing_owner(request.context, self._id)
+        try:
+            if cfg.CONF.external_billing.enable:
+                external_balance = self.worker_api.get_external_balance(request.context, account.user_id)['data'][0]['money']
+                account.balance = gringutils._quantize_decimal(external_balance)
+        except Exception:
+            LOG.exception("Fail to get external balance of the account: %s" % account.user_id)
         return models.UserAccount.from_db_model(account)
 
     @wsexpose(models.Summaries, wtypes.text)
@@ -122,11 +131,14 @@ class ProjectController(rest.RestController):
 class ProjectsController(rest.RestController):
     """Manages operations on the projects collection
     """
+    def __init__(self):
+        self.worker_api = worker.API(external_client())
+
     @pecan.expose()
     def _lookup(self, project_id, *remainder):
         if remainder and not remainder[-1]:
             remainder = remainder[:-1]
-        return ProjectController(project_id), remainder
+        return ProjectController(project_id, self.worker_api), remainder
 
     @wsexpose([models.UserProject], wtypes.text, wtypes.text)
     def get_all(self, user_id=None, type=None):

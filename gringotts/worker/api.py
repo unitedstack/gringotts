@@ -94,6 +94,9 @@ class LocalAPI(object):
     def get_order_by_resource_id(self, ctxt, resource_id):
         return self._service.get_order_by_resource_id(ctxt, resource_id)
 
+    def get_order(self, ctxt, order_id):
+        return self._service.get_order(ctxt, order_id)
+
     def reset_charged_orders(self, ctxt, order_ids):
         self._service.reset_charged_orders(ctxt, order_ids)
 
@@ -105,8 +108,8 @@ class LocalAPI(object):
     def get_accounts(self, ctxt, owed=None):
         return self._service.get_accounts(ctxt, owed=owed)
 
-    def get_account(self, ctxt, project_id):
-        return self._service.get_account(ctxt, project_id)
+    def get_account(self, ctxt, user_id):
+        return self._service.get_account(ctxt, user_id)
 
     def charge_account(self, ctxt, user_id, value, type, come_from):
         self._service.charge_account(ctxt, user_id, value, type, come_from)
@@ -131,6 +134,15 @@ class LocalAPI(object):
     def fix_order(self, ctxt, order_id):
         self._service.fix_order(ctxt, order_id)
 
+    def create_deduct(self, ctxt, user_id, money, type="1", remark=None, req_id=None, **kwargs):
+        self._service.create_deduct(ctxt, user_id, money, type=type, remark=remark, req_id=req_id, **kwargs)
+
+    def deduct_external_account(self, ctxt, user_id, money, type="1", remark=None, req_id=None, **kwargs):
+        self._service.deduct_external_account(ctxt, user_id, money, type=type, remark=remark, req_id=req_id, **kwargs)
+
+    def get_external_balance(self, ctxt, user_id):
+        return self._service.get_external_balance(ctxt, user_id)
+
 
 class RPCAPI(LocalAPI):
     """A rpc version of the worker API that handles all requests.
@@ -147,5 +159,5 @@ class HTTPAPI(LocalAPI):
     """Http version of the worker api that handles all requests
     """
 
-    def __init__(self):
-        self._service = httpapi.WorkerAPI()
+    def __init__(self, *args, **kwargs):
+        self._service = httpapi.WorkerAPI(*args, **kwargs)

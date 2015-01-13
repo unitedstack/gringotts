@@ -98,8 +98,9 @@ class RouterCreateEnd(RouterNotificationBase):
     event_types = ['router.create.end']
 
     def process_notification(self, message, state=None):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['router']['id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['router']['id'])
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -142,8 +143,9 @@ class RouterDeleteEnd(RouterNotificationBase):
     event_types = ['router.delete.end']
 
     def process_notification(self, message):
-        LOG.debug('Do action for event: %s, resource_id: %s',
-                  message['event_type'], message['payload']['router_id'])
+        LOG.warn('Do action for event: %s, resource_id: %s',
+                 message['event_type'],
+                 message['payload']['router_id'])
 
         # Get the order of this resource
         resource_id = message['payload']['router_id']

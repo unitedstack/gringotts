@@ -54,6 +54,7 @@ class WaiterService(rpc_service.Service):
 
     def start(self):
         super(WaiterService, self).start()
+        LOG.warn("Waiter Loaded Successfully")
         # Add a dummy thread to have wait() working
         self.tg.add_timer(604800, lambda: None)
 

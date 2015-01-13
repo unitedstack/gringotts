@@ -209,6 +209,15 @@ class WorkerService(rpc_service.Service):
     def fix_order(self, ctxt, order_id):
         self.db_conn.fix_order(ctxt, order_id)
 
+    def create_deduct(self, ctxt, user_id, money, type="1", remark=None, req_id=None, **kwargs):
+        raise NotImplementedError()
+
+    def deduct_external_account(self, ctxt, user_id, money, type="1", remark=None, req_id=None, **kwargs):
+        raise NotImplementedError()
+
+    def get_external_balance(self, ctxt, user_id):
+        raise NotImplementedError()
+
 
 def worker():
     prepare_service()

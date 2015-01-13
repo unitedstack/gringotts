@@ -12,6 +12,7 @@ from gringotts import context
 from gringotts import worker
 from gringotts import exception
 from gringotts import utils
+from gringotts.services import alert
 
 from gringotts.openstack.common import log
 from gringotts.openstack.common.rpc import service as rpc_service
@@ -107,6 +108,18 @@ class MasterService(rpc_service.Service):
             const.RESOURCE_ROUTER: neutron.stop_router,
             const.RESOURCE_ALARM: ceilometer.stop_alarm,
             const.RESOURCE_SHARE: manila.stop_share,
+        }
+
+        self.RESOURCE_GET_MAP = {
+            const.RESOURCE_INSTANCE: nova.server_get,
+            const.RESOURCE_SNAPSHOT: cinder.snapshot_get,
+            const.RESOURCE_VOLUME: cinder.volume_get,
+            const.RESOURCE_IMAGE: glance.image_get,
+            const.RESOURCE_FLOATINGIP: neutron.floatingip_get,
+            const.RESOURCE_ROUTER: neutron.router_get,
+            const.RESOURCE_LISTENER: neutron.listener_get,
+            const.RESOURCE_ALARM: ceilometer.alarm_get,
+            const.RESOURCE_SHARE: manila.share_get,
         }
 
         super(MasterService, self).__init__(*args, **kwargs)
@@ -206,6 +219,25 @@ class MasterService(rpc_service.Service):
                 else:
                     cron_time = order['cron_time']
 
+                # check resource and order before creating bill
+                order = self.worker_api.get_order(self.ctxt, order['order_id'])
+                method = self.RESOURCE_GET_MAP[order['type']]
+                resource = method(order['resource_id'], order['region_id'])
+                if not resource:
+                    # alert that the resource not exists
+                    LOG.warn("The resource(%s|%s) may has been deleted" % \
+                             (order['type'], order['resource_id']))
+                    alert.wrong_billing_order(order, 'resource_deleted')
+                    continue
+                if resource.status != order['status']:
+                    # alert that the status of resource and order don't match
+                    LOG.warn("The status of the resource(%s|%s|%s) doesn't match with the order(%s|%s|%s)." % \
+                              (resource.resource_type, resource.id, resource.original_status,
+                               order['type'], order['order_id'], order['status']))
+                    alert.wrong_billing_order(order, 'miss_match', resource)
+                    continue
+
+                # create cron job
                 danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
                 if cron_time > danger_time:
                     self._create_cron_job(order['order_id'],
@@ -214,10 +246,13 @@ class MasterService(rpc_service.Service):
                     LOG.warning('The order(%s) is in danger time after master started'
                                 % order['order_id'])
                     while cron_time <= danger_time:
-                        self._pre_deduct(order['order_id'])
                         cron_time += datetime.timedelta(hours=1)
-                    self._create_cron_job(order['order_id'],
-                                          start_date=cron_time)
+                    cron_time -= datetime.timedelta(hours=1)
+                    action_time = utils.format_datetime(timeutils.strtime(cron_time))
+                    self._create_bill(self.ctxt,
+                                      order['order_id'],
+                                      action_time,
+                                      "Hourly Billing")
 
     def _stop_owed_resource(self, resource_type, resource_id, region_id):
         LOG.warn('stop owed resource(resource_type: %s, resource_id: %s)' % \
@@ -259,7 +294,6 @@ class MasterService(rpc_service.Service):
         self.cron_jobs[order_id] = job
 
         LOG.warn('create cron job for order: %s' % order_id)
-
 
     def _delete_cron_job(self, order_id):
         """Delete cron job related to this subscription
@@ -343,8 +377,39 @@ class MasterService(rpc_service.Service):
         LOG.warn('delete date job for resource: %s' % resource_id)
 
     def _pre_deduct(self, order_id):
+        # check resource and order before deduct
+        order = self.worker_api.get_order(self.ctxt, order_id)
+        method = self.RESOURCE_GET_MAP[order['type']]
+        resource = method(order['resource_id'], order['region_id'])
+        if not resource:
+            # alert that the resource not exists
+            LOG.warn("The resource(%s|%s) may has been deleted" % \
+                     (order['type'], order['resource_id']))
+            alert.wrong_billing_order(order, 'resource_deleted')
+            return
+        if resource.status != order['status']:
+            # alert that the status of resource and order don't match
+            LOG.warn("The status of the resource(%s|%s|%s) doesn't match with the order(%s|%s|%s)." % \
+                      (resource.resource_type, resource.id, resource.original_status,
+                       order['type'], order['order_id'], order['status']))
+            alert.wrong_billing_order(order, 'miss_match', resource)
+            return
+
+        if isinstance(order['cron_time'], basestring):
+            cron_time = timeutils.parse_strtime(order['cron_time'],
+                                                fmt=ISO8601_UTC_TIME_FORMAT)
+        else:
+            cron_time = order['cron_time']
+
         remarks = 'Hourly Billing'
-        result = self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
+        now = timeutils.utcnow()
+        if now - cron_time >= timedelta(hours=1):
+            result = self.worker_api.create_bill(self.ctxt,
+                                                 order_id,
+                                                 action_time=now,
+                                                 remarks=remarks)
+        else:
+            result = self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
 
         # Order is owed
         if result['type'] == 2:
@@ -360,6 +425,7 @@ class MasterService(rpc_service.Service):
             self._delete_date_job(result['resource_id'])
 
     def _create_bill(self, ctxt, order_id, action_time, remarks):
+        # create a bill
         result = self.worker_api.create_bill(ctxt, order_id, action_time, remarks)
 
         # Account is charged but order is still owed
@@ -390,23 +456,7 @@ class MasterService(rpc_service.Service):
     def resource_created_again(self, ctxt, order_id, action_time, remarks):
         LOG.debug('Resource created again, its order_id: %s, action_time: %s',
                   order_id, action_time)
-        # Create the first bill, including remarks and action_time
-        result = self.worker_api.create_bill(ctxt, order_id, action_time, remarks)
-
-        # Pre deduct...
-        danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
-        action_time = timeutils.parse_strtime(action_time,
-                                              fmt=TIMESTAMP_TIME_FORMAT)
-        cron_time = action_time + datetime.timedelta(hours=1)
-
-        if cron_time > danger_time:
-            self._create_cron_job(order_id,
-                                  start_date=cron_time)
-        else:
-            while cron_time <= danger_time:
-                self._pre_deduct(order_id)
-                cron_time += datetime.timedelta(hours=1)
-            self._create_cron_job(order_id, start_date=cron_time)
+        self._create_bill(ctxt, order_id, action_time, remarks)
 
     def resource_deleted(self, ctxt, order_id, action_time, remarks):
         LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %

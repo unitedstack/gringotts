@@ -302,3 +302,16 @@ class UserProject(Model):
                        user_consumption=user_consumption,
                        project_consumption=project_consumption,
                        is_historical=is_historical)
+
+
+class Deduct(Model):
+    def __init__(self, req_id, deduct_id, type, money, remark,
+                 order_id, created_at):
+        Model.__init__(self,
+                       req_id=req_id,
+                       deduct_id=deduct_id,
+                       type=type,
+                       money=money,
+                       remark=remark,
+                       order_id=order_id,
+                       created_at=created_at)
