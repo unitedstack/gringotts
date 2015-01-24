@@ -26,17 +26,19 @@ class EmailNotifier(notifier.Notifier):
         for project in projects:
             order_count += len(project['orders'])
 
-        subject = u"[UnitedStack] 您好, %s, 您有%s个资源已经欠费" % (account_name, order_count)
         payload = {
             'actions': {
                 'email': {
-                    'template': 'account_has_owed',
+                    'email_template': 'billing/account_has_owed',
                     'context': {
                         'send_to': 'user',
+                        'account_name': account_name,
                         'projects': projects,
-                        'reserved_days': account['reserved_days']
+                        'reserved_days': account['reserved_days'],
+                        'order_count': order_count,
+                        'recharge_url': cfg.CONF.recharge_url,
+                        'language': kwargs.get('language'),
                     },
-                    'subject': subject,
                     'from': 'noreply@unitedstack.com',
                     'to': contact['email']
                 }
@@ -46,22 +48,21 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.owed', payload)
 
         # Notify us
-        subject = u"[UnitedStack] 用户[%s]已欠费，电话[%s]，公司[%s]" % \
-                (account_name, mobile_number, company)
         payload = {
             'actions': {
                 'email': {
-                    'template': 'account_has_owed',
+                    'email_template': 'billing/account_has_owed',
                     'context': {
                         'send_to': 'uos',
-                        'real_name': account_name,
+                        'cloud_name': cfg.CONF.cloud_name,
+                        'account_name': account_name,
                         'mobile': mobile_number,
                         'email': contact['email'],
                         'company': company,
                         'projects': projects,
-                        'reserved_days': account['reserved_days']
+                        'reserved_days': account['reserved_days'],
+                        'language': kwargs.get('language'),
                     },
-                    'subject': subject,
                     'from': 'noreply@unitedstack.com',
                     'to': 'support@unitedstack.com'
                 }
@@ -78,19 +79,20 @@ class EmailNotifier(notifier.Notifier):
         company = contact.get('company') or "unknown"
 
         # Notify user
-        subject = u"[UnitedStack] 您好, %s, 您的账户余额不足, 请及时充值" % account_name
         payload = {
             'actions': {
                 'email': {
-                    'template': 'account_will_owe',
+                    'email_template': 'billing/account_will_owe',
                     'context': {
                         'send_to': 'user',
+                        'account_name': account_name,
                         'projects': projects,
                         'price_per_day': price_per_day,
                         'balance': str(account['balance']),
-                        'days_to_owe': days_to_owe
+                        'days_to_owe': days_to_owe,
+                        'recharge_url': cfg.CONF.recharge_url,
+                        'language': kwargs.get('language'),
                     },
-                    'subject': subject,
                     'from': 'noreply@unitedstack.com',
                     'to': contact['email']
                 }
@@ -100,24 +102,23 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.will_owed', payload)
 
         # Notify us
-        subject = u"[UnitedStack] 用户[%s]的账户余额即将不足，电话[%s]，公司[%s]" % \
-                (account_name, mobile_number, company)
         payload = {
             'actions': {
                 'email': {
-                    'template': 'account_will_owe',
+                    'email_template': 'billing/account_will_owe',
                     'context': {
                         'send_to': 'uos',
-                        'real_name': account_name,
+                        'cloud_name': cfg.CONF.cloud_name,
+                        'account_name': account_name,
                         'mobile': mobile_number,
                         'email': contact['email'],
                         'company': company,
                         'projects': projects,
                         'price_per_day': price_per_day,
                         'balance': str(account['balance']),
-                        'days_to_owe': days_to_owe
+                        'days_to_owe': days_to_owe,
+                        'language': kwargs.get('language'),
                     },
-                    'subject': subject,
                     'from': 'noreply@unitedstack.com',
                     'to': 'support@unitedstack.com'
                 }
@@ -133,21 +134,18 @@ class EmailNotifier(notifier.Notifier):
         company = contact.get('company') or "unknown"
 
         # Notify user
-        if type == 'bonus':
-            subject = u"[UnitedStack] 您好，%s，系统为您充值[￥%s]" % (account_name, value)
-        else:
-            subject = u"[UnitedStack] 您好, %s, 您已充值成功" % account_name
         payload = {
             'actions': {
                 'email': {
-                    'template': 'charge_to_user',
+                    'email_template': 'billing/charge_to_user',
                     'context': {
                         'type': type,
+                        'account_name': account_name,
                         'value': str(value),
                         'balance': str(account['balance']),
                         'bonus': str(bonus),
+                        'language': kwargs.get('language'),
                     },
-                    'subject': subject,
                     'from': 'noreply@unitedstack.com',
                     'to': contact['email']
                 }
@@ -157,17 +155,14 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.charged', payload)
 
         # Notify us
-        if type == 'bonus':
-            subject = u"[UnitedStack][%s] 系统为用户[%s]充值[￥%s]" % (cfg.CONF.cloud_name, account_name, value)
-        else:
-            subject = u"[UnitedStack][%s] 用户[%s]成功充值[￥%s]" % (cfg.CONF.cloud_name, account_name, value)
         payload = {
             'actions': {
                 'email': {
-                    'template': 'charge_to_admin',
+                    'email_template': 'billing/charge_to_admin',
                     'context': {
                         'type': type,
-                        'real_name': account_name,
+                        'cloud_name': cfg.CONF.cloud_name,
+                        'account_name': account_name,
                         'mobile': mobile_number,
                         'company': company,
                         'operator_name': kwargs.get('operator_name'),
@@ -177,8 +172,8 @@ class EmailNotifier(notifier.Notifier):
                         'value': str(value),
                         'balance': str(account['balance']),
                         'bonus': str(bonus),
+                        'language': kwargs.get('language'),
                     },
-                    'subject': subject,
                     'from': 'noreply@unitedstack.com',
                     'to': 'support@unitedstack.com'
                 }
