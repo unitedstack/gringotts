@@ -224,3 +224,28 @@ class ListenerDeleteEnd(ListenerNotificationBase):
         action_time = message['timestamp']
         remarks = 'Listener Has Been Deleted'
         self.resource_deleted(order['order_id'], action_time, remarks)
+
+
+class LoadBalancerDeleteEnd(ListenerNotificationBase):
+    """Deleting a loadbalancer will stop all listeners in this loadbalancer
+    """
+    event_types = ['loadbalancer.delete.end']
+
+    def process_notification(self, message):
+        LOG.debug('Do action for event: %s, resource_id: %s',
+                  message['event_type'],
+                  message['payload']['loadbalancer_id'])
+
+        listener_ids = message['payload']['loadbalancer'].get('listener_ids') or []
+
+        for listener_id in listener_ids:
+            try:
+                # Get the order of this resource
+                order = self.get_order_by_resource_id(listener_id)
+
+                # Notify master
+                action_time = message['timestamp']
+                remarks = 'Listener Has Been Deleted'
+                self.resource_deleted(order['order_id'], action_time, remarks)
+            except Exception:
+                LOG.exception("Fail to process notification for listener: %s" % listener_id)
