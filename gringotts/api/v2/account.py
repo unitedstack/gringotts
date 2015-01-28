@@ -78,7 +78,7 @@ class AccountController(rest.RestController):
         check_policy(request.context, "account:charge")
 
         # Check the charge value
-        if not data.value or data.value < 0 or data.value > 100000:
+        if not data.value or data.value < -100000 or data.value > 100000:
             raise exception.InvalidChargeValue(value=data.value)
 
         remarks = data.remarks if data.remarks != wsme.Unset else None

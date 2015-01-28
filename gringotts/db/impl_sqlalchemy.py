@@ -325,11 +325,10 @@ class Connection(base.Connection):
             session.add(product_ref)
         return self._row_to_db_product_model(product_ref)
 
-    @require_context
     def get_products(self, context, filters=None, read_deleted=False,
                      limit=None, offset=None, sort_key=None,
                      sort_dir=None):
-        query = model_query(context, sa_models.Product)
+        query = get_session().query(sa_models.Product)
         if 'name' in filters:
             query = query.filter_by(name=filters['name'])
         if 'service' in filters:

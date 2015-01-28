@@ -17,7 +17,7 @@ from gringotts.api.v2 import models
 
 
 class V2Controller(rest.RestController):
-    """Version 1 API controller root
+    """Version 2 API controller root
     """
     products = product.ProductsController()
     accounts = account.AccountsController()

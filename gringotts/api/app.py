@@ -63,12 +63,43 @@ def setup_app(config, extra_hooks=None):
     return app
 
 
+def setup_noauth_app(config, extra_hooks=None):
+
+    app_hooks = [hooks.ConfigHook(),
+                 hooks.DBHook(db.get_connection(CONF)),
+                 hooks.ContextHook()]
+
+    if extra_hooks:
+        app_hooks.extend(extra_hooks)
+
+    if not config:
+        config = get_pecan_config()
+
+    app = pecan.make_app(
+        config.app.noauth_root,
+        static_root=config.app.static_root,
+        template_path=config.app.template_path,
+        debug=False,
+        force_canonical=getattr(config.app, 'force_canonical', True),
+        hooks=app_hooks,
+        wrap_app=middleware.FaultWrapperMiddleware,
+    )
+
+    pecan.conf.update({'wsme': {'debug': CONF.debug}})
+
+    return app
+
+
 class VersionSelectorApplication(object):
     def __init__(self):
         pc = get_pecan_config()
         pc.app.enable_acl = (CONF.auth_strategy == 'keystone')
 
         self.app = setup_app(pc)
+        self.noauth_app = setup_noauth_app(pc)
 
     def __call__(self, environ, start_response):
-        return self.app(environ, start_response)
+        if environ['PATH_INFO'].startswith('/noauth/'):
+            return self.noauth_app(environ, start_response)
+        else:
+            return self.app(environ, start_response)

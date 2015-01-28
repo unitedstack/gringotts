@@ -7,6 +7,7 @@ server = {
 # Pecan Application Configurations
 app = {
     'root': 'gringotts.api.root.RootController',
+    'noauth_root': 'gringotts.api.noauth.root.RootController',
     'modules': ['gringotts.api'],
     'static_root': '%(confdir)s/public',
     'template_path': '%(confdir)s/v1/templates',
