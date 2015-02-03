@@ -25,7 +25,7 @@ LOG = log.getLogger(__name__)
 
 
 ORDER_TYPE = ['instance', 'image', 'snapshot', 'volume', 'router',
-              'listener', 'floatingip', 'alarm']
+              'listener', 'floatingip', 'alarm', 'share']
 
 
 class OrderController(rest.RestController):
