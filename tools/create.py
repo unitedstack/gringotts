@@ -6,7 +6,7 @@ from gringotts.client import client
 OS_AUHT_URL = 'http://localhost:35357/v3'
 
 client = client.Client(username='admin',
-                       password='admin',
+                       password='rachel',
                        project_name='admin',
                        auth_url=OS_AUHT_URL)
 

@@ -38,7 +38,10 @@ OPTS_GLOBAL = [
                help='The region this waiter is deployed'),
     cfg.StrOpt('cloud_name',
                default="localhost",
-               help="The environment this service is running")
+               help="The environment this service is running"),
+    cfg.StrOpt('recharge_url',
+               default="https://console.ustack.com/bill/account_charge",
+               help="The recharge url")
 ]
 
 cfg.CONF.register_opts(OPTS, group="waiter")
