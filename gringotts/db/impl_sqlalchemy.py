@@ -914,7 +914,6 @@ class Connection(base.Connection):
 
         return query.one().count or 0
 
-    @require_admin_context
     def change_account_level(self, context, user_id, level, project_id=None):
         session = db_session.get_session()
         with session.begin():
