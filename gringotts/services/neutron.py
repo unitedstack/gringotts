@@ -38,7 +38,7 @@ class FloatingIp(Resource):
                     'tenant_id': self.project_id
                 }
             },
-           'timestamp': self.created_at
+            'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
 
@@ -54,7 +54,7 @@ class Router(Resource):
                     'tenant_id': self.project_id
                 }
             },
-            'timestamp': self.created_at
+            'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
 
@@ -72,7 +72,7 @@ class Listener(Resource):
                     'tenant_id': self.project_id
                 }
             },
-            'timestamp': self.created_at
+            'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
 

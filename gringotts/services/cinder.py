@@ -10,6 +10,7 @@ from cinderclient.v1 import client as cinder_client
 from cinderclient.exceptions import NotFound
 from gringotts.services import keystone as ks_client
 from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import log
 
 
@@ -28,7 +29,7 @@ class Volume(Resource):
                 'user_id': self.user_id,
                 'tenant_id': self.project_id
             },
-            'timestamp': self.created_at
+            'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
 

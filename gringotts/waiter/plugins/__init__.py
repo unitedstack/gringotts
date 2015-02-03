@@ -7,3 +7,4 @@ from gringotts.waiter.plugins import user
 from gringotts.waiter.plugins import volume
 from gringotts.waiter.plugins import alarm
 from gringotts.waiter.plugins import listener
+from gringotts.waiter.plugins import share

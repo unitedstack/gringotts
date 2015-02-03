@@ -7,6 +7,7 @@ from gringotts import constants as const
 
 from gringotts.openstack.common import log
 
+from gringotts.openstack.common import timeutils
 from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception
 from gringotts.services import Resource
@@ -25,7 +26,7 @@ class Image(Resource):
                 'size': self.size,
                 'owner': self.project_id,
             },
-            'timestamp': self.created_at
+            'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
 

@@ -48,28 +48,29 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.owed', payload)
 
         # Notify us
-        payload = {
-            'actions': {
-                'email': {
-                    'email_template': 'billing/account_has_owed',
-                    'context': {
-                        'send_to': 'uos',
-                        'cloud_name': cfg.CONF.cloud_name,
-                        'account_name': account_name,
-                        'mobile': mobile_number,
-                        'email': contact['email'],
-                        'company': company,
-                        'projects': projects,
-                        'reserved_days': account['reserved_days'],
-                        'language': kwargs.get('language'),
-                    },
-                    'from': 'noreply@unitedstack.com',
-                    'to': 'support@unitedstack.com'
+        if cfg.CONF.checker.support_email:
+            payload = {
+                'actions': {
+                    'email': {
+                        'email_template': 'billing/account_has_owed',
+                        'context': {
+                            'send_to': 'uos',
+                            'cloud_name': cfg.CONF.cloud_name,
+                            'account_name': account_name,
+                            'mobile': mobile_number,
+                            'email': contact['email'],
+                            'company': company,
+                            'projects': projects,
+                            'reserved_days': account['reserved_days'],
+                            'language': kwargs.get('language'),
+                        },
+                        'from': 'noreply@unitedstack.com',
+                        'to': cfg.CONF.checker.support_email
+                    }
                 }
             }
-        }
-        notify = gring_notifier.get_notifier(service='checker')
-        notify.info(context, 'uos.account.owed', payload)
+            notify = gring_notifier.get_notifier(service='checker')
+            notify.info(context, 'uos.account.owed', payload)
 
     @staticmethod
     def notify_before_owed(context, account, contact, projects, price_per_day, days_to_owe, **kwargs):
@@ -102,30 +103,31 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.will_owed', payload)
 
         # Notify us
-        payload = {
-            'actions': {
-                'email': {
-                    'email_template': 'billing/account_will_owe',
-                    'context': {
-                        'send_to': 'uos',
-                        'cloud_name': cfg.CONF.cloud_name,
-                        'account_name': account_name,
-                        'mobile': mobile_number,
-                        'email': contact['email'],
-                        'company': company,
-                        'projects': projects,
-                        'price_per_day': price_per_day,
-                        'balance': str(account['balance']),
-                        'days_to_owe': days_to_owe,
-                        'language': kwargs.get('language'),
-                    },
-                    'from': 'noreply@unitedstack.com',
-                    'to': 'support@unitedstack.com'
+        if cfg.CONF.checker.support_email:
+            payload = {
+                'actions': {
+                    'email': {
+                        'email_template': 'billing/account_will_owe',
+                        'context': {
+                            'send_to': 'uos',
+                            'cloud_name': cfg.CONF.cloud_name,
+                            'account_name': account_name,
+                            'mobile': mobile_number,
+                            'email': contact['email'],
+                            'company': company,
+                            'projects': projects,
+                            'price_per_day': price_per_day,
+                            'balance': str(account['balance']),
+                            'days_to_owe': days_to_owe,
+                            'language': kwargs.get('language'),
+                        },
+                        'from': 'noreply@unitedstack.com',
+                        'to': cfg.CONF.checker.support_email
+                    }
                 }
             }
-        }
-        notify = gring_notifier.get_notifier(service='checker')
-        notify.info(context, 'uos.account.will_owed', payload)
+            notify = gring_notifier.get_notifier(service='checker')
+            notify.info(context, 'uos.account.will_owed', payload)
 
     @staticmethod
     def notify_account_charged(context, account, contact, type, value, bonus=None, **kwargs):
@@ -155,29 +157,30 @@ class EmailNotifier(notifier.Notifier):
         notify.info(context, 'uos.account.charged', payload)
 
         # Notify us
-        payload = {
-            'actions': {
-                'email': {
-                    'email_template': 'billing/charge_to_admin',
-                    'context': {
-                        'type': type,
-                        'cloud_name': cfg.CONF.cloud_name,
-                        'account_name': account_name,
-                        'mobile': mobile_number,
-                        'company': company,
-                        'operator_name': kwargs.get('operator_name'),
-                        'operator': kwargs.get('operator'),
-                        'remarks': kwargs.get('remarks'),
-                        'email': contact['email'],
-                        'value': str(value),
-                        'balance': str(account['balance']),
-                        'bonus': str(bonus),
-                        'language': kwargs.get('language'),
-                    },
-                    'from': 'noreply@unitedstack.com',
-                    'to': 'support@unitedstack.com'
+        if cfg.CONF.checker.support_email:
+            payload = {
+                'actions': {
+                    'email': {
+                        'email_template': 'billing/charge_to_admin',
+                        'context': {
+                            'type': type,
+                            'cloud_name': cfg.CONF.cloud_name,
+                            'account_name': account_name,
+                            'mobile': mobile_number,
+                            'company': company,
+                            'operator_name': kwargs.get('operator_name'),
+                            'operator': kwargs.get('operator'),
+                            'remarks': kwargs.get('remarks'),
+                            'email': contact['email'],
+                            'value': str(value),
+                            'balance': str(account['balance']),
+                            'bonus': str(bonus),
+                            'language': kwargs.get('language'),
+                        },
+                        'from': 'noreply@unitedstack.com',
+                        'to': cfg.CONF.checker.support_email
+                    }
                 }
             }
-        }
-        notify = gring_notifier.get_notifier(service='checker')
-        notify.info(context, 'uos.account.charged', payload)
+            notify = gring_notifier.get_notifier(service='checker')
+            notify.info(context, 'uos.account.charged', payload)

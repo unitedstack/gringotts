@@ -13,6 +13,7 @@ SERVICE_COMPUTE = 'compute'
 SERVICE_BLOCKSTORAGE = 'block_storage'
 SERVICE_NETWORK = 'network'
 SERVICE_MONITOR = 'monitor'
+SERVICE_SHARE = 'share'
 
 
 # Resource type
@@ -20,6 +21,7 @@ RESOURCE_INSTANCE = 'instance'
 RESOURCE_IMAGE = 'image'
 RESOURCE_SNAPSHOT = 'snapshot'
 RESOURCE_VOLUME = 'volume'
+RESOURCE_SHARE = 'share'
 RESOURCE_FLOATINGIP = 'floatingip'
 RESOURCE_LISTENER = 'listener'
 RESOURCE_ROUTER = 'router'
@@ -37,6 +39,7 @@ PRODUCT_FLOATINGIP = 'ip.floating'
 PRODUCT_ROUTER = 'router'
 PRODUCT_ALARM = 'alarm'
 PRODUCT_LISTENER = 'listener'
+PRODUCT_SHARE = 'share.size'
 
 
 # Bill status

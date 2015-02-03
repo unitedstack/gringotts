@@ -3,6 +3,7 @@ import json
 import requests
 
 from oslo.config import cfg
+from gringotts.services import wrap_exception
 from gringotts.openstack.common import log
 
 
@@ -41,6 +42,7 @@ def alert_client():
     return ALERT_CLIENT
 
 
+@wrap_exception()
 def alert_bad_resources(resources):
     to = cfg.CONF.alert_to
     subject = "[%s][%s] There are some bad resources in ustack cloud" % (cfg.CONF.cloud_name, cfg.CONF.region_name)

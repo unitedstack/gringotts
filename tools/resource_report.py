@@ -32,6 +32,17 @@ CLOUDS = {"uos": {"os_auth_url": "http://i.l7.0.uc.ustack.in:35357/v3",
 }
 
 
+def wrap_exception(default_return_value=[]):
+    def wrapper(f):
+        def inner(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except Exception:
+                return default_return_value
+        return inner
+    return wrapper
+
+
 def force_v3_api(url):
     if url is None:
         return url
@@ -59,10 +70,12 @@ def get_admin_tenant_id(ks_client):
     return ks_client.project_id
 
 
+@wrap_exception()
 def get_user_list(ks_client):
     return ks_client.users.list()
 
 
+@wrap_exception()
 def get_project_list(ks_client):
     return ks_client.projects.list()
 
@@ -130,6 +143,7 @@ def get_novaclient(ks_client, cloud, region_name=None):
     return c
 
 
+@wrap_exception()
 def server_list(ks_client, cloud, project_id=None, region_name=None):
     search_opts = {'all_tenants': 1}
 
@@ -138,6 +152,11 @@ def server_list(ks_client, cloud, project_id=None, region_name=None):
 
     return get_novaclient(ks_client, cloud, region_name).servers.list(detailed=False,
                                                                       search_opts=search_opts)
+
+
+@wrap_exception(0)
+def server_number(ks_client, cloud, region_name=None):
+    return get_novaclient(ks_client, cloud, region_name).hypervisors.statistics().running_vms
 
 
 def get_cinderclient(ks_client, cloud, region_name=None):
@@ -152,6 +171,7 @@ def get_cinderclient(ks_client, cloud, region_name=None):
     return c
 
 
+@wrap_exception()
 def volume_list(ks_client, cloud, project_id=None, region_name=None):
     """To see all volumes in the cloud as admin.
     """
@@ -172,6 +192,7 @@ def get_neutronclient(ks_client, region_name=None):
     return c
 
 
+@wrap_exception()
 def floatingip_list(ks_client, project_id=None, region_name=None):
     client = get_neutronclient(ks_client, region_name)
     if project_id:
@@ -195,12 +216,12 @@ for cloud_name, cloud in CLOUDS.items():
 
     content += u"<table border=\"1\" style=\"border-collapse:collapse;\"><thead><tr><th>区域</th><th>主机</th><th>云硬盘</th><th>公网IP</th></tr></thead>"
     for region_name in cloud['regions']:
-        servers = server_list(ks_client, cloud, region_name=region_name)
+        server_num = server_number(ks_client, cloud, region_name=region_name)
         volumes = volume_list(ks_client, cloud, region_name=region_name)
         fips = floatingip_list(ks_client, region_name=region_name)
 
         content += u"<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % \
-                    (region_name, len(servers), len(volumes), len(fips))
+                    (region_name, server_num, len(volumes), len(fips))
     content += u"</table><br/>"
 
 url="https://sendcloud.sohu.com/webapi/mail.send.xml"

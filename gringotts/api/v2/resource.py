@@ -34,6 +34,7 @@ class ResourcesController(rest.RestController):
         from gringotts.services import neutron
         from gringotts.services import nova
         from gringotts.services import ceilometer
+        from gringotts.services import manila
 
         regions = [region_name if region_name else cfg.CONF.regions]
 
@@ -49,6 +50,7 @@ class ResourcesController(rest.RestController):
             nova.delete_servers(project_id, region_name=region_name)
             ceilometer.delete_alarms(project_id, region_name=region_name)
             cinder.delete_volumes(project_id, region_name=region_name)
+            manila.delete_shares(project_id, region_name=region_name)
 
     @wsexpose([models.Resource], wtypes.text, wtypes.text)
     def get_all(self, project_id, region_name=None):
@@ -59,6 +61,7 @@ class ResourcesController(rest.RestController):
         from gringotts.services import neutron
         from gringotts.services import nova
         from gringotts.services import ceilometer
+        from gringotts.services import manila
 
         project_id = acl.get_limited_to_project(request.headers) or project_id
         if project_id is None:
@@ -69,7 +72,8 @@ class ResourcesController(rest.RestController):
                        neutron.network_list, neutron.router_list,
                        neutron.floatingip_list, neutron.listener_list,
                        nova.server_list,
-                       ceilometer.alarm_list]
+                       ceilometer.alarm_list,
+                       manila.share_list]
 
         result = []
         regions = [region_name] if region_name else cfg.CONF.regions

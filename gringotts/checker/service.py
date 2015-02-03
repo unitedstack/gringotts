@@ -46,7 +46,10 @@ OPTS = [
                 help='Enable the interval jobs that run in non center regions'),
     cfg.ListOpt('ignore_tenants',
                 default=[],
-                help="A list of tenant that should not to check")
+                help="A list of tenant that should not to check"),
+    cfg.StrOpt('support_email',
+               default='support@unitedstack.com',
+               help="The cloud manager email")
 ]
 
 cfg.CONF.register_opts(OPTS, group="checker")
@@ -139,6 +142,7 @@ class CheckerService(os_service.Service):
         from gringotts.services import nova
         from gringotts.services import keystone
         from gringotts.services import ceilometer
+        from gringotts.services import manila
 
         self.keystone_client = keystone
 
@@ -152,7 +156,8 @@ class CheckerService(os_service.Service):
             neutron.network_list,
             neutron.port_list,
             neutron.listener_list,
-            ceilometer.alarm_list
+            ceilometer.alarm_list,
+            manila.share_list,
         ]
 
         self.RESOURCE_CREATE_MAP = {
@@ -166,6 +171,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_ALARM: plugins.alarm.AlarmCreateEnd(),
             const.RESOURCE_USER: plugins.user.UserCreatedEnd(),
             const.RESOURCE_PROJECT: plugins.user.ProjectCreatedEnd(),
+            const.RESOURCE_SHARE: plugins.share.ShareCreateEnd(),
         }
 
         self.RESOURCE_GET_MAP = {
@@ -177,6 +183,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_ROUTER: (neutron.router_get, const.STATE_RUNNING),
             const.RESOURCE_LISTENER: (neutron.listener_get, const.STATE_RUNNING),
             const.RESOURCE_ALARM: (ceilometer.alarm_get, const.STATE_RUNNING),
+            const.RESOURCE_SHARE: (manila.share_get, const.STATE_RUNNING),
         }
 
         self.DELETE_METHOD_MAP = {
@@ -188,6 +195,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_ROUTER: neutron.delete_router,
             const.RESOURCE_LISTENER: neutron.delete_listener,
             const.RESOURCE_ALARM: ceilometer.delete_alarm,
+            const.RESOURCE_SHARE: manila.delete_share,
         }
 
         self.STOP_METHOD_MAP = {
@@ -199,6 +207,7 @@ class CheckerService(os_service.Service):
             const.RESOURCE_ROUTER: neutron.stop_router,
             const.RESOURCE_LISTENER: neutron.stop_listener,
             const.RESOURCE_ALARM: ceilometer.stop_alarm,
+            const.RESOURCE_SHARE: manila.stop_share,
         }
 
         super(CheckerService, self).__init__(*args, **kwargs)

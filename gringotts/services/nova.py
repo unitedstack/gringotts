@@ -7,6 +7,7 @@ from novaclient.v1_1 import client as nova_client
 from novaclient.exceptions import NotFound
 
 from gringotts.openstack.common import log
+from gringotts.openstack.common import timeutils
 
 from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception
@@ -32,7 +33,7 @@ class Server(Resource):
                     'base_image_ref': self.image_id
                 }
             },
-            'timestamp': self.created_at
+            'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
 
