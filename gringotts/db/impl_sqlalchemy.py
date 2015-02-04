@@ -324,10 +324,17 @@ class Connection(base.Connection):
             session.add(product_ref)
         return self._row_to_db_product_model(product_ref)
 
-    def get_products_count(self, context):
+    def get_products_count(self, context, filters=None):
         query = get_session().query(sa_models.Product,
                                     func.count(sa_models.Product.id).label('count'))
+        if 'name' in filters:
+            query = query.filter_by(name=filters['name'])
+        if 'service' in filters:
+            query = query.filter_by(service=filters['service'])
+        if 'region_id' in filters:
+            query = query.filter_by(region_id=filters['region_id'])
         query = query.filter_by(deleted=False)
+
         return query.one().count or 0
 
     def get_products(self, context, filters=None, read_deleted=False,

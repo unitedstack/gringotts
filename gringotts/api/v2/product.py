@@ -168,7 +168,8 @@ class DetailController(rest.RestController):
                                    sort_key=sort_key,
                                    sort_dir=sort_dir)
         products = [models.Product.from_db_model(p) for p in result]
-        total_count = conn.get_products_count(request.context)
+        total_count = conn.get_products_count(request.context,
+                                              filters=filters)
         return models.Products(total_count=total_count,
                                products=products)
 
