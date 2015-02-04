@@ -144,7 +144,7 @@ class DetailController(rest.RestController):
     """Detail of products
     """
 
-    @wsexpose([models.Product], wtypes.text, wtypes.text, wtypes.text,
+    @wsexpose(models.Products, wtypes.text, wtypes.text, wtypes.text,
               int, wtypes.text, wtypes.text, wtypes.text)
     def get_all(self, name=None, service=None, region_id=None,
                 limit=None, offset=None,
@@ -167,7 +167,10 @@ class DetailController(rest.RestController):
                                    offset=offset,
                                    sort_key=sort_key,
                                    sort_dir=sort_dir)
-        return [models.Product.from_db_model(p) for p in result]
+        products = [models.Product.from_db_model(p) for p in result]
+        total_count = conn.get_products_count(request.context)
+        return models.Products(total_count=total_count,
+                               products=products)
 
 
 class ProductsController(rest.RestController):

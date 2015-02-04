@@ -316,7 +316,6 @@ class Connection(base.Connection):
                                    expired_at=row.expired_at,
                                    remarks=row.remarks)
 
-    @require_admin_context
     def create_product(self, context, product):
         session = db_session.get_session()
         with session.begin():
@@ -324,6 +323,12 @@ class Connection(base.Connection):
             product_ref.update(product.as_dict())
             session.add(product_ref)
         return self._row_to_db_product_model(product_ref)
+
+    def get_products_count(self, context):
+        query = get_session().query(sa_models.Product,
+                                    func.count(sa_models.Product.id).label('count'))
+        query = query.filter_by(deleted=False)
+        return query.one().count or 0
 
     def get_products(self, context, filters=None, read_deleted=False,
                      limit=None, offset=None, sort_key=None,
@@ -345,7 +350,6 @@ class Connection(base.Connection):
 
         return (self._row_to_db_product_model(p) for p in result)
 
-    @require_context
     def get_product(self, context, product_id):
         query = model_query(context, sa_models.Product).\
             filter_by(product_id=product_id).\
@@ -356,7 +360,6 @@ class Connection(base.Connection):
             raise exception.ProductIdNotFound(product_id)
         return self._row_to_db_product_model(ref)
 
-    @require_admin_context
     def delete_product(self, context, product_id):
         product = self.get_product(context, product_id)
         product.deleted = True
@@ -369,7 +372,6 @@ class Connection(base.Connection):
             ref = query.one()
         return self._row_to_db_product_model(ref)
 
-    @require_admin_context
     def update_product(self, context, product):
         session = db_session.get_session()
         with session.begin():
@@ -379,7 +381,6 @@ class Connection(base.Connection):
             ref = query.one()
         return self._row_to_db_product_model(ref)
 
-    @require_admin_context
     def get_product_by_name(self, context, product_name, service, region_id):
         try:
             product = model_query(context, sa_models.Product).\

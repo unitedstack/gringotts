@@ -120,6 +120,11 @@ class Product(APIBase):
                    updated_at=datetime.datetime.utcnow())
 
 
+class Products(APIBase):
+    total_count = int
+    products = [Product]
+
+
 class SimpleProduct(APIBase):
     """A product represents a rule applied to resources to be billed
     """
