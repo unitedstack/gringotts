@@ -101,6 +101,20 @@ def subnet_list(project_id, region_name=None):
 
 
 @wrap_exception(exc_type='list')
+def loadbalancer_list(project_id, region_name=None):
+    client = get_neutronclient(region_name)
+    lbs = client.list_loadbalancers(tenant_id=project_id).get('loadbalancers')
+    return lbs
+
+
+@wrap_exception(exc_type='list')
+def pool_list(project_id, region_name=None):
+    client = get_neutronclient(region_name)
+    pools = client.list_pools(tenant_id=project_id).get('pools')
+    return pools
+
+
+@wrap_exception(exc_type='list')
 def port_list(project_id, region_name=None, device_id=None, project_name=None):
     client = get_neutronclient(region_name)
     if device_id:
@@ -401,3 +415,35 @@ def quota_update(project_id, user_id=None, region_name=None, **kwargs):
         "quota": kwargs
     }
     client.update_quota(project_id, body=body)
+
+
+@wrap_exception(exc_type='get')
+def quota_get(project_id, region_name=None):
+    """
+    {u'quota': {u'floatingip': 20,
+                u'listener': 6,
+                u'loadbalancer': 3,
+                u'network': 10,
+                u'pool': 6,
+                u'router': 11,
+                u'subnet': 10}}
+    """
+    client = get_neutronclient(region_name)
+    limit = client.show_quota(project_id).get('quota')
+
+    fip_n = len(floatingip_list(project_id, region_name))
+    listener_n = len(listener_list(project_id, region_name))
+    lb_n = len(loadbalancer_list(project_id, region_name))
+    net_n = len(network_list(project_id, region_name))
+    subnet_n = len(subnet_list(project_id, region_name))
+    pool_n = len(pool_list(project_id, region_name))
+    router_n = len(router_list(project_id, region_name))
+
+    quota = {'floatingip': {'in_use': fip_n, 'limit': limit.get('floatingip')},
+             'listener': {'in_use': listener_n, 'limit': limit.get('listener')},
+             'loadbalancer': {'in_use': lb_n, 'limit': limit.get('loadbalancer')},
+             'network': {'in_use': net_n, 'limit': limit.get('network')},
+             'pool': {'in_use': pool_n, 'limit': limit.get('pool')},
+             'router': {'in_use': router_n, 'limit': limit.get('router')},
+             'subnet': {'in_use': subnet_n, 'limit': limit.get('subnet')}}
+    return quota

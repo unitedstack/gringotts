@@ -156,3 +156,14 @@ def quota_update(project_id, user_id=None, region_name=None, **kwargs):
     if user_id:
         kwargs.update(user_id=user_id)
     client.quotas.update(project_id, **kwargs)
+
+
+@wrap_exception(exc_type='get')
+def quota_get(project_id, user_id=None, region_name=None):
+    """
+    {u'cores': {u'in_use': 0, u'limit': 70, u'reserved': 0},
+     u'instances': {u'in_use': 0, u'limit': 10, u'reserved': 0},
+     u'ram': {u'in_use': 0, u'limit': 204800, u'reserved': 0},
+    """
+    client = get_novaclient(region_name)
+    return client.quotas.get(project_id, user_id=user_id, usages=True)._info

@@ -529,20 +529,20 @@ class Resource(APIBase):
     resource_type = wtypes.text
 
 
-class ComputeQuota(APIBase):
+class ComputeQuotaBody(APIBase):
     instances = int
     cores = int
     ram = int
 
 
-class VolumeQuota(APIBase):
+class VolumeQuotaBody(APIBase):
     volume_type = wtypes.text
     gigabytes = int
     snapshots = int
     volumes = int
 
 
-class NetworkQuota(APIBase):
+class NetworkQuotaBody(APIBase):
     floatingip = int
     network = int
     router = int
@@ -550,6 +550,43 @@ class NetworkQuota(APIBase):
     loadbalancer = int
     listener = int
     pool = int
+
+
+class QuotaBody(APIBase):
+    project_id = wtypes.text
+    user_id = wtypes.text
+    region_name = wtypes.text
+    compute = ComputeQuotaBody
+    volume = [VolumeQuotaBody]
+    network = NetworkQuotaBody
+
+
+class QuotaItem(APIBase):
+    limit = int
+    used = int
+
+
+class ComputeQuota(APIBase):
+    instances = QuotaItem
+    cores = QuotaItem
+    ram = QuotaItem
+
+
+class VolumeQuota(APIBase):
+    volume_type = wtypes.text
+    gigabytes = QuotaItem
+    snapshots = QuotaItem
+    volumes = QuotaItem
+
+
+class NetworkQuota(APIBase):
+    floatingip = QuotaItem
+    network = QuotaItem
+    router = QuotaItem
+    subnet = QuotaItem
+    loadbalancer = QuotaItem
+    listener = QuotaItem
+    pool = QuotaItem
 
 
 class Quota(APIBase):

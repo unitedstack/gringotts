@@ -259,3 +259,26 @@ def quota_update(project_id, user_id=None, region_name=None, **kwargs):
                     total += vo
             body[k] = v + total
     client.quotas.update(project_id, **body)
+
+
+@wrap_exception(exc_type='get')
+def quota_get(project_id, user_id=None, region_name=None):
+    """
+    {u'gigabytes': {u'in_use': 0, u'limit': 999, u'reserved': 0},
+     u'gigabytes_sata': {u'in_use': 0, u'limit': -1, u'reserved': 0},
+     u'gigabytes_ssd': {u'in_use': 0, u'limit': 1000, u'reserved': 0},
+     u'snapshots': {u'in_use': 0, u'limit': 32, u'reserved': 0},
+     u'snapshots_sata': {u'in_use': 0, u'limit': -1, u'reserved': 0},
+     u'snapshots_ssd': {u'in_use': 0, u'limit': 33, u'reserved': 0},
+     u'volumes': {u'in_use': 0, u'limit': 40, u'reserved': 0},
+     u'volumes_sata': {u'in_use': 0, u'limit': 20, u'reserved': 0},
+     u'volumes_ssd': {u'in_use': 0, u'limit': 20, u'reserved': 0}}
+    """
+    client = get_cinderclient(region_name)
+    return client.quotas.get(project_id, usage=True)._info
+
+
+@wrap_exception(exc_type='list')
+def type_list(project_id, region_name=None):
+    client = get_cinderclient(region_name)
+    return client.volume_types.list()
