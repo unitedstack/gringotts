@@ -76,8 +76,8 @@ class UserRegisterEnd(RegisterNotificationBase):
             bonus = message['payload'].get('bonus', cfg.CONF.waiter.initial_balance)
             self.charge_account(user_id, str(bonus), type, come_from)
         except Exception:
-            LOG.exception('Fail to charge %s to account %s' % (initial_level, user_id))
-            raise exception.AccountChargeFailed(balance=initial_balance, user_id=user_id)
+            LOG.exception('Fail to charge %s to account %s' % (bonus, user_id))
+            raise exception.AccountChargeFailed(balance=bonus, user_id=user_id)
 
         LOG.info('Create user %s for the domain %s successfully' % (user_id, domain_id))
 
