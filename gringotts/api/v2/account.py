@@ -130,13 +130,14 @@ class AccountController(rest.RestController):
                                                      remarks=remarks)
         return models.Charge.from_db_model(charge)
 
-    @wsexpose(models.Charges, datetime.datetime, datetime.datetime, int, int)
-    def charges(self, start_time=None, end_time=None, limit=None, offset=None):
+    @wsexpose(models.Charges, wtypes.text, datetime.datetime, datetime.datetime, int, int)
+    def charges(self, type=None, start_time=None, end_time=None, limit=None, offset=None):
         """Return this account's charge records
         """
         self.conn = pecan.request.db_conn
         charges = self.conn.get_charges(request.context,
                                         user_id=self._id,
+                                        type=type,
                                         limit=limit,
                                         offset=offset,
                                         start_time=start_time,
@@ -146,7 +147,7 @@ class AccountController(rest.RestController):
             charges_list.append(models.Charge.from_db_model(charge))
 
         total_price, total_count = self.conn.get_charges_price_and_count(
-            request.context, user_id=self._id,
+            request.context, user_id=self._id, type=type,
             start_time=start_time, end_time=end_time)
         total_price = gringutils._quantize_decimal(total_price)
 
@@ -211,9 +212,8 @@ class AccountController(rest.RestController):
 
 class ChargeController(rest.RestController):
 
-
-    @wsexpose(models.Charges, datetime.datetime, datetime.datetime, int, int)
-    def get(self, start_time=None, end_time=None, limit=None, offset=None):
+    @wsexpose(models.Charges, wtypes.text, datetime.datetime, datetime.datetime, int, int)
+    def get(self, type=None, start_time=None, end_time=None, limit=None, offset=None):
         """Get all charges of all account
         """
         check_policy(request.context, "charges:all")
@@ -231,6 +231,7 @@ class ChargeController(rest.RestController):
 
         self.conn = pecan.request.db_conn
         charges = self.conn.get_charges(request.context,
+                                        type=type,
                                         limit=limit,
                                         offset=offset,
                                         start_time=start_time,
@@ -243,7 +244,7 @@ class ChargeController(rest.RestController):
             charges_list.append(acharge)
 
         total_price, total_count = self.conn.get_charges_price_and_count(
-            request.context, start_time=start_time, end_time=end_time)
+            request.context, type=type, start_time=start_time, end_time=end_time)
         total_price = gringutils._quantize_decimal(total_price)
 
         return models.Charges.transform(total_price=total_price,

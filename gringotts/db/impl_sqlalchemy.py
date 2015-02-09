@@ -1010,7 +1010,8 @@ class Connection(base.Connection):
                     continue
                 order.charged = False
 
-    def get_charges(self, context, user_id=None, project_id=None, start_time=None, end_time=None,
+    def get_charges(self, context, user_id=None, project_id=None, type=None,
+                    start_time=None, end_time=None,
                     limit=None, offset=None, sort_key=None, sort_dir=None):
         query = get_session().query(sa_models.Charge)
 
@@ -1019,6 +1020,9 @@ class Connection(base.Connection):
 
         if user_id:
             query = query.filter_by(user_id=user_id)
+
+        if type:
+            query = query.filter_by(type=type)
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Charge.charge_time >= start_time,
@@ -1032,7 +1036,7 @@ class Connection(base.Connection):
         return (self._row_to_db_charge_model(r) for r in result)
 
     def get_charges_price_and_count(self, context, user_id=None, project_id=None,
-                                    start_time=None, end_time=None):
+                                    type=None, start_time=None, end_time=None):
         query = get_session().query(sa_models.Charge,
                                     func.count(sa_models.Charge.id).label('count'),
                                     func.sum(sa_models.Charge.value).label('sum'))
@@ -1042,6 +1046,9 @@ class Connection(base.Connection):
 
         if user_id:
             query = query.filter_by(user_id=user_id)
+
+        if type:
+            query = query.filter_by(type=type)
 
         if all([start_time, end_time]):
             query = query.filter(sa_models.Charge.charge_time >= start_time,
