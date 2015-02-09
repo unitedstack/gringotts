@@ -77,7 +77,7 @@ class UserRegisterEnd(RegisterNotificationBase):
             self.charge_account(user_id, str(bonus), type, come_from)
         except Exception:
             LOG.exception('Fail to charge %s to account %s' % (bonus, user_id))
-            raise exception.AccountChargeFailed(balance=bonus, user_id=user_id)
+            raise exception.AccountChargeFailed(value=bonus, user_id=user_id)
 
         LOG.info('Create user %s for the domain %s successfully' % (user_id, domain_id))
 

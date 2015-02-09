@@ -77,7 +77,7 @@ class AccountController(rest.RestController):
         """Charge the account
         """
         # Check the charge value
-        if not data.value or data.value < 0:
+        if data.value < -100000 or data.value > 100000:
             raise exception.InvalidChargeValue(value=data.value)
 
         self.conn = pecan.request.db_conn
@@ -114,10 +114,11 @@ class AccountController(rest.RestController):
             if cfg.CONF.notify_account_charged and charge['type'] != 'bonus':
                 account = self.conn.get_account(request.context, None, project_id=self._id).as_dict()
                 contact = keystone.get_uos_user(account['user_id'])
-                self.notifier = notifier.NotifierService(1)
+                self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
                 self.notifier.notify_account_charged(request.context,
                                                      account,
                                                      contact,
+                                                     data['type'],
                                                      charge.value,
                                                      bonus = bonus.value if has_bonus else 0)
         return models.Charge.from_db_model(charge)
