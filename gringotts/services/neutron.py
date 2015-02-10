@@ -110,7 +110,7 @@ def loadbalancer_list(project_id, region_name=None):
 @wrap_exception(exc_type='list')
 def pool_list(project_id, region_name=None):
     client = get_neutronclient(region_name)
-    pools = client.list_pools(tenant_id=project_id).get('pools')
+    pools = client.list_lbaas_pools(tenant_id=project_id).get('pools')
     return pools
 
 
