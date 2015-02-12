@@ -72,9 +72,9 @@ class SummaryController(rest.RestController):
     """Summary every order type's consumption
     """
     @wsexpose(models.Summaries, datetime.datetime, datetime.datetime, wtypes.text,
-              wtypes.text, wtypes.text)
+              wtypes.text, wtypes.text, wtypes.text)
     def get(self, start_time=None, end_time=None, region_id=None,
-            user_id=None, project_id=None):
+            user_id=None, project_id=None, read_deleted=None):
         """Get summary of all kinds of orders
         """
         limit_user_id, __ = acl.get_limited_to_accountant(request.headers)
@@ -96,13 +96,24 @@ class SummaryController(rest.RestController):
         # good way to go
         conn = pecan.request.db_conn
 
+        if read_deleted:
+            if read_deleted.lower() == 'true':
+                read_deleted = True
+            elif read_deleted.lower() == 'false':
+                read_deleted = False
+            else:
+                read_deleted = True
+        else:
+            read_deleted = True
+
         # Get all orders of this particular context one time
         orders_db = list(conn.get_orders(request.context,
                                          start_time=start_time,
                                          end_time=end_time,
                                          user_id=user_id,
                                          project_ids=project_ids,
-                                         region_id=region_id))
+                                         region_id=region_id,
+                                         read_deleted=read_deleted))
 
         total_price = gringutils._quantize_decimal(0)
         total_count = 0

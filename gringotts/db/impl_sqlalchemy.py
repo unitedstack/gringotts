@@ -494,7 +494,7 @@ class Connection(base.Connection):
     def get_orders(self, context, start_time=None, end_time=None, type=None,
                    status=None, limit=None, offset=None, sort_key=None,
                    sort_dir=None, with_count=False, region_id=None,
-                   user_id=None, project_ids=None, owed=None):
+                   user_id=None, project_ids=None, owed=None, read_deleted=True):
         """Get orders that have bills during start_time and end_time.
         If start_time is None or end_time is None, will ignore the datetime
         range, and return all orders
@@ -513,6 +513,8 @@ class Connection(base.Connection):
             query = query.filter(sa_models.Order.project_id.in_(project_ids))
         if owed:
             query = query.filter_by(owed=owed)
+        if not read_deleted:
+            query = query.filter(not_(sa_models.Order.status==const.STATE_DELETED))
 
         if all([start_time, end_time]):
             query = query.join(sa_models.Bill,
