@@ -13,6 +13,7 @@ from oslo.config import cfg
 from gringotts.api import acl
 from gringotts import exception
 from gringotts import utils as gringutils
+from gringotts import constants as const
 
 from gringotts.services import keystone
 from gringotts.api.v2 import models
@@ -22,10 +23,6 @@ from gringotts.openstack.common import uuidutils
 
 
 LOG = log.getLogger(__name__)
-
-
-ORDER_TYPE = ['instance', 'image', 'snapshot', 'volume', 'router',
-              'listener', 'floatingip', 'alarm', 'share']
 
 
 class OrderController(rest.RestController):
@@ -120,7 +117,7 @@ class SummaryController(rest.RestController):
         summaries = []
 
         # loop all order types
-        for order_type in ORDER_TYPE:
+        for order_type in const.ORDER_TYPE:
 
             order_total_price = gringutils._quantize_decimal(0)
             order_total_count = 0

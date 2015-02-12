@@ -188,7 +188,7 @@ class AccountController(rest.RestController):
             return -1
         return days_to_owe
 
-    @wsexpose(float)
+    @wsexpose(models.Estimate)
     def estimate_per_day(self):
         self.conn = pecan.request.db_conn
 
@@ -196,18 +196,25 @@ class AccountController(rest.RestController):
         orders = self.conn.get_active_orders(request.context,
                                              user_id=self._id,
                                              within_one_hour=True)
+        price_per_day = 0
+        remaining_day = -1
         if not orders:
-            return 0
+            return models.Estimate(price_per_day=price_per_day,
+                                   remaining_day=remaining_day)
 
         price_per_hour = 0
         for order in orders:
             price_per_hour += gringutils._quantize_decimal(order.unit_price)
 
         if price_per_hour == 0:
-            return 0
+            return models.Estimate(price_per_day=price_per_day,
+                                   remaining_day=remaining_day)
 
         price_per_day = price_per_hour * 24
-        return round(float(price_per_day), 4)
+        remaining_day = int(account.balance / price_per_day)
+
+        return models.Estimate(price_per_day=price_per_day,
+                               remaining_day=remaining_day)
 
 
 class ChargeController(rest.RestController):

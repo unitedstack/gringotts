@@ -10,6 +10,7 @@ from wsme import types as wtypes
 
 from oslo.config import cfg
 
+from gringotts import constants as const
 from gringotts.api import acl
 from gringotts import exception
 from gringotts import utils as gringutils
@@ -32,6 +33,7 @@ class ProjectController(rest.RestController):
     _custom_actions = {
         'billing_owner': ['PUT'],
         'get_billing_owner': ['GET'],
+        'estimate': ['GET'],
     }
 
     def __init__(self, project_id):
@@ -65,6 +67,57 @@ class ProjectController(rest.RestController):
         self.conn = pecan.request.db_conn
         account = self.conn.get_project_billing_owner(request.context, self._id)
         return models.UserAccount.from_db_model(account)
+
+    @wsexpose(models.Summaries, wtypes.text)
+    def estimate(self, region_id=None):
+        """Get estimation of specified project and region
+        """
+        limit_user_id, __ = acl.get_limited_to_accountant(request.headers)
+
+        if limit_user_id: # normal user
+            projects = keystone.get_projects_by_user(limit_user_id)
+            _project_ids = [project['id'] for project in projects]
+            project_ids = [self._id] if self._id in _project_ids else []
+        else: # accountant
+            project_ids = [self._id]
+
+        # good way to go
+        conn = pecan.request.db_conn
+
+        # Get all orders of this particular context one time
+        orders_db = list(conn.get_orders(request.context,
+                                         project_ids=project_ids,
+                                         region_id=region_id,
+                                         read_deleted=False))
+
+        total_price = gringutils._quantize_decimal(0)
+        total_count = 0
+        summaries = []
+
+        # loop all order types
+        for order_type in const.ORDER_TYPE:
+
+            order_total_price = gringutils._quantize_decimal(0)
+            order_total_count = 0
+
+            # One user's order records will not be very large, so we can
+            # traverse them directly
+            for order in orders_db:
+                if order.type != order_type:
+                    continue
+                order_total_price += order.unit_price * 24
+                order_total_count += 1
+
+            summaries.append(models.Summary.transform(total_count=order_total_count,
+                                                      order_type=order_type,
+                                                      total_price=order_total_price))
+            total_price += order_total_price
+            total_count += order_total_count
+
+        return models.Summaries.transform(total_price=total_price,
+                                          total_count=total_count,
+                                          summaries=summaries)
+
 
 class ProjectsController(rest.RestController):
     """Manages operations on the projects collection

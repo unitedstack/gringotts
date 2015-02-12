@@ -596,3 +596,8 @@ class Quota(APIBase):
     compute = ComputeQuota
     volume = [VolumeQuota]
     network = NetworkQuota
+
+
+class Estimate(APIBase):
+    price_per_day = decimal.Decimal
+    remaining_day = int

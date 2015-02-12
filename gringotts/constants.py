@@ -45,3 +45,7 @@ PRODUCT_SHARE = 'share.size'
 # Bill status
 BILL_PAYED = 'payed'
 BILL_OWED = 'owed'
+
+
+ORDER_TYPE = ['instance', 'image', 'snapshot', 'volume', 'router',
+              'listener', 'floatingip', 'alarm', 'share']
