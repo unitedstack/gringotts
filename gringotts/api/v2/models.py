@@ -533,6 +533,7 @@ class ComputeQuotaBody(APIBase):
     instances = int
     cores = int
     ram = int
+    key_pairs = int
 
 
 class VolumeQuotaBody(APIBase):
@@ -550,6 +551,7 @@ class NetworkQuotaBody(APIBase):
     loadbalancer = int
     listener = int
     pool = int
+    security_group = int
 
 
 class QuotaBody(APIBase):
@@ -570,6 +572,7 @@ class ComputeQuota(APIBase):
     instances = QuotaItem
     cores = QuotaItem
     ram = QuotaItem
+    key_pairs = QuotaItem
 
 
 class VolumeQuota(APIBase):
@@ -587,6 +590,7 @@ class NetworkQuota(APIBase):
     loadbalancer = QuotaItem
     listener = QuotaItem
     pool = QuotaItem
+    security_group = QuotaItem
 
 
 class Quota(APIBase):

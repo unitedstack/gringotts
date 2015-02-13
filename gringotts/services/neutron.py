@@ -108,6 +108,13 @@ def loadbalancer_list(project_id, region_name=None):
 
 
 @wrap_exception(exc_type='list')
+def security_group_list(project_id, region_name=None):
+    client = get_neutronclient(region_name)
+    sgs = client.list_security_groups(tenant_id=project_id).get('security_groups')
+    return sgs
+
+
+@wrap_exception(exc_type='list')
 def pool_list(project_id, region_name=None):
     client = get_neutronclient(region_name)
     pools = client.list_lbaas_pools(tenant_id=project_id).get('pools')
@@ -438,6 +445,7 @@ def quota_get(project_id, region_name=None):
     subnet_n = len(subnet_list(project_id, region_name))
     pool_n = len(pool_list(project_id, region_name))
     router_n = len(router_list(project_id, region_name))
+    sg_n = len(security_group_list(project_id, region_name))
 
     quota = {'floatingip': {'in_use': fip_n, 'limit': limit.get('floatingip')},
              'listener': {'in_use': listener_n, 'limit': limit.get('listener')},
@@ -445,5 +453,6 @@ def quota_get(project_id, region_name=None):
              'network': {'in_use': net_n, 'limit': limit.get('network')},
              'pool': {'in_use': pool_n, 'limit': limit.get('pool')},
              'router': {'in_use': router_n, 'limit': limit.get('router')},
+             'security_group': {'in_use': sg_n, 'limit': limit.get('security_group')},
              'subnet': {'in_use': subnet_n, 'limit': limit.get('subnet')}}
     return quota

@@ -79,7 +79,9 @@ class QuotasController(rest.RestController):
                 cores=models.QuotaItem(limit=nq['cores']['limit'],
                                        used=nq['cores']['in_use']),
                 ram=models.QuotaItem(limit=nq['ram']['limit'],
-                                     used=nq['ram']['in_use'])
+                                     used=nq['ram']['in_use']),
+                key_pairs=models.QuotaItem(limit=nq['key_pairs']['limit'],
+                                           used=nq['key_pairs']['in_use'])
             )
 
         cq = cinder.quota_get(project_id, user_id, region_name)
@@ -116,6 +118,8 @@ class QuotasController(rest.RestController):
                                           used=nnq['router']['in_use']),
                 subnet = models.QuotaItem(limit=nnq['subnet']['limit'],
                                           used=nnq['subnet']['in_use']),
+                security_group = models.QuotaItem(limit=nnq['security_group']['limit'],
+                                                  used=nnq['security_group']['in_use']),
             )
 
         return models.Quota(project_id=project_id,
