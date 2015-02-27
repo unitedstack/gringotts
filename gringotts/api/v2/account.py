@@ -10,6 +10,7 @@ from wsme import types as wtypes
 from oslo.config import cfg
 
 from gringotts import master
+from gringotts.api import acl
 from gringotts.policy import check_policy
 from gringotts import exception
 from gringotts import utils as gringutils
@@ -35,6 +36,7 @@ class AccountController(rest.RestController):
         'charges': ['GET'],
         'estimate': ['GET'],
         'estimate_per_day': ['GET'],
+        'invitees': ['GET'],
     }
 
     def __init__(self, user_id):
@@ -48,6 +50,40 @@ class AccountController(rest.RestController):
             LOG.error('account %s not found' % self._id)
             raise exception.AccountNotFound(user_id=self._id)
         return account
+
+    @wsexpose(models.Invitees, int, int)
+    def invitees(self, limit=None, offset=None):
+        """Get invitees of inviter
+        """
+        inviter = acl.get_limited_to_user(request.headers) or self._id
+
+        self.conn = pecan.request.db_conn
+        try:
+            _invitees, total_count = self.conn.get_invitees(request.context,
+                                                            inviter,
+                                                            limit=limit,
+                                                            offset=offset)
+        except Exception as e:
+            LOG.exception('Fail to get invitees')
+            raise exception.DBError(reason=e)
+
+        invitees = []
+        for invitee in _invitees:
+            user = keystone.get_uos_user(invitee.user_id)
+            if user:
+                user_name = user.get('real_name') or user['email'].split('@')[0]
+                user_email = user['email']
+            else:
+                user_name = ""
+                user_email = ""
+            invitees.append(models.Invitee(user_id=invitee.user_id,
+                                           user_name=user_name,
+                                           user_email=user_email,
+                                           created_at=invitee.created_at,
+                                           charged=invitee.charged,
+                                           reward_value=invitee.reward_value))
+        return models.Invitees(total_count=total_count,
+                               invitees=invitees)
 
     @wsexpose(models.UserAccount, int)
     def level(self, level):
@@ -87,23 +123,50 @@ class AccountController(rest.RestController):
         self.conn = pecan.request.db_conn
 
         try:
-            charge = self.conn.update_account(request.context,
-                                              self._id,
-                                              operator=operator,
-                                              **data.as_dict())
+            charge, is_first_charge = self.conn.update_account(request.context,
+                                                               self._id,
+                                                               operator=operator,
+                                                               **data.as_dict())
             has_bonus = False
             if cfg.CONF.enable_bonus and data['type'] != 'bonus':
                 value = gringutils.calculate_bonus(data['value'])
                 if value > 0:
-                    bonus = self.conn.update_account(request.context,
-                                                     self._id,
-                                                     type='bonus',
-                                                     value=value,
-                                                     come_from='system',
-                                                     operator=operator,
-                                                     remarks=remarks)
+                    bonus, _ = self.conn.update_account(request.context,
+                                                        self._id,
+                                                        type='bonus',
+                                                        value=value,
+                                                        come_from='system',
+                                                        operator=operator,
+                                                        remarks=remarks)
                     has_bonus = True
 
+            if cfg.CONF.enable_invitation and is_first_charge:
+                _account = self._account()
+                min_charge_value = gringutils._quantize_decimal(cfg.CONF.min_charge_value)
+                reward_value = gringutils._quantize_decimal(cfg.CONF.reward_value)
+
+                if _account.inviter and data.value >= min_charge_value and reward_value > 0:
+                    self.conn.update_account(request.context,
+                                             _account.inviter,
+                                             type='bonus',
+                                             value=reward_value,
+                                             come_from='system',
+                                             operator=operator,
+                                             remarks="reward because of invitation",
+                                             invitee=self._id)
+                    if cfg.CONF.notify_account_charged:
+                        inviter = self.conn.get_account(request.context, _account.inviter).as_dict()
+                        contact = keystone.get_uos_user(inviter['user_id'])
+                        self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
+                        self.notifier.notify_account_charged(request.context,
+                                                             inviter,
+                                                             contact,
+                                                             'bonus',
+                                                             reward_value,
+                                                             bonus=0,
+                                                             operator=operator,
+                                                             operator_name=request.context.user_name,
+                                                             remarks="reward because of invitation")
             self.conn.set_charged_orders(request.context, self._id)
         except exception.NotAuthorized as e:
             LOG.exception('Fail to charge the account:%s due to not authorization' % \
@@ -126,7 +189,7 @@ class AccountController(rest.RestController):
                                                      contact,
                                                      data['type'],
                                                      charge.value,
-                                                     bonus = bonus.value if has_bonus else 0,
+                                                     bonus=bonus.value if has_bonus else 0,
                                                      operator=operator,
                                                      operator_name=request.context.user_name,
                                                      remarks=remarks,

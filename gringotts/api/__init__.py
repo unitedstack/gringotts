@@ -30,7 +30,16 @@ OPTS = [
                help='Frequency of do precharge limitation'),
     cfg.ListOpt('regions',
                 default=['RegionOne'],
-                help="A list of regions that is avaliable")
+                help="A list of regions that is avaliable"),
+    cfg.BoolOpt('enable_invitation',
+                default=False,
+                help="Enable invitation or not"),
+    cfg.StrOpt('min_charge_value',
+                default='0',
+                help="The minimum charge value if meet the reward condition"),
+    cfg.StrOpt('reward_value',
+               default='0',
+               help="The reward value if meet the reward condition")
 ]
 
 CONF = cfg.CONF

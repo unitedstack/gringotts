@@ -268,6 +268,9 @@ class Connection(base.Connection):
                                  consumption=row.consumption,
                                  level=row.level,
                                  owed=row.owed,
+                                 inviter=row.inviter,
+                                 charged=row.charged,
+                                 reward_value=row.reward_value,
                                  created_at=row.created_at,
                                  updated_at=row.updated_at)
 
@@ -899,6 +902,18 @@ class Connection(base.Connection):
         ref = query.one()
         return self._row_to_db_account_model(ref)
 
+    def get_invitees(self, context, inviter, limit=None, offset=None):
+        query = get_session().query(sa_models.Account).\
+            filter_by(inviter=inviter)
+
+        total_count = len(query.all())
+
+        result = paginate_query(context, sa_models.Account,
+                                limit=limit, offset=offset,
+                                query=query)
+
+        return (self._row_to_db_account_model(r) for r in result), total_count
+
     @require_domain_context
     def get_accounts(self, context, owed=None, limit=None, offset=None,
                      sort_key=None, sort_dir=None):
@@ -958,6 +973,11 @@ class Connection(base.Connection):
             if account.balance >= 0:
                 account.owed = False
 
+            is_first_charge = False
+            if data.get('type') == 'money' and not account.charged:
+                account.charged = True
+                is_first_charge = True
+
             # add charge records
             if not data.get('charge_time'):
                 charge_time = datetime.datetime.utcnow()
@@ -976,7 +996,13 @@ class Connection(base.Connection):
                                       remarks=data.get('remarks'))
             session.add(charge)
 
-        return self._row_to_db_charge_model(charge)
+            if data.get('invitee'):
+                invitee = session.query(sa_models.Account).\
+                    filter_by(user_id=data.get('invitee')).\
+                    with_lockmode('update').one()
+                invitee.reward_value = data['value']
+
+        return self._row_to_db_charge_model(charge), is_first_charge
 
     def set_charged_orders(self, context, user_id, project_id=None):
         """Set owed orders to charged"""

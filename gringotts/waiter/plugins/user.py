@@ -59,11 +59,13 @@ class UserRegisterEnd(RegisterNotificationBase):
             user_id = message['payload']['user_id']
             project_id = message['payload']['project_id'] # default project id
             domain_id = message['payload']['domain_id']
+            inviter = message['payload'].get('referer')
             balance = '0'
             consumption = '0'
             level = cfg.CONF.waiter.initial_level
             self.create_account(user_id, domain_id, balance, consumption,
-                                level, project_id=project_id)
+                                level, project_id=project_id,
+                                inviter=inviter)
         except Exception:
             LOG.exception('Fail to create account %s for the domain %s' % \
                     (user_id, domain_id))

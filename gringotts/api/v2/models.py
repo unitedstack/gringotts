@@ -370,6 +370,20 @@ class UserAccount(APIBase):
                    currency='CNY')
 
 
+class Invitee(APIBase):
+    user_id = wtypes.text
+    user_name = wtypes.text
+    user_email = wtypes.text
+    created_at = wtypes.text
+    charged = bool
+    reward_value = decimal.Decimal
+
+
+class Invitees(APIBase):
+    total_count = int
+    invitees = [Invitee]
+
+
 class AdminAccount(APIBase):
     """Account Detail for a tenant
     """
@@ -380,6 +394,7 @@ class AdminAccount(APIBase):
     project_id = wtypes.text
     domain_id = wtypes.text
     owed = bool
+    inviter = wtypes.text
     created_at = wtypes.text
 
     @classmethod

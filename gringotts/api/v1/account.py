@@ -83,10 +83,10 @@ class AccountController(rest.RestController):
         self.conn = pecan.request.db_conn
 
         try:
-            charge = self.conn.update_account(request.context,
-                                              None,
-                                              project_id=self._id,
-                                              **data.as_dict())
+            charge, _ = self.conn.update_account(request.context,
+                                                 None,
+                                                 project_id=self._id,
+                                                 **data.as_dict())
             has_bonus = False
             if cfg.CONF.enable_bonus and data['type'] != 'bonus':
                 data['type'] = 'bonus'
@@ -94,10 +94,10 @@ class AccountController(rest.RestController):
                 value = gringutils.calculate_bonus(data['value'])
                 if value > 0:
                     data['value'] = value
-                    bonus = self.conn.update_account(request.context,
-                                                     None,
-                                                     project_id=self._id,
-                                                     **data.as_dict())
+                    bonus, _ = self.conn.update_account(request.context,
+                                                        None,
+                                                        project_id=self._id,
+                                                        **data.as_dict())
                     has_bonus = True
 
             self.conn.set_charged_orders(request.context, None, project_id=self._id)

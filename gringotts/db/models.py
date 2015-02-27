@@ -203,7 +203,8 @@ class Account(Model):
     def __init__(self,
                  user_id, domain_id, balance, consumption, level,
                  owed=None, created_at=None, updated_at=None,
-                 project_id=None):
+                 project_id=None,
+                 inviter=None, charged=None, reward_value=None):
         Model.__init__(
             self,
             user_id=user_id,
@@ -213,6 +214,9 @@ class Account(Model):
             consumption=consumption,
             level=level,
             owed=owed,
+            inviter=inviter,
+            charged=charged,
+            reward_value=reward_value,
             created_at=created_at,
             updated_at=updated_at)
 
