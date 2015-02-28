@@ -595,7 +595,9 @@ class CheckerService(os_service.Service):
 
                     reserved_days = utils.cal_reserved_days(account['level'])
                     account['reserved_days'] = reserved_days
-                    self.notifier.notify_has_owed(self.ctxt, account, contact, projects)
+                    country_code = contact.get("country_code") or "86"
+                    language = "en_US" if country_code != '86' else "zh_CN"
+                    self.notifier.notify_has_owed(self.ctxt, account, contact, projects, language=language)
                 else:
                     orders = self.worker_api.get_active_orders(self.ctxt,
                                                                user_id=account['user_id'])
@@ -635,8 +637,11 @@ class CheckerService(os_service.Service):
                         projects.append(adict)
 
                     contact = self.keystone_client.get_uos_user(account['user_id'])
+                    country_code = contact.get("country_code") or "86"
+                    language = "en_US" if country_code != '86' else "zh_CN"
                     self.notifier.notify_before_owed(self.ctxt, account, contact, projects,
-                                                     str(price_per_day), days_to_owe)
+                                                     str(price_per_day), days_to_owe,
+                                                     language=language)
             except Exception:
                 LOG.exception('Some exceptions occurred when checking owed account: %s' % account['user_id'])
 

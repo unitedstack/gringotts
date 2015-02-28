@@ -118,6 +118,8 @@ class AccountController(rest.RestController):
             if cfg.CONF.notify_account_charged:
                 account = self.conn.get_account(request.context, self._id).as_dict()
                 contact = keystone.get_uos_user(account['user_id'])
+                country_code = contact.get("country_code") or "86"
+                language = "en_US" if country_code != '86' else "zh_CN"
                 self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
                 self.notifier.notify_account_charged(request.context,
                                                      account,
@@ -127,7 +129,8 @@ class AccountController(rest.RestController):
                                                      bonus = bonus.value if has_bonus else 0,
                                                      operator=operator,
                                                      operator_name=request.context.user_name,
-                                                     remarks=remarks)
+                                                     remarks=remarks,
+                                                     language=language)
         return models.Charge.from_db_model(charge)
 
     @wsexpose(models.Charges, wtypes.text, datetime.datetime, datetime.datetime, int, int)
