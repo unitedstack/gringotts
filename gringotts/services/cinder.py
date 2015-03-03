@@ -173,8 +173,12 @@ def delete_volumes(project_id, region_name=None):
 
     # Force delete or detach and then delete
     for volume in volumes:
-        for attachment in volume['attachments']:
-            client.volumes.detach(volume, attachment['attachment_id'])
+        # try to delete attachments
+        try:
+            for attachment in volume['attachments']:
+                client.volumes.detach(volume, attachment['attachment_id'])
+        except Exception:
+            pass
         client.volumes.delete(volume)
         LOG.warn("Delete volume: %s" % volume.id)
 
