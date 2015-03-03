@@ -36,7 +36,7 @@ class ResourcesController(rest.RestController):
         from gringotts.services import ceilometer
         from gringotts.services import manila
 
-        regions = [region_name if region_name else cfg.CONF.regions]
+        regions = [region_name] if region_name else cfg.CONF.regions
 
         for region_name in regions:
             LOG.warn("deleting resources of tenant(%s) in region(%s)" % (project_id, region_name))
