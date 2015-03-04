@@ -273,7 +273,12 @@ def delete_networks(project_id, region_name=None):
                 client.remove_interface_router(port['device_id'], body)
             elif port['device_owner'] == 'compute:None':
                 nova_client.servers.interface_detach(port['device_id'], port['id'])
-                client.delete_port(port['id'])
+                time.sleep(1) # wait a second to detach interface
+                try:
+                    client.delete_port(port['id'])
+                except Exception:
+                    time.sleep(1)
+                    client.delete_port(port['id'])
             elif port['device_owner'] == '':
                 client.delete_port(port['id'])
         except Exception:
