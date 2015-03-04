@@ -258,6 +258,26 @@ def delete_fips(project_id, region_name=None):
 
 
 @wrap_exception(exc_type='bulk')
+def delete_networks(project_id, region_name=None):
+    client = get_neutronclient(region_name)
+
+    # delete all ports
+    ports = client.list_ports(tenant_id=project_id).get('ports')
+    for port in ports:
+        client.delete_port(port['id'])
+
+    # delete all subnets
+    subnets = client.list_subnets(tenant_id=project_id).get('subnets')
+    for subnet in subnets:
+        client.delete_subnet(subnet['id'])
+
+    # delete all networks
+    networks = client.list_networks(tenant_id=project_id).get('networks')
+    for network in networks:
+        client.delete_network(network['id'])
+
+
+@wrap_exception(exc_type='bulk')
 def delete_routers(project_id, region_name=None):
     client = get_neutronclient(region_name)
 
