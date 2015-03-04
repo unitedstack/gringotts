@@ -261,10 +261,18 @@ def delete_fips(project_id, region_name=None):
 def delete_networks(project_id, region_name=None):
     client = get_neutronclient(region_name)
 
+    from gringotts.services import nova
+    nova_client = nova.get_novaclient(region_name)
+
     # delete all ports
     ports = client.list_ports(tenant_id=project_id).get('ports')
     for port in ports:
-        client.delete_port(port['id'])
+        if port['device_owner'] == 'network:router_interface':
+            body = dict(subnet_id=port['fixed_ips'][0]['subnet_id'])
+            client.remove_interface_router(port['device_id'], body)
+        if port['device_owner'] == 'compute:None':
+            nova_client.servers.interface_detach(port['device_id'], port['id'])
+            client.delete_port(port['id'])
 
     # delete all subnets
     subnets = client.list_subnets(tenant_id=project_id).get('subnets')
