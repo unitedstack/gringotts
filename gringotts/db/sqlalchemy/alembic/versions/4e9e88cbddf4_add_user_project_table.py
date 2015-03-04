@@ -70,31 +70,34 @@ def upgrade():
 
     op.create_index('ix_order_user_id_project_id', 'order', ['user_id', 'project_id'])
 
-    accounts = billing.get_accounts()
+    conn = op.get_bind()
+    accounts = conn.execute("select user_id, project_id, consumption, created_at from account").fetchall()
+
     for account in accounts:
         try:
             project = keystone.get_project(account['project_id'])
+
             now = datetime.datetime.utcnow().strftime(TIMESTAMP_TIME_FORMAT)
             op.execute("INSERT INTO project VALUES(0, '%s', '%s', '%s', '%s', '%s', '%s')" % \
-                       (account['user_id'], account['project_id'], account['consumption'],
-                        project.domain_id, account['created_at'], now))
+                       (account[0], account[1], account[2], project.domain_id,
+                        account[3], now))
             op.execute("INSERT INTO user_project VALUES(0, '%s', '%s', '%s', '%s', '%s', '%s')" % \
-                       (account['user_id'], account['project_id'], account['consumption'],
-                        project.domain_id, account['created_at'], now))
+                       (account[0], account[1], account[2], project.domain_id,
+                        account[3], now))
             op.execute("UPDATE account set domain_id='%s' where project_id='%s'" % \
-                       (project.domain_id, account['project_id']))
+                       (project.domain_id, account[1]))
             op.execute("UPDATE `order` set domain_id='%s' where project_id='%s'" % \
-                       (project.domain_id, account['project_id']))
+                       (project.domain_id, account[1]))
             op.execute("UPDATE `order` set user_id='%s' where project_id='%s' and user_id is NULL" % \
-                       (account['user_id'], account['project_id']))
+                       (account['user_id'], account[1]))
             op.execute("UPDATE subscription set domain_id='%s' where project_id='%s'" % \
-                       (project.domain_id, account['project_id']))
+                       (project.domain_id, account[1]))
             op.execute("UPDATE bill set domain_id='%s' where project_id='%s'" % \
-                       (project.domain_id, account['project_id']))
+                       (project.domain_id, account[1]))
             op.execute("UPDATE charge set domain_id='%s' where project_id='%s'" % \
-                       (project.domain_id, account['project_id']))
+                       (project.domain_id, account[1]))
             op.execute("UPDATE precharge set domain_id='%s' where project_id='%s'" % \
-                       (project.domain_id, account['project_id']))
+                       (project.domain_id, account[1]))
         except Exception as e:
             pass
 
