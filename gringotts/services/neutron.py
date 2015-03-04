@@ -267,12 +267,17 @@ def delete_networks(project_id, region_name=None):
     # delete all ports
     ports = client.list_ports(tenant_id=project_id).get('ports')
     for port in ports:
-        if port['device_owner'] == 'network:router_interface':
-            body = dict(subnet_id=port['fixed_ips'][0]['subnet_id'])
-            client.remove_interface_router(port['device_id'], body)
-        if port['device_owner'] == 'compute:None':
-            nova_client.servers.interface_detach(port['device_id'], port['id'])
-            client.delete_port(port['id'])
+        try:
+            if port['device_owner'] == 'network:router_interface':
+                body = dict(subnet_id=port['fixed_ips'][0]['subnet_id'])
+                client.remove_interface_router(port['device_id'], body)
+            elif port['device_owner'] == 'compute:None':
+                nova_client.servers.interface_detach(port['device_id'], port['id'])
+                client.delete_port(port['id'])
+            elif port['device_owner'] == '':
+                client.delete_port(port['id'])
+        except Exception:
+            pass
 
     # delete all subnets
     subnets = client.list_subnets(tenant_id=project_id).get('subnets')
@@ -407,6 +412,7 @@ def delete_listeners(project_id, region_name=None):
     listeners = client.list_listeners(tenant_id=project_id).get('listeners')
     for listener in listeners:
         client.delete_listener(listener['id'])
+        LOG.warn("Delete listener: %s" % listener['id'])
 
 
 @wrap_exception(exc_type='get')
@@ -435,6 +441,7 @@ def stop_listener(listener_id, region_name=None):
 def delete_listener(listener_id, region_name=None):
     client = get_neutronclient(region_name)
     client.delete_listener(listener_id)
+    LOG.warn("Delete listener: %s" % listener_id)
 
 
 @wrap_exception(exc_type='put')

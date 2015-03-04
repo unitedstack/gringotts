@@ -43,12 +43,12 @@ class ResourcesController(rest.RestController):
 
             # Ensure snapshots to be deleted before volume
             cinder.delete_snapshots(project_id, region_name=region_name)
-            nova.delete_servers(project_id, region_name=region_name)
             glance.delete_images(project_id, region_name=region_name)
             neutron.delete_fips(project_id, region_name=region_name)
             neutron.delete_routers(project_id, region_name=region_name)
             neutron.delete_listeners(project_id, region_name=region_name)
             neutron.delete_networks(project_id, region_name=region_name)
+            nova.delete_servers(project_id, region_name=region_name)
             ceilometer.delete_alarms(project_id, region_name=region_name)
             manila.delete_shares(project_id, region_name=region_name)
             cinder.delete_volumes(project_id, region_name=region_name)
