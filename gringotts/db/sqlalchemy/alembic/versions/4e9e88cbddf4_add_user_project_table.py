@@ -20,8 +20,6 @@ def upgrade():
 
     # ensure the service is avaliable
     from gringotts.services import keystone
-    from gringotts.services import billing
-    billing.check_avaliable()
 
     op.create_table(
         'project',
