@@ -301,6 +301,18 @@ def delete_routers(project_id, region_name=None):
 
     routers = client.list_routers(tenant_id=project_id).get('routers')
     for router in routers:
+        # Delete VPNs of this router
+        vpns = client.list_pptpconnections(router_id=router['id']).get('pptpconnections')
+        for vpn in vpns:
+            client.delete_pptpconnection(vpn['id'])
+
+        # Remove floatingips of this router
+        fips = client.list_floatingips(tenant_id=project_id).get('floatingips')
+        update_dict = {'port_id': None}
+        for fip in fips:
+            client.update_floatingip(fip['id'],
+                                     {'floatingip': update_dict})
+
         # Remove gateway
         client.remove_gateway_router(router['id'])
 

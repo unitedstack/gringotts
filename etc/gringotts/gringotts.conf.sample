@@ -48,12 +48,12 @@ days_to_owe=7
 #ignore_tenants=xxxx # a list of tenant id
 
 [service_credentials]
-#os_username=admin
-#os_password=admin
-#os_tenant_name=admin
-#user_domain_name=Default
-#project_domain_name=Default
-#os_auth_url=http://localhost:35357/v3
+os_username=admin
+os_password=admin
+os_tenant_name=admin
+user_domain_name=Default
+project_domain_name=Default
+os_auth_url=http://localhost:35357/v3
 
 [database]
 connection=mysql://root:admin@localhost/gringotts?charset=utf8
