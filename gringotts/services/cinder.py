@@ -175,7 +175,10 @@ def delete_volumes(project_id, region_name=None):
     for volume in volumes:
         # try to delete attachments
         for attachment in volume.attachments:
-            client.volumes.detach(volume, attachment['attachment_id'])
+            try:
+                client.volumes.detach(volume, attachment['attachment_id'])
+            except Exception:
+                pass
         time.sleep(1)
         client.volumes.delete(volume)
         LOG.warn("Delete volume: %s" % volume.id)
@@ -193,8 +196,11 @@ def delete_snapshots(project_id, region_name=None, volume_id=None):
     snaps = client.volume_snapshots.list(detailed=False,
                                          search_opts=search_opts)
     for snap in snaps:
-        client.volume_snapshots.delete(snap)
-        LOG.warn("Delete snapshot: %s" % snap.id)
+        try:
+            client.volume_snapshots.delete(snap)
+            LOG.warn("Delete snapshot: %s" % snap.id)
+        except Exception:
+            pass
 
 
 @wrap_exception(exc_type='delete')
@@ -207,12 +213,18 @@ def delete_volume(volume_id, region_name=None):
     snaps = client.volume_snapshots.list(detailed=False,
                                          search_opts=search_opts)
     for snap in snaps:
-        client.volume_snapshots.delete(snap)
+        try:
+            client.volume_snapshots.delete(snap)
+        except Exception:
+            pass
 
     # detach volume from instance
     volume = volume_get(volume_id, region_name=region_name)
     for attachment in volume.attachments:
-        client.volumes.detach(volume_id, attachment['attachment_id'])
+        try:
+            client.volumes.detach(volume_id, attachment['attachment_id'])
+        except Exception:
+            pass
 
     # wait 10 seconds to delete this volume
     time.sleep(10)

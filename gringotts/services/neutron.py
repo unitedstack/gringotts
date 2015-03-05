@@ -248,13 +248,19 @@ def delete_fips(project_id, region_name=None):
     # Disassociate these floating ips
     update_dict = {'port_id': None}
     for fip in fips:
-        client.update_floatingip(fip['id'],
-                                 {'floatingip': update_dict})
+        try:
+            client.update_floatingip(fip['id'],
+                                     {'floatingip': update_dict})
+        except Exception:
+            pass
 
     # Release these floating ips
     for fip in fips:
-        client.delete_floatingip(fip['id'])
-        LOG.warn("Delete floatingip: %s" % fip['id'])
+        try:
+            client.delete_floatingip(fip['id'])
+            LOG.warn("Delete floatingip: %s" % fip['id'])
+        except Exception:
+            pass
 
 
 @wrap_exception(exc_type='bulk')
@@ -287,12 +293,18 @@ def delete_networks(project_id, region_name=None):
     # delete all subnets
     subnets = client.list_subnets(tenant_id=project_id).get('subnets')
     for subnet in subnets:
-        client.delete_subnet(subnet['id'])
+        try:
+            client.delete_subnet(subnet['id'])
+        except Exception:
+            pass
 
     # delete all networks
     networks = client.list_networks(tenant_id=project_id).get('networks')
     for network in networks:
-        client.delete_network(network['id'])
+        try:
+            client.delete_network(network['id'])
+        except Exception:
+            pass
 
 
 @wrap_exception(exc_type='bulk')
@@ -301,34 +313,37 @@ def delete_routers(project_id, region_name=None):
 
     routers = client.list_routers(tenant_id=project_id).get('routers')
     for router in routers:
-        # Delete VPNs of this router
-        vpns = client.list_pptpconnections(router_id=router['id']).get('pptpconnections')
-        for vpn in vpns:
-            client.delete_pptpconnection(vpn['id'])
+        try:
+            # Delete VPNs of this router
+            vpns = client.list_pptpconnections(router_id=router['id']).get('pptpconnections')
+            for vpn in vpns:
+                client.delete_pptpconnection(vpn['id'])
 
-        # Remove floatingips of this router
-        fips = client.list_floatingips(tenant_id=project_id).get('floatingips')
-        update_dict = {'port_id': None}
-        for fip in fips:
-            client.update_floatingip(fip['id'],
-                                     {'floatingip': update_dict})
+            # Remove floatingips of this router
+            fips = client.list_floatingips(tenant_id=project_id).get('floatingips')
+            update_dict = {'port_id': None}
+            for fip in fips:
+                client.update_floatingip(fip['id'],
+                                         {'floatingip': update_dict})
 
-        # Remove gateway
-        client.remove_gateway_router(router['id'])
+            # Remove gateway
+            client.remove_gateway_router(router['id'])
 
-        # Get interfaces of this router
-        ports = client.list_ports(tenant_id=project_id,
-                                  device_id=router['id']).get('ports')
+            # Get interfaces of this router
+            ports = client.list_ports(tenant_id=project_id,
+                                      device_id=router['id']).get('ports')
 
-        # Clear these interfaces from this router
-        body = {}
-        for port in ports:
-            body['port_id'] = port['id']
-            client.remove_interface_router(router['id'], body)
+            # Clear these interfaces from this router
+            body = {}
+            for port in ports:
+                body['port_id'] = port['id']
+                client.remove_interface_router(router['id'], body)
 
-        # And then delete this router
-        client.delete_router(router['id'])
-        LOG.warn("Delete router: %s" % router['id'])
+            # And then delete this router
+            client.delete_router(router['id'])
+            LOG.warn("Delete router: %s" % router['id'])
+        except Exception:
+            pass
 
 
 @wrap_exception(exc_type='delete')
@@ -428,8 +443,11 @@ def delete_listeners(project_id, region_name=None):
     client = get_neutronclient(region_name)
     listeners = client.list_listeners(tenant_id=project_id).get('listeners')
     for listener in listeners:
-        client.delete_listener(listener['id'])
-        LOG.warn("Delete listener: %s" % listener['id'])
+        try:
+            client.delete_listener(listener['id'])
+            LOG.warn("Delete listener: %s" % listener['id'])
+        except Exception:
+            pass
 
 
 @wrap_exception(exc_type='get')
