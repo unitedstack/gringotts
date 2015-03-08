@@ -10,6 +10,7 @@ Create Date: 2013-12-06 12:02:35.117968
 revision = '25fa0c3b7e89'
 down_revision = None
 
+import datetime
 from alembic import op
 import sqlalchemy as sa
 
@@ -224,9 +225,10 @@ def upgrade():
     admin_user_id = keystone.get_admin_user_id()
     admin_project_id = keystone.get_admin_tenant_id()
 
+    now = datetime.datetime.utcnow()
     ACCOUNT_SQL_PRE = "INSERT INTO account VALUES"
     ACCOUNT_SQLS = [
-        "(1, '%s', '%s', 10, 0, 'CNY', NULL, NULL)" % (admin_user_id, admin_project_id),
+        "(1, '%s', '%s', 10, 0, 'CNY', '%s', '%s')" % (admin_user_id, admin_project_id, now, now),
     ]
 
     for ACCOUNT in ACCOUNT_SQLS:

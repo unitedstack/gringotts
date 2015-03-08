@@ -45,7 +45,7 @@ class Snapshot(Resource):
                 'user_id': self.user_id,
                 'tenant_id': self.project_id
             },
-            'timestamp': self.created_at
+            'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
 
