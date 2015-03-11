@@ -1,5 +1,5 @@
 {
-    "context_is_admin":  "role:admin",
+    "context_is_admin":  "role:admin or role:uos_admin",
     "context_is_domain_owner": "role:domain_owner",
 
     "uos_admin": "role:uos_admin or role:admin",
