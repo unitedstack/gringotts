@@ -83,6 +83,7 @@ class MasterService(rpc_service.Service):
         from gringotts.services import neutron
         from gringotts.services import nova
         from gringotts.services import ceilometer
+        from gringotts.services import manila
 
         self.DELETE_METHOD_MAP = {
             const.RESOURCE_INSTANCE: nova.delete_server,
@@ -93,6 +94,7 @@ class MasterService(rpc_service.Service):
             const.RESOURCE_ROUTER: neutron.delete_router,
             const.RESOURCE_LISTENER: neutron.delete_listener,
             const.RESOURCE_ALARM: ceilometer.delete_alarm,
+            const.RESOURCE_SHARE: manila.delete_share,
         }
 
         self.STOP_METHOD_MAP = {
@@ -104,6 +106,7 @@ class MasterService(rpc_service.Service):
             const.RESOURCE_LISTENER: neutron.stop_listener,
             const.RESOURCE_ROUTER: neutron.stop_router,
             const.RESOURCE_ALARM: ceilometer.stop_alarm,
+            const.RESOURCE_SHARE: manila.stop_share,
         }
 
         super(MasterService, self).__init__(*args, **kwargs)
