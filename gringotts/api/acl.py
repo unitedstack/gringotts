@@ -24,7 +24,7 @@ def install(app, conf):
                                    conf=dict(conf.get(OPT_GROUP_NAME)))
 
 
-def get_limited_to(headers):
+def get_limited_to(headers, action):
     """Return the user and project the request should be limited to.
 
     :param headers: HTTP headers dictionary
@@ -35,67 +35,19 @@ def get_limited_to(headers):
     global _ENFORCER
     if not _ENFORCER:
         _ENFORCER = policy.Enforcer()
-    if not _ENFORCER.enforce('context_is_admin',
+    if not _ENFORCER.enforce(action,
                              {},
                              {'roles': headers.get('X-Roles', "").split(",")}):
         return headers.get('X-User-Id'), headers.get('X-Project-Id')
     return None, None
 
 
-def get_limited_to_accountant(headers):
-    """Return the user and project the request should be limited to.
-
-    :param headers: HTTP headers dictionary
-    :return: A tuple of (user, project), set to None if there's no limit on
-    one of these.
-
-    """
-    global _ENFORCER
-    if not _ENFORCER:
-        _ENFORCER = policy.Enforcer()
-    if not _ENFORCER.enforce('uos_accountant',
-                             {},
-                             {'roles': headers.get('X-Roles', "").split(",")}):
-        return headers.get('X-User-Id'), headers.get('X-Project-Id')
-    return None, None
+def get_limited_to_user(headers, action):
+    return get_limited_to(headers, action)[0]
 
 
-def get_limited_to_support(headers):
-    """Return the user and project the request should be limited to.
-
-    :param headers: HTTP headers dictionary
-    :return: A tuple of (user, project), set to None if there's no limit on
-    one of these.
-
-    """
-    global _ENFORCER
-    if not _ENFORCER:
-        _ENFORCER = policy.Enforcer()
-    if not _ENFORCER.enforce('uos_support',
-                             {},
-                             {'roles': headers.get('X-Roles', "").split(",")}):
-        return headers.get('X-User-Id'), headers.get('X-Project-Id')
-    return None, None
-
-
-def get_limited_to_project(headers):
-    """Return the project the request should be limited to.
-
-    :param headers: HTTP headers dictionary
-    :return: A project, or None if there's no limit on it.
-
-    """
-    return get_limited_to(headers)[1]
-
-
-def get_limited_to_user(headers):
-    """Return the user the request should be limited to.
-
-    :param headers: HTTP headers dictionary
-    :return: A user, or None if there's no limit on it.
-
-    """
-    return get_limited_to(headers)[0]
+def get_limited_to_project(headers, action):
+    return get_limited_to(headers, action)[1]
 
 
 def context_is_admin(headers):

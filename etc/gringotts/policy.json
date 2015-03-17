@@ -7,7 +7,9 @@
     "uos_accountant": "role:uos_accountant or rule:uos_admin",
     "uos_support": "role:uos_support or rule:uos_admin",
 
+    "account:post": "rule:uos_admin",
+    "account:all": "rule:uos_accountant",
     "account:charge": "rule:uos_accountant",
     "account:level": "rule:uos_accountant",
-    "charges:all": "rule:uos_accountant"
+    "charges:all": "rule:uos_accountant or rule:uos_staff"
 }

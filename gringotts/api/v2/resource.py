@@ -64,7 +64,7 @@ class ResourcesController(rest.RestController):
         from gringotts.services import ceilometer
         from gringotts.services import manila
 
-        project_id = acl.get_limited_to_project(request.headers) or project_id
+        project_id = acl.get_limited_to_project(request.headers, 'uos_staff') or project_id
         if project_id is None:
             project_id = request.headers.get('X-Project-Id')
 

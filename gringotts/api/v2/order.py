@@ -74,7 +74,7 @@ class SummaryController(rest.RestController):
             user_id=None, project_id=None, read_deleted=None):
         """Get summary of all kinds of orders
         """
-        limit_user_id, __ = acl.get_limited_to_accountant(request.headers)
+        limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
 
         if limit_user_id: # normal user
             user_id = None
@@ -258,7 +258,7 @@ class OrdersController(rest.RestController):
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
-        limit_user_id, __ = acl.get_limited_to_accountant(request.headers)
+        limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
 
         if limit_user_id: # normal user
             user_id = None

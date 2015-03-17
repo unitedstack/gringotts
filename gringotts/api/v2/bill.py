@@ -65,7 +65,7 @@ class TrendsController(rest.RestController):
         :param today: Client's today wee hour
         :param type: month, day
         """
-        limit_user_id, __ = acl.get_limited_to_accountant(request.headers)
+        limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
         if limit_user_id:
             user_id = limit_user_id
         elif not user_id: # accountant can look up any user, if not sepcify, look up itself

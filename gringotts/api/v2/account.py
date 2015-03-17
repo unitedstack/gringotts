@@ -42,20 +42,21 @@ class AccountController(rest.RestController):
     def __init__(self, user_id):
         self._id = user_id
 
-    def _account(self):
+    def _account(self, user_id=None):
         self.conn = pecan.request.db_conn
+        _id = user_id or self._id
         try:
-            account = self.conn.get_account(request.context, self._id)
+            account = self.conn.get_account(request.context, _id)
         except Exception as e:
-            LOG.error('account %s not found' % self._id)
-            raise exception.AccountNotFound(user_id=self._id)
+            LOG.error('account %s not found' % _id)
+            raise exception.AccountNotFound(user_id=_id)
         return account
 
     @wsexpose(models.Invitees, int, int)
     def invitees(self, limit=None, offset=None):
         """Get invitees of inviter
         """
-        inviter = acl.get_limited_to_user(request.headers) or self._id
+        inviter = acl.get_limited_to_user(request.headers, 'uos_admin') or self._id
 
         self.conn = pecan.request.db_conn
         try:
@@ -104,8 +105,9 @@ class AccountController(rest.RestController):
 
     @wsexpose(models.UserAccount)
     def get(self):
-        """Return this product"""
-        return models.UserAccount.from_db_model(self._account())
+        """Return this account"""
+        user_id = acl.get_limited_to_user(request.headers, 'uos_admin') or self._id
+        return models.UserAccount.from_db_model(self._account(user_id=user_id))
 
     @wsexpose(models.Charge, wtypes.text, body=models.Charge)
     def put(self, data):
@@ -200,9 +202,11 @@ class AccountController(rest.RestController):
     def charges(self, type=None, start_time=None, end_time=None, limit=None, offset=None):
         """Return this account's charge records
         """
+        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or self._id
+
         self.conn = pecan.request.db_conn
         charges = self.conn.get_charges(request.context,
-                                        user_id=self._id,
+                                        user_id=user_id,
                                         type=type,
                                         limit=limit,
                                         offset=offset,
@@ -213,7 +217,7 @@ class AccountController(rest.RestController):
             charges_list.append(models.Charge.from_db_model(charge))
 
         total_price, total_count = self.conn.get_charges_price_and_count(
-            request.context, user_id=self._id, type=type,
+            request.context, user_id=user_id, type=type,
             start_time=start_time, end_time=end_time)
         total_price = gringutils._quantize_decimal(total_price)
 
@@ -228,12 +232,14 @@ class AccountController(rest.RestController):
         if not cfg.CONF.enable_owe:
             return -1
 
-        account = self._account()
+        user_id = acl.get_limited_to_user(request.headers, 'uos_admin') or self._id
+
+        account = self._account(user_id=user_id)
         if account.balance < 0:
             return -2
 
         orders = self.conn.get_active_orders(request.context,
-                                             user_id=self._id,
+                                             user_id=user_id,
                                              within_one_hour=True)
         if not orders:
             return -1
@@ -257,10 +263,11 @@ class AccountController(rest.RestController):
     @wsexpose(models.Estimate)
     def estimate_per_day(self):
         self.conn = pecan.request.db_conn
+        user_id = acl.get_limited_to_user(request.headers, 'uos_admin') or self._id
 
-        account = self._account()
+        account = self._account(user_id=user_id)
         orders = self.conn.get_active_orders(request.context,
-                                             user_id=self._id,
+                                             user_id=user_id,
                                              within_one_hour=True)
         price_per_day = 0
         remaining_day = -1
@@ -342,6 +349,8 @@ class AccountsController(rest.RestController):
     def get_all(self, owed=None, limit=None, offset=None):
         """Get all accounts
         """
+        check_policy(request.context, "account:all")
+
         self.conn = pecan.request.db_conn
 
         try:
@@ -367,6 +376,8 @@ class AccountsController(rest.RestController):
     def post(self, data):
         """Create a new account
         """
+        check_policy(request.context, "account:post")
+
         conn = pecan.request.db_conn
         try:
             account = db_models.Account(**data.as_dict())

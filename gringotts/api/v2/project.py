@@ -72,7 +72,7 @@ class ProjectController(rest.RestController):
     def estimate(self, region_id=None):
         """Get estimation of specified project and region
         """
-        limit_user_id, __ = acl.get_limited_to_accountant(request.headers)
+        limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
 
         if limit_user_id: # normal user
             projects = keystone.get_projects_by_user(limit_user_id)
@@ -132,7 +132,7 @@ class ProjectsController(rest.RestController):
     def get_all(self, user_id=None, type=None):
         """Get all projects
         """
-        user_id = acl.get_limited_to_user(request.headers) or user_id
+        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or user_id
 
         self.conn = pecan.request.db_conn
         result = []
