@@ -292,8 +292,8 @@ class AccountController(rest.RestController):
 
 class ChargeController(rest.RestController):
 
-    @wsexpose(models.Charges, wtypes.text, datetime.datetime, datetime.datetime, int, int)
-    def get(self, type=None, start_time=None, end_time=None, limit=None, offset=None):
+    @wsexpose(models.Charges, wtypes.text, wtypes.text, datetime.datetime, datetime.datetime, int, int)
+    def get(self, user_id=None, type=None, start_time=None, end_time=None, limit=None, offset=None):
         """Get all charges of all account
         """
         check_policy(request.context, "charges:all")
@@ -311,6 +311,7 @@ class ChargeController(rest.RestController):
 
         self.conn = pecan.request.db_conn
         charges = self.conn.get_charges(request.context,
+                                        user_id=user_id,
                                         type=type,
                                         limit=limit,
                                         offset=offset,
@@ -324,7 +325,8 @@ class ChargeController(rest.RestController):
             charges_list.append(acharge)
 
         total_price, total_count = self.conn.get_charges_price_and_count(
-            request.context, type=type, start_time=start_time, end_time=end_time)
+            request.context, user_id=user_id, type=type,
+            start_time=start_time, end_time=end_time)
         total_price = gringutils._quantize_decimal(total_price)
 
         return models.Charges.transform(total_price=total_price,
