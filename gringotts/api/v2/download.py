@@ -180,7 +180,7 @@ class OrdersController(rest.RestController):
             order.created_at += datetime.timedelta(hours=8)
             created_at = timeutils.strtime(order.created_at, fmt=OUTPUT_TIME_FORMAT)
             adata = (order.resource_id, order.resource_name, order.type, order.status,
-                     order.unit_price, order.total_price, order.region_id,
+                     order.unit_price, price, order.region_id,
                      user.user_id, user.user_name,
                      project.project_id, project.project_name,
                      created_at)
