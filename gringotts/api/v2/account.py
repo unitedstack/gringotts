@@ -269,7 +269,7 @@ class AccountController(rest.RestController):
         orders = self.conn.get_active_orders(request.context,
                                              user_id=user_id,
                                              within_one_hour=True)
-        price_per_day = 0
+        price_per_day = gringutils._quantize_decimal(0)
         remaining_day = -1
         if not orders:
             return models.Estimate(price_per_day=price_per_day,
