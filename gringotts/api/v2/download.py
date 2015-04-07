@@ -148,7 +148,22 @@ class OrdersController(rest.RestController):
                                                         project_name=project_name)
             return projects[project_id]
 
-        headers = (u"资源ID", u"资源名称", u"资源类型", u"资源状态", u"单价", u"金额", u"区域",
+        MAP = [
+            {"running": u"运行中",
+             "stopped": u"暂停中",
+             "deleted": u"被删除"},
+            {"instance": u"虚拟机",
+             "image": u"镜像",
+             "snapshot": u"硬盘快照",
+             "volume": u"云硬盘",
+             "share": u"共享文件",
+             "floatingip": u"公网IP",
+             "listener": u"负载均衡监听器",
+             "router": u"路由器",
+             "alarm": u"监控报警"},
+        ]
+
+        headers = (u"资源ID", u"资源名称", u"资源类型", u"资源状态", u"单价(元/小时)", u"金额(元)", u"区域",
                    u"用户ID", u"用户名称", u"项目ID", u"项目名称", u"创建时间")
         data = []
 
@@ -179,8 +194,8 @@ class OrdersController(rest.RestController):
             project = _get_project(order.project_id)
             order.created_at += datetime.timedelta(hours=8)
             created_at = timeutils.strtime(order.created_at, fmt=OUTPUT_TIME_FORMAT)
-            adata = (order.resource_id, order.resource_name, order.type, order.status,
-                     order.unit_price, price, order.region_id,
+            adata = (order.resource_id, order.resource_name, MAP[1][order.type],
+                     MAP[0][order.status], order.unit_price, price, order.region_id,
                      user.user_id, user.user_name,
                      project.project_id, project.project_name,
                      created_at)
