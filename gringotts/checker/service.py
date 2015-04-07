@@ -223,15 +223,15 @@ class CheckerService(os_service.Service):
         with different period
         """
         non_center_jobs = [
-            #(self.check_if_resources_match_orders, 2, True),
-            #(self.check_if_owed_resources_match_owed_orders, 2, True),
-            #(self.check_if_cronjobs_match_orders, 1, True),
+            (self.check_if_resources_match_orders, 2, True),
+            (self.check_if_owed_resources_match_owed_orders, 2, True),
+            (self.check_if_cronjobs_match_orders, 1, True),
         ]
 
         center_jobs = [
-            (self.check_owed_accounts_and_notify, 24, True),
-            #(self.check_user_to_account, 2, True),
-            #(self.check_project_to_project, 2, True),
+            (self.check_owed_accounts_and_notify, 24, False),
+            (self.check_user_to_account, 2, True),
+            (self.check_project_to_project, 2, True),
         ]
 
         if cfg.CONF.checker.enable_non_center_jobs:
