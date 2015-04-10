@@ -45,11 +45,11 @@ def alarm_get(alarm_id, region_name=None):
         alarm = get_cmclient(region_name).alarms.get(alarm_id)
     except Exception:
         return None
-    status = utils.transform_status(alarm.state)
+    status = utils.transform_status(alarm.enabled)
     return Alarm(id=alarm.alarm_id,
                  name=alarm.name,
                  status=status,
-                 original_status=alarm.state,
+                 original_status=str(alarm.enabled)
                  resource_type=const.RESOURCE_ALARM)
 
 

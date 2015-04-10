@@ -219,24 +219,6 @@ class MasterService(rpc_service.Service):
                 else:
                     cron_time = order['cron_time']
 
-                # check resource and order before creating bill
-                order = self.worker_api.get_order(self.ctxt, order['order_id'])
-                method = self.RESOURCE_GET_MAP[order['type']]
-                resource = method(order['resource_id'], order['region_id'])
-                if not resource:
-                    # alert that the resource not exists
-                    LOG.warn("The resource(%s|%s) may has been deleted" % \
-                             (order['type'], order['resource_id']))
-                    alert.wrong_billing_order(order, 'resource_deleted')
-                    continue
-                if resource.status != order['status']:
-                    # alert that the status of resource and order don't match
-                    LOG.warn("The status of the resource(%s|%s|%s) doesn't match with the order(%s|%s|%s)." % \
-                              (resource.resource_type, resource.id, resource.original_status,
-                               order['type'], order['order_id'], order['status']))
-                    alert.wrong_billing_order(order, 'miss_match', resource)
-                    continue
-
                 # create cron job
                 danger_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
                 if cron_time > danger_time:

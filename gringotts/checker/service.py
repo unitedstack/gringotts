@@ -561,7 +561,7 @@ class CheckerService(os_service.Service):
                     for order in orders:
                         # check if the resource exists
                         resource = self.RESOURCE_GET_MAP[order['type']][0](order['resource_id'],
-                                                                           region_name=self.region_name)
+                                                                           region_name=order['region_id'])
                         if not resource:
                             # alert that the resource not exists
                             LOG.warn("The resource(%s|%s) may has been deleted" % \
@@ -603,6 +603,9 @@ class CheckerService(os_service.Service):
                             adict['orders'] = orders_dict[project['project_id']]
                             projects.append(adict)
 
+                    if not projects:
+                        continue
+
                     reserved_days = utils.cal_reserved_days(account['level'])
                     account['reserved_days'] = reserved_days
                     country_code = contact.get("country_code") or "86"
@@ -624,7 +627,7 @@ class CheckerService(os_service.Service):
                     for order in orders:
                         # check if the resource exists
                         resource = self.RESOURCE_GET_MAP[order['type']][0](order['resource_id'],
-                                                                           region_name=self.region_name)
+                                                                           region_name=order['region_id'])
                         if not resource:
                             # alert that the resource not exists
                             LOG.warn("The resource(%s|%s) may has been deleted" % \
@@ -655,6 +658,9 @@ class CheckerService(os_service.Service):
                         adict['project_name'] = project['project_name']
                         adict['estimation'] = str(estimation[project['project_id']] * 24)
                         projects.append(adict)
+
+                    if not projects:
+                        continue
 
                     contact = self.keystone_client.get_uos_user(account['user_id'])
                     country_code = contact.get("country_code") or "86"
