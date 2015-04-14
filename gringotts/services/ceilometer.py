@@ -49,7 +49,7 @@ def alarm_get(alarm_id, region_name=None):
     return Alarm(id=alarm.alarm_id,
                  name=alarm.name,
                  status=status,
-                 original_status=str(alarm.enabled)
+                 original_status=str(alarm.enabled),
                  resource_type=const.RESOURCE_ALARM)
 
 
