@@ -364,7 +364,7 @@ class MasterService(rpc_service.Service):
 
         # do not deduct doctor project for now
         if order['project_id'] in cfg.CONF.checker.ignore_tenants:
-            continue
+            return
 
         method = self.RESOURCE_GET_MAP[order['type']]
         resource = method(order['resource_id'], order['region_id'])
