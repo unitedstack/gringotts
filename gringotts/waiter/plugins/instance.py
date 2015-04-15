@@ -69,10 +69,9 @@ class LicenseItem(waiter_plugin.ProductItem):
     def get_collection(self, message):
         """Get collection from message
         """
-        image_name = message['payload']['image_name']
-        image_id = message['payload']['image_meta']['base_image_ref']
+        image_label = message['payload']['image_meta'].get('image_label') or 'default'
 
-        product_name = '%s:%s' % (image_name, image_id)
+        product_name = 'license:%s' % image_label
         service = const.SERVICE_COMPUTE
         region_id = cfg.CONF.region_name
         resource_id = message['payload']['instance_id']
