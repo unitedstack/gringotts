@@ -364,6 +364,9 @@ def stop_fip(fip_id, region_name=None):
     except NeutronClientException:
         fip = None
 
+    if cfg.CONF.reserve_fip:
+        return True
+
     if fip and fip['uos:registerno']:
         return True
 
