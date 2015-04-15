@@ -24,6 +24,7 @@ reserve_fip=True
 enable_bonus=False
 
 discount = 10:0, 500:0.1, 1000:0.2, 5000:0.3, 10000:0.4
+#ignore_tenants=xxxx # a list of tenant id
 
 [waiter]
 queue_name=gringotts.notification
@@ -45,7 +46,6 @@ enable_non_center_jobs=True
 try_to_fix=False
 notifier_level=0
 days_to_owe=7
-#ignore_tenants=xxxx # a list of tenant id
 
 [service_credentials]
 os_username=admin

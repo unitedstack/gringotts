@@ -45,6 +45,9 @@ OPTS = [
 ]
 
 OPTS_GLOBAL = [
+    cfg.ListOpt('ignore_tenants',
+                default=[],
+                help="A list of tenant that should not to check and deduct"),
     cfg.BoolOpt('enable_owe',
                 default=False,
                 help='Enable owe logic or not')
@@ -363,7 +366,7 @@ class MasterService(rpc_service.Service):
         order = self.worker_api.get_order(self.ctxt, order_id)
 
         # do not deduct doctor project for now
-        if order['project_id'] in cfg.CONF.checker.ignore_tenants:
+        if order['project_id'] in cfg.CONF.ignore_tenants:
             return
 
         method = self.RESOURCE_GET_MAP[order['type']]

@@ -44,9 +44,6 @@ OPTS = [
     cfg.BoolOpt('enable_non_center_jobs',
                 default=True,
                 help='Enable the interval jobs that run in non center regions'),
-    cfg.ListOpt('ignore_tenants',
-                default=[],
-                help="A list of tenant that should not to check"),
     cfg.StrOpt('support_email',
                default='support@unitedstack.com',
                help="The cloud manager email")
@@ -322,7 +319,7 @@ class CheckerService(os_service.Service):
         """
         projects = self.keystone_client.get_project_list()
         for project in projects:
-            if project.id in cfg.CONF.checker.ignore_tenants:
+            if project.id in cfg.CONF.ignore_tenants:
                 continue
             # Get all active orders
             resource_to_order = {}
