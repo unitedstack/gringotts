@@ -45,7 +45,7 @@ def alarm_get(alarm_id, region_name=None):
         alarm = get_cmclient(region_name).alarms.get(alarm_id)
     except Exception:
         return None
-    status = utils.transform_status(alarm.enabled)
+    status = utils.transform_status(str(alarm.enabled))
     return Alarm(id=alarm.alarm_id,
                  name=alarm.name,
                  status=status,
