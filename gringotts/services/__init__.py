@@ -49,7 +49,7 @@ def wrap_exception(exc_type=None):
                 elif exc_type == 'put':
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
                     result = None
-                LOG.exception(msg)
+                LOG.warn(msg)
                 return result
         return functools.wraps(f)(wrapped)
     return inner

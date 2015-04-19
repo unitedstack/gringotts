@@ -123,7 +123,10 @@ class OrdersController(rest.RestController):
             if project_id: # look up specified project
                 project_ids = [project_id]
             else: # look up all projects
-                project_ids = None
+                project_ids = []
+
+        if project_ids:
+            project_ids = list(set(prjoect_ids) - set(cfg.CONF.ignore_tenants))
 
         users = {}
         projects = {}
