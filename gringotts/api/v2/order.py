@@ -102,7 +102,7 @@ class SummaryController(rest.RestController):
                 project_ids = []
 
         if project_ids:
-            project_ids = list(set(prjoect_ids) - set(cfg.CONF.ignore_tenants))
+            project_ids = list(set(project_ids) - set(cfg.CONF.ignore_tenants))
 
         # good way to go
         conn = pecan.request.db_conn
@@ -289,7 +289,7 @@ class OrdersController(rest.RestController):
                 project_ids = None
 
         if project_ids:
-            project_ids = list(set(prjoect_ids) - set(cfg.CONF.ignore_tenants))
+            project_ids = list(set(project_ids) - set(cfg.CONF.ignore_tenants))
 
         conn = pecan.request.db_conn
         orders_db, total_count = conn.get_orders(request.context,

@@ -126,7 +126,7 @@ class OrdersController(rest.RestController):
                 project_ids = []
 
         if project_ids:
-            project_ids = list(set(prjoect_ids) - set(cfg.CONF.ignore_tenants))
+            project_ids = list(set(project_ids) - set(cfg.CONF.ignore_tenants))
 
         users = {}
         projects = {}
