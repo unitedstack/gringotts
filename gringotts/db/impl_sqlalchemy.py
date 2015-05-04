@@ -401,6 +401,38 @@ class Connection(base.Connection):
             ref = query.one()
         return self._row_to_db_product_model(ref)
 
+    def reset_product(self, context, product, excluded_projects=[]):
+        session = db_session.get_session()
+        with session.begin():
+            # get all active orders in specified region
+            orders = session.query(sa_models.Order).\
+                     filter_by(region_id=product.region_id).\
+                     filter(not_(sa_models.Order.status==const.STATE_DELETED)).\
+                     filter(sa_models.Order.project_id.notin_(excluded_projects)).\
+                     all()
+            for order in orders:
+                # get all subscriptions of this order that belongs to this product
+                p_subs = session.query(sa_models.Subscription).\
+                        filter_by(order_id=order.order_id).\
+                        filter_by(product_id=product.product_id).\
+                        all()
+                # update subscription's unit price
+                for s in p_subs:
+                    s.unit_price = product.unit_price
+
+                # update order's unit price
+                t_subs = session.query(sa_models.Subscription).\
+                        filter_by(order_id=order.order_id).\
+                        filter_by(type=order.status).\
+                        all()
+                unit_price = 0
+                for s in t_subs:
+                    unit_price += s.unit_price * s.quantity
+
+                if order.unit_price != 0:
+                    order.unit_price = unit_price
+
+
     def get_product_by_name(self, context, product_name, service, region_id):
         try:
             product = model_query(context, sa_models.Product).\

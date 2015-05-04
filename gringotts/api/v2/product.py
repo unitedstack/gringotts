@@ -65,7 +65,12 @@ class ProductController(rest.RestController):
         product_in = self._product()
         product_old = self._product()
 
-        for k, v in data.as_dict().items():
+        p = data.as_dict()
+
+        # Default to reset subscription and order
+        reset = p.pop("reset") if p.has_key("reset") else True
+
+        for k, v in p.items():
             product_in[k] = v
 
         product_in.updated_at = datetime.datetime.utcnow()
@@ -89,10 +94,19 @@ class ProductController(rest.RestController):
         # Update product model to DB
         try:
             product = self.conn.update_product(request.context, product_in)
-        except Exception as e:
+        except Exception:
             error = 'Error while updating product: %s' % data.as_dict()
             LOG.exception(error)
             raise exception.DBError(reason=error)
+
+        # Reset order and subscription's unit price
+        if reset:
+            try:
+                self.conn.reset_product(request.context, product, cfg.CONF.ignore_tenants)
+            except Exception:
+                error = "Fail to reset the product: %s" % data.as_dict()
+                LOG.exception(error)
+                raise exception.DBError(reason=error)
 
         # DB model to API model
         return models.Product.from_db_model(product)

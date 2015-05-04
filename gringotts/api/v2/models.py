@@ -103,6 +103,8 @@ class Product(APIBase):
     unit_price = decimal.Decimal
     unit = wtypes.text
 
+    reset = bool
+
     created_at = wtypes.text
     updated_at = wtypes.text
 
