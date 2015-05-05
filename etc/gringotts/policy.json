@@ -4,12 +4,13 @@
 
     "uos_admin": "role:uos_admin or role:admin",
     "uos_staff": "role:uos_staff or rule:uos_admin",
+    "uos_support_staff": "role:uos_support_staff or rule:uos_staff",
     "uos_accountant": "role:uos_accountant or rule:uos_admin",
     "uos_support": "role:uos_support or rule:uos_admin",
 
     "account:post": "rule:uos_admin",
     "account:all": "rule:uos_accountant",
-    "account:charge": "rule:uos_accountant",
+    "account:charge": "rule:uos_accountant or role:uos_support_staff",
     "account:level": "rule:uos_accountant",
     "charges:all": "rule:uos_accountant or rule:uos_staff",
 

@@ -115,9 +115,15 @@ class AccountController(rest.RestController):
         """
         check_policy(request.context, "account:charge")
 
-        # Check the charge value
-        if data.value < -100000 or data.value > 100000:
-            raise exception.InvalidChargeValue(value=data.value)
+        # check support staff charge value
+        if "uos_support_staff" in request.context.roles:
+            lscv = int(cfg.CONF.limited_support_charge_value)
+            if data.value < -lscv or data.value > lscv:
+                raise exception.InvalidChargeValue(value=data.value)
+        else:# check accountant charge value
+            lacv = int(cfg.CONF.limited_accountant_charge_value)
+            if data.value < -lacv or data.value > lacv:
+                raise exception.InvalidChargeValue(value=data.value)
 
         remarks = data.remarks if data.remarks != wsme.Unset else None
         operator=request.context.user_id
@@ -202,7 +208,7 @@ class AccountController(rest.RestController):
     def charges(self, type=None, start_time=None, end_time=None, limit=None, offset=None):
         """Return this account's charge records
         """
-        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or self._id
+        user_id = acl.get_limited_to_user(request.headers, 'uos_support_staff') or self._id
 
         self.conn = pecan.request.db_conn
         charges = self.conn.get_charges(request.context,

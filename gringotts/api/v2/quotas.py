@@ -31,7 +31,7 @@ class QuotasController(rest.RestController):
         from gringotts.services import neutron
         from gringotts.services import nova
 
-        project_id = acl.get_limited_to_project(request.headers, 'uos_staff')
+        project_id = acl.get_limited_to_project(request.headers, 'uos_support_staff')
         if project_id:
             raise exception.NotAuthorized
 
@@ -63,7 +63,7 @@ class QuotasController(rest.RestController):
         from gringotts.services import neutron
         from gringotts.services import nova
 
-        _project_id = acl.get_limited_to_project(request.headers, 'uos_staff')
+        _project_id = acl.get_limited_to_project(request.headers, 'uos_support_staff')
         if _project_id:
             raise exception.NotAuthorized
 
