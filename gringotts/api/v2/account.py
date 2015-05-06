@@ -106,7 +106,7 @@ class AccountController(rest.RestController):
     @wsexpose(models.UserAccount)
     def get(self):
         """Return this account"""
-        user_id = acl.get_limited_to_user(request.headers, 'uos_admin') or self._id
+        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or self._id
         return models.UserAccount.from_db_model(self._account(user_id=user_id))
 
     @wsexpose(models.Charge, wtypes.text, body=models.Charge)
