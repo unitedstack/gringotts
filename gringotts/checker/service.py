@@ -45,7 +45,6 @@ OPTS = [
                 default=True,
                 help='Enable the interval jobs that run in non center regions'),
     cfg.StrOpt('support_email',
-               default='support@unitedstack.com',
                help="The cloud manager email")
 ]
 
