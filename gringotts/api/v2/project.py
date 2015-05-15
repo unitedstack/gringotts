@@ -146,6 +146,9 @@ class ProjectsController(rest.RestController):
         """
         user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or user_id
 
+        if not user_id:
+            user_id = request.context.user_id
+
         self.conn = pecan.request.db_conn
         result = []
 

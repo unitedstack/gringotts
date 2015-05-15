@@ -44,9 +44,6 @@ if __name__ == '__main__':
     except ValueError:
         sys.exit("Invalid value, should be an number")
 
-    if float(sys.argv[2]) < 0:
-        sys.exit("Invalid value, should be greater than 0")
-
     value = sys.argv[2]
 
     try:
