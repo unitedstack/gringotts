@@ -228,7 +228,10 @@ def revoke_owed_role(user_id, project_id):
 
 
 def get_user_list():
-    return get_ks_client().users.list()
+    _users = get_ks_client().users.list()
+    f = lambda x: x if x.enabled else False
+    users = filter(f, _users)
+    return users
 
 
 def get_project_list():
