@@ -1,3 +1,4 @@
+import requests
 import time
 from oslo.config import cfg
 
@@ -339,6 +340,11 @@ def delete_routers(project_id, region_name=None):
                 body['port_id'] = port['id']
                 client.remove_interface_router(router['id'], body)
 
+            # Delete tunnel of this router
+            tunnels = router.get('tunnels')
+            if tunnels:
+                _delete_tunnels(tunnels, region_name=region_name)
+
             # And then delete this router
             client.delete_router(router['id'])
             LOG.warn("Delete router: %s" % router['id'])
@@ -377,6 +383,20 @@ def stop_fip(fip_id, region_name=None):
     return False
 
 
+@wrap_exception(exc_type='bulk')
+def _delete_tunnels(tunnels, region_name=None):
+    endpoint = ks_client.get_endpoint(region_name, 'network')
+    auth_token = ks_client.get_token()
+    path = "%s/v2.0/uos_resources/%s/remove_tunnel.json" % (endpoint.rstrip('/'), '%s')
+    for tunnel in tunnels:
+        url = path % tunnel
+        try:
+            requests.put(url, headers={'X-Auth-Token': auth_token})
+        except Exception as e:
+            LOG.warn('Fail to delete tunnel: %s, as: %s' % (tunnel, e))
+
+
+
 @wrap_exception(exc_type='delete')
 def delete_router(router_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -403,6 +423,11 @@ def delete_router(router_id, region_name=None):
         if port['device_owner'] == 'network:router_interface':
             body['subnet_id'] = port['fixed_ips'][0]['subnet_id']
             client.remove_interface_router(router_id, body)
+
+    # Delete tunnel of this router
+    tunnels = router.get('tunnels')
+    if tunnels:
+        _delete_tunnels(tunnels, region_name=region_name)
 
     time.sleep(5)
     # And then delete this router
