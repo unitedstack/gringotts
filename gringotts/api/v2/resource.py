@@ -87,3 +87,23 @@ class ResourcesController(rest.RestController):
                                               resource_name=resource.name,
                                               resource_type=resource.resource_type))
         return result
+
+    @wsexpose(None, wtypes.text)
+    def get(self, resource_id):
+        from gringotts.services import cinder
+        from gringotts.services import glance
+        from gringotts.services import neutron
+        from gringotts.services import nova
+        from gringotts.services import ceilometer
+        from gringotts.services import manila
+
+        ceilometer.alarm_get(resource_id)
+        cinder.volume_get(resource_id)
+        cinder.snapshot_get(resource_id)
+        glance.image_get(resource_id)
+        manila.share_get(resource_id)
+        neutron.router_get(resource_id)
+        neutron.floatingip_get(resource_id)
+        neutron.listener_get(resource_id)
+        neutron.router_get(resource_id)
+        nova.server_get(resource_id)

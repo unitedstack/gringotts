@@ -1,6 +1,6 @@
 from oslo.config import cfg
 import  glanceclient
-from glanceclient.exc import NotFound
+from glanceclient.exc import NotFound,HTTPNotFound
 
 from gringotts import utils
 from gringotts import constants as const
@@ -42,6 +42,8 @@ def get_glanceclient(region_name=None):
 def image_get(image_id, region_name=None):
     try:
         image = get_glanceclient(region_name).images.get(image_id)
+    except HTTPNotFound:
+        return None
     except NotFound:
         return None
     status = utils.transform_status(image.status)

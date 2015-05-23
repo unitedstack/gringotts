@@ -1,3 +1,4 @@
+import time
 import datetime
 
 from datetime import timedelta
@@ -50,7 +51,10 @@ OPTS_GLOBAL = [
                 help="A list of tenant that should not to check and deduct"),
     cfg.BoolOpt('enable_owe',
                 default=False,
-                help='Enable owe logic or not')
+                help='Enable owe logic or not'),
+    cfg.BoolOpt('try_to_fix',
+                default=False,
+                help='Try to auto-fix or not'),
 ]
 
 cfg.CONF.register_opts(OPTS_GLOBAL)
@@ -243,7 +247,16 @@ class MasterService(rpc_service.Service):
         LOG.warn('stop owed resource(resource_type: %s, resource_id: %s)' % \
                 (resource_type, resource_id))
         method = self.STOP_METHOD_MAP[resource_type]
-        return method(resource_id, region_id)
+        try:
+            method(resource_id, region_id)
+        except Exception:
+            time.sleep(30)
+            try:
+                method(resource_id, region_id)
+            except Exception:
+                LOG.warn('Fail to stop owed resource(resource_type: %s, resource_id: %s)' % \
+                        (resource_type, resource_id))
+
 
     def _delete_owed_resource(self, resource_type, resource_id, region_id):
         # delete date job from self.date_jobs
@@ -258,7 +271,15 @@ class MasterService(rpc_service.Service):
         LOG.warn('delete owed resource(resource_type: %s, resource_id: %s)' % \
                 (resource_type, resource_id))
         method = self.DELETE_METHOD_MAP[resource_type]
-        method(resource_id, region_id)
+        try:
+            method(resource_id, region_id)
+        except Exception:
+            time.sleep(30)
+            try:
+                method(resource_id, region_id)
+            except Exception:
+                LOG.warn('Fail to delete owed resource(resource_type: %s, resource_id: %s)' % \
+                        (resource_type, resource_id))
 
     def _create_cron_job(self, order_id, action_time=None, start_date=None):
         """For now, we only support hourly cron job
@@ -362,57 +383,76 @@ class MasterService(rpc_service.Service):
         LOG.warn('delete date job for resource: %s' % resource_id)
 
     def _pre_deduct(self, order_id):
-        # check resource and order before deduct
-        order = self.worker_api.get_order(self.ctxt, order_id)
+        try:
+            # check resource and order before deduct
+            order = self.worker_api.get_order(self.ctxt, order_id)
 
-        # do not deduct doctor project for now
-        if order['project_id'] in cfg.CONF.ignore_tenants:
-            return
+            # do not deduct doctor project for now
+            if order['project_id'] in cfg.CONF.ignore_tenants:
+                return
 
-        method = self.RESOURCE_GET_MAP[order['type']]
-        resource = method(order['resource_id'], order['region_id'])
-        if not resource:
-            # alert that the resource not exists
-            LOG.warn("The resource(%s|%s) may has been deleted" % \
-                     (order['type'], order['resource_id']))
-            alert.wrong_billing_order(order, 'resource_deleted')
-            return
-        if resource.status != order['status']:
-            # alert that the status of resource and order don't match
-            LOG.warn("The status of the resource(%s|%s|%s) doesn't match with the order(%s|%s|%s)." % \
-                      (resource.resource_type, resource.id, resource.original_status,
-                       order['type'], order['order_id'], order['status']))
-            alert.wrong_billing_order(order, 'miss_match', resource)
-            return
+            method = self.RESOURCE_GET_MAP[order['type']]
+            resource = method(order['resource_id'], order['region_id'])
+            if not resource:
+                # alert that the resource not exists
+                LOG.warn("The resource(%s|%s) has been deleted" % \
+                         (order['type'], order['resource_id']))
+                alert.wrong_billing_order(order, 'resource_deleted')
 
-        if isinstance(order['cron_time'], basestring):
-            cron_time = timeutils.parse_strtime(order['cron_time'],
-                                                fmt=ISO8601_UTC_TIME_FORMAT)
-        else:
-            cron_time = order['cron_time']
+                # try to fix
+                if cfg.CONF.try_to_fix:
+                    deleted_at = utils.format_datetime(timeutils.strtime())
+                    self.resource_deleted(self.ctxt, order['order_id'],
+                                          deleted_at,
+                                          "Resource Has Been Deleted")
+                return
+            if resource.status != order['status']:
+                # alert that the status of resource and order don't match
+                LOG.warn("The status of the resource(%s|%s|%s) doesn't match with the order(%s|%s|%s)." % \
+                          (resource.resource_type, resource.id, resource.original_status,
+                           order['type'], order['order_id'], order['status']))
+                alert.wrong_billing_order(order, 'miss_match', resource)
 
-        remarks = 'Hourly Billing'
-        now = timeutils.utcnow()
-        if now - cron_time >= timedelta(hours=1):
-            result = self.worker_api.create_bill(self.ctxt,
-                                                 order_id,
-                                                 action_time=now,
-                                                 remarks=remarks)
-        else:
-            result = self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
+                # try to fix
+                if cfg.CONF.try_to_fix:
+                    action_time = utils.format_datetime(timeutils.strtime())
+                    change_to = resource.admin_state if hasattr(resource, 'admin_state') \
+                            else resource.stauts
+                    self.resource_changed(self.ctxt, order['order_id'], action_time,
+                                          change_to, "System Adjust")
+                return
 
-        # Order is owed
-        if result['type'] == 2:
-            self._stop_owed_resource(result['resource_type'],
-                                     result['resource_id'],
-                                     result['region_id'])
-            self._create_date_job(result['resource_type'],
-                                  result['resource_id'],
-                                  result['region_id'],
-                                  result['date_time'])
-        # Account is charged but order is still owed
-        elif result['type'] == 3:
-            self._delete_date_job(result['resource_id'])
+            if isinstance(order['cron_time'], basestring):
+                cron_time = timeutils.parse_strtime(order['cron_time'],
+                                                    fmt=ISO8601_UTC_TIME_FORMAT)
+            else:
+                cron_time = order['cron_time']
+
+            remarks = 'Hourly Billing'
+            now = timeutils.utcnow()
+            if now - cron_time >= timedelta(hours=1):
+                result = self.worker_api.create_bill(self.ctxt,
+                                                     order_id,
+                                                     action_time=now,
+                                                     remarks=remarks)
+            else:
+                result = self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
+
+            # Order is owed
+            if result['type'] == 2:
+                self._stop_owed_resource(result['resource_type'],
+                                         result['resource_id'],
+                                         result['region_id'])
+                self._create_date_job(result['resource_type'],
+                                      result['resource_id'],
+                                      result['region_id'],
+                                      result['date_time'])
+            # Account is charged but order is still owed
+            elif result['type'] == 3:
+                self._delete_date_job(result['resource_id'])
+        except Exception as e:
+            LOG.warn("Some exceptions happen when deducting order: %s, for reason: %s" \
+                     % (order_id, e))
 
     def _create_bill(self, ctxt, order_id, action_time, remarks):
         # create a bill

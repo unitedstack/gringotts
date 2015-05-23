@@ -11,7 +11,7 @@ from gringotts.services import wrap_exception
 from gringotts.services import Resource
 from gringotts.services import keystone as ks_client
 from neutronclient.v2_0 import client as neutron_client
-from neutronclient.common.exceptions import NeutronClientException
+from neutronclient.common import exceptions
 from gringotts.openstack.common import timeutils
 
 
@@ -168,8 +168,12 @@ def network_list(project_id, region_name=None, project_name=None):
 def floatingip_get(fip_id, region_name=None):
     try:
         fip = get_neutronclient(region_name).show_floatingip(fip_id).get('floatingip')
-    except NeutronClientException:
+    except exceptions.NotFound:
         return None
+    except exceptions.NeutronException as e:
+        if e.status_code == 404:
+            return None
+        raise e
     status = utils.transform_status(fip['status'])
     return FloatingIp(id=fip['id'],
                       name=fip['uos:name'],
@@ -179,12 +183,16 @@ def floatingip_get(fip_id, region_name=None):
                       is_reserved=True)
 
 
-@wrap_exception(exc_type='get')
+#@wrap_exception(exc_type='get')
 def router_get(router_id, region_name=None):
     try:
         router = get_neutronclient(region_name).show_router(router_id).get('router')
-    except NeutronClientException:
+    except exceptions.NotFound:
         return None
+    except exceptions.NeutronException as e:
+        if e.status_code == 404:
+            return None
+        raise e
     status = utils.transform_status(router['status'])
     return Router(id=router['id'],
                   name=router['name'],
@@ -367,8 +375,11 @@ def stop_fip(fip_id, region_name=None):
 
     try:
         fip = client.show_floatingip(fip_id).get('floatingip')
-    except NeutronClientException:
-        fip = None
+    except exceptions.NotFound:
+        return False
+    except exceptions.NeutronException as e:
+        if e.status_code == 404:
+            return False
 
     if cfg.CONF.reserve_fip:
         return True
@@ -482,8 +493,12 @@ def delete_listeners(project_id, region_name=None):
 def listener_get(listener_id, region_name=None):
     try:
         listener = get_neutronclient(region_name).show_listener(listener_id).get('listener')
-    except NeutronClientException:
+    except exceptions.NotFound:
         return None
+    except exceptions.NeutronException as e:
+        if e.status_code == 404:
+            return None
+        raise e
 
     status = utils.transform_status(listener['status'])
     return Listener(id=listener['id'],

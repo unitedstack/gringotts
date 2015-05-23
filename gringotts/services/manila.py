@@ -7,7 +7,7 @@ from gringotts import constants as const
 from gringotts.services import wrap_exception
 from gringotts.services import Resource
 from manilaclient.v1 import client as manila_client
-from cinderclient.exceptions import NotFound
+from manilaclient.exceptions import NotFound
 from gringotts.services import keystone as ks_client
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
@@ -70,8 +70,6 @@ def share_list(project_id, region_name=None, detailed=True, project_name=None):
     m_client = get_manilaclient(region_name)
     search_opts = {'all_tenants': 1,
                    'project_id': project_id}
-    if m_client is None:
-        return []
     shares = m_client.shares.list(detailed, search_opts=search_opts)
     formatted_shares = []
     for share in shares:

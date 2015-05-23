@@ -2,6 +2,7 @@ import functools
 from decimal import Decimal
 from oslo.config import cfg
 
+from gringotts.exception import GringottsException
 from gringotts import context
 from gringotts import worker
 from gringotts.openstack.common import log
@@ -11,9 +12,14 @@ LOG = log.getLogger(__name__)
 
 
 def wrap_exception(exc_type=None):
-    """This decorator wraps a method to catch any exceptions that may
-    get thrown. It logs the exception, and may sends message to notification
-    system.
+    """ Wrap exception around resource method
+
+    This decorator wraps a method to catch any exceptions that may get thrown.
+    It logs the exception, and may sends message to notification system.
+
+    In every normal situation, there will not exception be raised. When it requests
+    a non-exists resource, it will return None instead of exception. Only when any of the services
+    is not avaliable, it will raise an exception to stop the further execution.
     """
     def inner(f):
         def wrapped(uuid, *args, **kwargs):
@@ -35,22 +41,18 @@ def wrap_exception(exc_type=None):
                     return f(uuid, *args, **kwargs)
             except Exception as e:
                 msg = None
-                result = True
                 if exc_type == 'single' or exc_type == 'delete' or exc_type == 'stop':
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
                 elif exc_type == 'bulk':
                     msg = 'Fail to do %s for account: %s, reason: %s' % (f.__name__, uuid, e)
                 elif exc_type == 'list':
                     msg = 'Fail to do %s for account: %s, reason: %s' % (f.__name__, uuid, e)
-                    result = []
                 elif exc_type == 'get':
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
-                    result = None
                 elif exc_type == 'put':
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
-                    result = None
                 LOG.warn(msg)
-                return result
+                raise GringottsException(message=msg)
         return functools.wraps(f)(wrapped)
     return inner
 

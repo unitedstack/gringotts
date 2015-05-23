@@ -284,8 +284,8 @@ class CheckerService(os_service.Service):
                                                       action_time,
                                                       resource.status,
                                                       resource.project_id))
-            # Situation 3: Resource's order has been created,
-            # but its bill not be created by master
+            # Situation 3: Resource's order has been created, but its bill not be
+            # created by master
             elif not order['cron_time'] and order['status'] != const.STATE_STOPPED:
                 try_to_fix['3'].append(Situation3Item(order['order_id'],
                                                       resource.created_at,
@@ -346,13 +346,18 @@ class CheckerService(os_service.Service):
                 self._check_order_to_resource(resource_id, order, try_to_fix)
 
     def check_if_resources_match_orders(self):
-        """There are 3 situations in every check:
+        """There are 5 situations in every check:
 
         * There exist resources that are not billed
         * There exist resources whose status don't match with its order's status
+        * There exist resource's order has been created, but its bill not be created by master
         * There exist active orders that their resource has been deleted
+        * There exist order's unit_price is different from the resource's actual price
 
         We do this check every one hour.
+
+        For auto-recovery, we only do this if we can ensure all services are ok,
+        or it will skip this circle, do the check and auto-recovery in the next circle.
         """
         LOG.warn('Checking if resources match with orders')
         bad_resources_1 = []
@@ -364,66 +369,69 @@ class CheckerService(os_service.Service):
             time.sleep(30)
             self._check_if_resources_match_orders(bad_resources_2, try_to_fix_2)
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether '
-                          'resources match with orders or not.')
-        finally:
-            # Alert bad resources
-            bad_resources = [x for x in bad_resources_2 if x in bad_resources_1]
-            if bad_resources:
-                alert.alert_bad_resources(bad_resources)
+            LOG.exception('Some exceptions occurred when checking whether resources'
+                          ' match with orders, skip this checking circle.')
+            return
 
-            # Fix bad resources and orders
-            try_to_fix_situ_1 = [x for x in try_to_fix_2['1'] if x in try_to_fix_1['1']]
-            try_to_fix_situ_2 = [x for x in try_to_fix_2['2'] if x in try_to_fix_1['2']]
-            try_to_fix_situ_3 = [x for x in try_to_fix_2['3'] if x in try_to_fix_1['3']]
-            try_to_fix_situ_4 = [x for x in try_to_fix_2['4'] if x in try_to_fix_1['4']]
-            try_to_fix_situ_5 = [x for x in try_to_fix_2['5'] if x in try_to_fix_1['5']]
+        # NOTE(suo): We only do the auto-fix when there is not any exceptions
 
-            ## Situation 1
-            for resource in try_to_fix_situ_1:
-                LOG.warn('Situation 1: In project(%s), the resource(%s) has no order' % \
-                        (resource.project_id, resource.id))
-                if cfg.CONF.checker.try_to_fix:
-                    create_cls = self.RESOURCE_CREATE_MAP[resource.resource_type]
-                    create_cls.process_notification(resource.to_message(),
-                                                    resource.status)
-            ## Situation 2
-            for item in try_to_fix_situ_2:
-                LOG.warn('Situation 2: In project(%s), the order(%s) and its resource\'s status doesn\'t match' % \
-                        (item.project_id, item.order_id))
-                if cfg.CONF.checker.try_to_fix:
-                    self.master_api.resource_changed(self.ctxt,
-                                                     item.order_id,
-                                                     item.action_time,
-                                                     change_to=item.change_to,
-                                                     remarks="System Adjust")
-            ## Situation 3
-            for item in try_to_fix_situ_3:
-                LOG.warn('Situation 3: In project(%s), the order(%s) has no bills' % \
-                        (item.project_id, item.order_id))
-                if cfg.CONF.checker.try_to_fix:
-                    self.master_api.resource_created_again(self.ctxt,
-                                                           item.order_id,
-                                                           item.resource_created_at,
-                                                           "Sytstem Adjust")
-            ## Situation 4
-            for item in try_to_fix_situ_4:
-                LOG.warn('Situation 4: In project(%s), the order(%s)\'s resource has been deleted.' % \
-                        (item.project_id, item.order_id))
-                if cfg.CONF.checker.try_to_fix:
-                    self.master_api.resource_deleted(self.ctxt,
-                                                     item.order_id,
-                                                     item.deleted_at,
-                                                     "Resource Has Been Deleted")
-            ## Situation 5
-            for item in try_to_fix_situ_5:
-                LOG.warn('Situation 5: In project(%s), the order(%s)\'s unit_price is wrong, should be %s' % \
-                        (item.project_id, item.order_id, item.unit_price))
-                if cfg.CONF.checker.try_to_fix:
-                    create_cls = self.RESOURCE_CREATE_MAP[item.resource.resource_type]
-                    create_cls.change_unit_price(item.resource.to_message(),
-                                                 item.resource.status,
-                                                 item.order_id)
+        # Alert bad resources
+        bad_resources = [x for x in bad_resources_2 if x in bad_resources_1]
+        if bad_resources:
+            alert.alert_bad_resources(bad_resources)
+
+        # Fix bad resources and orders
+        try_to_fix_situ_1 = [x for x in try_to_fix_2['1'] if x in try_to_fix_1['1']]
+        try_to_fix_situ_2 = [x for x in try_to_fix_2['2'] if x in try_to_fix_1['2']]
+        try_to_fix_situ_3 = [x for x in try_to_fix_2['3'] if x in try_to_fix_1['3']]
+        try_to_fix_situ_4 = [x for x in try_to_fix_2['4'] if x in try_to_fix_1['4']]
+        try_to_fix_situ_5 = [x for x in try_to_fix_2['5'] if x in try_to_fix_1['5']]
+
+        ## Situation 1
+        for resource in try_to_fix_situ_1:
+            LOG.warn('Situation 1: In project(%s), the resource(%s) has no order' % \
+                    (resource.project_id, resource.id))
+            if cfg.CONF.checker.try_to_fix:
+                create_cls = self.RESOURCE_CREATE_MAP[resource.resource_type]
+                create_cls.process_notification(resource.to_message(),
+                                                resource.status)
+        ## Situation 2
+        for item in try_to_fix_situ_2:
+            LOG.warn('Situation 2: In project(%s), the order(%s) and its resource\'s status doesn\'t match' % \
+                    (item.project_id, item.order_id))
+            if cfg.CONF.checker.try_to_fix:
+                self.master_api.resource_changed(self.ctxt,
+                                                 item.order_id,
+                                                 item.action_time,
+                                                 change_to=item.change_to,
+                                                 remarks="System Adjust")
+        ## Situation 3
+        for item in try_to_fix_situ_3:
+            LOG.warn('Situation 3: In project(%s), the order(%s) has no bills' % \
+                    (item.project_id, item.order_id))
+            if cfg.CONF.checker.try_to_fix:
+                self.master_api.resource_created_again(self.ctxt,
+                                                       item.order_id,
+                                                       item.resource_created_at,
+                                                       "Sytstem Adjust")
+        ## Situation 4
+        for item in try_to_fix_situ_4:
+            LOG.warn('Situation 4: In project(%s), the order(%s)\'s resource has been deleted.' % \
+                    (item.project_id, item.order_id))
+            if cfg.CONF.checker.try_to_fix:
+                self.master_api.resource_deleted(self.ctxt,
+                                                 item.order_id,
+                                                 item.deleted_at,
+                                                 "Resource Has Been Deleted")
+        ## Situation 5
+        for item in try_to_fix_situ_5:
+            LOG.warn('Situation 5: In project(%s), the order(%s)\'s unit_price is wrong, should be %s' % \
+                    (item.project_id, item.order_id, item.unit_price))
+            if cfg.CONF.checker.try_to_fix:
+                create_cls = self.RESOURCE_CREATE_MAP[item.resource.resource_type]
+                create_cls.change_unit_price(item.resource.to_message(),
+                                             item.resource.status,
+                                             item.order_id)
 
     def _check_if_owed_resources_match_owed_orders(self,
                                                    should_stop_resources,
@@ -473,19 +481,30 @@ class CheckerService(os_service.Service):
             self._check_if_owed_resources_match_owed_orders(should_stop_resources_2,
                                                             should_delete_resources_2)
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether '
-                          'owed resources match with owed orders or not.')
-        finally:
-            should_stop_resources = [x for x in should_stop_resources_2 if x in should_stop_resources_1]
-            should_delete_resources = [x for x in should_delete_resources_2 if x in should_delete_resources_1]
-            for resource in should_stop_resources:
-                LOG.warn("The resource(%s) is owed, should be stopped" % resource)
-                if cfg.CONF.checker.try_to_fix:
+            LOG.exception('Some exceptions occurred when checking whether owed resources '
+                          'match with owed orders, skip this checking circle.')
+            return
+
+        # NOTE(suo): We only do the auto-fix when there is not any exceptions
+
+        should_stop_resources = [x for x in should_stop_resources_2 if x in should_stop_resources_1]
+        should_delete_resources = [x for x in should_delete_resources_2 if x in should_delete_resources_1]
+
+        for resource in should_stop_resources:
+            LOG.warn("The resource(%s) is owed, should be stopped" % resource)
+            if cfg.CONF.checker.try_to_fix:
+                try:
                     self.STOP_METHOD_MAP[resource.resource_type](resource.id, self.region_name)
-            for resource in should_delete_resources:
-                LOG.warn("The resource(%s) is reserved for its full days, should be deleted" % resource)
-                if cfg.CONF.checker.try_to_fix:
+                except Exception:
+                    LOG.warn("Fail to stop the owed resource(%s)" % resource)
+
+        for resource in should_delete_resources:
+            LOG.warn("The resource(%s) is reserved for its full days, should be deleted" % resource)
+            if cfg.CONF.checker.try_to_fix:
+                try:
                     self.DELETE_METHOD_MAP[resource.resource_type](resource.id, self.region_name)
+                except Exception:
+                    LOG.warn("Fail to delete the owed resource(%s)" % resource)
 
     def check_if_cronjobs_match_orders(self):
         """Check if number of cron jobs match number of orders in running and
@@ -560,7 +579,7 @@ class CheckerService(os_service.Service):
                                                                            region_name=order['region_id'])
                         if not resource:
                             # alert that the resource not exists
-                            LOG.warn("The resource(%s|%s) may has been deleted" % \
+                            LOG.warn("The resource(%s|%s) has been deleted" % \
                                      (order['type'], order['resource_id']))
                             alert.wrong_billing_order(order, 'resource_deleted')
                             continue
@@ -701,16 +720,18 @@ class CheckerService(os_service.Service):
             time.sleep(30)
             users_2 = self._check_user_to_account()
         except Exception:
-            users_1 = users_2 = []
             LOG.exception('Some exceptions occurred when checking whether '
-                          'users match with account.')
-        finally:
-            users = [u for u in users_1 if u in users_2]
-            for user in users:
-                LOG.warn('Situation 6: The user(%s) has not been created in gringotts' % user.user_id)
-                if cfg.CONF.checker.try_to_fix:
-                    create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_USER]
-                    create_cls.process_notification(user.to_message())
+                          'users match with account, skip this checking circle.')
+            return
+
+        # NOTE(suo): We only do the auto-fix when there is not any exceptions
+
+        users = [u for u in users_1 if u in users_2]
+        for user in users:
+            LOG.warn('Situation 6: The user(%s) has not been created in gringotts' % user.user_id)
+            if cfg.CONF.checker.try_to_fix:
+                create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_USER]
+                create_cls.process_notification(user.to_message())
 
     def _check_project_to_project(self):
         LOG.warn("Checking if projects in keystone match projects in gringotts")
@@ -763,42 +784,43 @@ class CheckerService(os_service.Service):
             time.sleep(30)
             cp_2, dp_2, bp_2 = self._check_project_to_project()
         except Exception:
-            cp_1 = dp_1 = bp_1 = []
-            cp_2 = dp_2 = bp_2 = []
             LOG.exception('Some exceptions occurred when checking whether '
-                          'projects match with projects.')
-        finally:
-            creating_projects = [p for p in cp_1 if p in cp_2]
-            deleting_projects = [p for p in dp_1 if p in dp_2]
-            billing_projects = [p for p in bp_1 if p in bp_2]
+                          'projects match with projects, skip this checking circle.')
+            return
 
-            for p in creating_projects:
-                LOG.warn("Situation 7: The project(%s) exists in keystone but not in gringotts, its billing owner is %s" % \
-                        (p.project_id, p.billing_owner_id))
-                if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
-                    create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_PROJECT]
-                    create_cls.process_notification(p.to_message())
+        # NOTE(suo): We only do the auto-fix when there is not any exceptions
 
-            for p in deleting_projects:
-                LOG.warn("Situation 8: The project(%s) has been deleted, but its resources has not been cleared" % p.project_id)
-                if cfg.CONF.checker.try_to_fix:
-                    try:
-                        self.worker_api.delete_resources(self.ctxt, p.project_id)
-                    except Exception:
-                        LOG.exception('Fail to delete all resources of project %s' % p.project_id)
-                        return
-                    LOG.info('Delete all resources of project %s successfully' % p.project_id)
+        creating_projects = [p for p in cp_1 if p in cp_2]
+        deleting_projects = [p for p in dp_1 if p in dp_2]
+        billing_projects = [p for p in bp_1 if p in bp_2]
 
-            for p in billing_projects:
-                LOG.warn("Situation 9: The project(%s)\'s billing owner in gringotts is not equal to keystone\'s, should be: %s" % \
-                        (p.project_id, p.billing_owner_id))
-                if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
-                    try:
-                        self.worker_api.change_billing_owner(self.ctxt, p.project_id, p.billing_owner_id)
-                    except Exception:
-                        LOG.exception('Fail to change billing owner of project %s to user %s' % (p.project_id, p.billing_owner_id))
-                        return
-                    LOG.info('Change billing owner of project %s to user %s successfully' % (p.project_id, p.billing_owner_id))
+        for p in creating_projects:
+            LOG.warn("Situation 7: The project(%s) exists in keystone but not in gringotts, its billing owner is %s" % \
+                    (p.project_id, p.billing_owner_id))
+            if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
+                create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_PROJECT]
+                create_cls.process_notification(p.to_message())
+
+        for p in deleting_projects:
+            LOG.warn("Situation 8: The project(%s) has been deleted, but its resources has not been cleared" % p.project_id)
+            if cfg.CONF.checker.try_to_fix:
+                try:
+                    self.worker_api.delete_resources(self.ctxt, p.project_id)
+                except Exception:
+                    LOG.exception('Fail to delete all resources of project %s' % p.project_id)
+                    return
+                LOG.info('Delete all resources of project %s successfully' % p.project_id)
+
+        for p in billing_projects:
+            LOG.warn("Situation 9: The project(%s)\'s billing owner in gringotts is not equal to keystone\'s, should be: %s" % \
+                    (p.project_id, p.billing_owner_id))
+            if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
+                try:
+                    self.worker_api.change_billing_owner(self.ctxt, p.project_id, p.billing_owner_id)
+                except Exception:
+                    LOG.exception('Fail to change billing owner of project %s to user %s' % (p.project_id, p.billing_owner_id))
+                    return
+                LOG.info('Change billing owner of project %s to user %s successfully' % (p.project_id, p.billing_owner_id))
 
 
 def checker():
