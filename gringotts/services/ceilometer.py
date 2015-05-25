@@ -1,3 +1,5 @@
+import functools
+
 from oslo.config import cfg
 from ceilometerclient import client as cmclient
 from ceilometerclient.openstack.common.apiclient.exceptions import NotFound
@@ -9,11 +11,17 @@ from gringotts.openstack.common import log
 
 from gringotts.openstack.common import timeutils
 from gringotts.services import keystone as ks_client
-from gringotts.services import wrap_exception
+from gringotts.services import wrap_exception,register
 from gringotts.services import Resource
 
 
 LOG = log.getLogger(__name__)
+
+register = functools.partial(register,
+                             ks_client,
+                             service='metering',
+                             resource=const.RESOURCE_ALARM,
+                             stopped_state=const.STATE_RUNNING)
 
 
 class Alarm(Resource):
@@ -40,6 +48,7 @@ def get_cmclient(region_name=None):
                                ceilometer_url=endpoint)
 
 
+@register(mtype='get')
 @wrap_exception(exc_type='get')
 def alarm_get(alarm_id, region_name=None):
     try:
@@ -59,6 +68,7 @@ def alarm_get(alarm_id, region_name=None):
                  resource_type=const.RESOURCE_ALARM)
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def alarm_list(project_id, region_name=None, project_name=None):
     alarms = get_cmclient(region_name).alarms.list(q=[{'field': 'project_id',
@@ -79,6 +89,7 @@ def alarm_list(project_id, region_name=None, project_name=None):
     return formatted_alarms
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_alarms(project_id, region_name=None):
     client = get_cmclient(region_name)
@@ -91,11 +102,13 @@ def delete_alarms(project_id, region_name=None):
         LOG.warn("Delete alarm: %s" % alarm.alarm_id)
 
 
+@register(mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_alarm(alarm_id, region_name=None):
     get_cmclient(region_name).alarms.delete(alarm_id)
 
 
+@register(mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_alarm(alarm_id, region_name):
     return True

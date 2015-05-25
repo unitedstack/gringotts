@@ -1,3 +1,4 @@
+import functools
 from oslo.config import cfg
 
 from gringotts import utils
@@ -10,11 +11,17 @@ from gringotts.openstack.common import log
 from gringotts.openstack.common import timeutils
 
 from gringotts.services import keystone as ks_client
-from gringotts.services import wrap_exception
+from gringotts.services import wrap_exception,register
 from gringotts.services import Resource
 
 
 LOG = log.getLogger(__name__)
+
+register = functools.partial(register,
+                             ks_client,
+                             service='compute',
+                             resource=const.RESOURCE_INSTANCE,
+                             stopped_state=const.STATE_STOPPED)
 
 
 class Server(Resource):
@@ -72,6 +79,7 @@ def image_get(region_name, image_id):
         images.get(image_id)
 
 
+@register(mtype='get')
 @wrap_exception(exc_type='get')
 def server_get(instance_id, region_name=None):
     try:
@@ -86,6 +94,7 @@ def server_get(instance_id, region_name=None):
                   resource_type=const.RESOURCE_INSTANCE)
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def server_list(project_id, region_name=None, detailed=True, project_name=None):
     search_opts = {'all_tenants': 1,
@@ -118,6 +127,7 @@ def server_with_flavor_and_image(server, region_name):
     image = image_get(region_name, server.image_id)
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_servers(project_id, region_name=None):
     """Delete all servers that belongs to project_id
@@ -131,12 +141,14 @@ def delete_servers(project_id, region_name=None):
         LOG.warn("Delete server: %s" % server.id)
 
 
+@register(mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_server(instance_id, region_name=None):
     client = get_novaclient(region_name)
     client.servers.delete(instance_id)
 
 
+@register(mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_server(instance_id, region_name=None):
     client = get_novaclient(region_name)

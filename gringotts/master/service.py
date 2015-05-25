@@ -13,12 +13,15 @@ from gringotts import context
 from gringotts import worker
 from gringotts import exception
 from gringotts import utils
+from gringotts import services
+
 from gringotts.services import alert
 
 from gringotts.openstack.common import log
 from gringotts.openstack.common.rpc import service as rpc_service
 from gringotts.openstack.common import service as os_service
 from gringotts.openstack.common import timeutils
+from gringotts.openstack.common import importutils
 from gringotts.service import prepare_service
 
 
@@ -86,48 +89,9 @@ class MasterService(rpc_service.Service):
         self.lock = Lock()
         self.ctxt = context.get_admin_context()
 
-        from gringotts.services import cinder
-        from gringotts.services import glance
-        from gringotts.services import neutron
-        from gringotts.services import nova
-        from gringotts.services import ceilometer
-        from gringotts.services import manila
-
-        self.DELETE_METHOD_MAP = {
-            const.RESOURCE_INSTANCE: nova.delete_server,
-            const.RESOURCE_IMAGE: glance.delete_image,
-            const.RESOURCE_SNAPSHOT: cinder.delete_snapshot,
-            const.RESOURCE_VOLUME: cinder.delete_volume,
-            const.RESOURCE_FLOATINGIP: neutron.delete_fip,
-            const.RESOURCE_ROUTER: neutron.delete_router,
-            const.RESOURCE_LISTENER: neutron.delete_listener,
-            const.RESOURCE_ALARM: ceilometer.delete_alarm,
-            const.RESOURCE_SHARE: manila.delete_share,
-        }
-
-        self.STOP_METHOD_MAP = {
-            const.RESOURCE_INSTANCE: nova.stop_server,
-            const.RESOURCE_IMAGE: glance.stop_image,
-            const.RESOURCE_SNAPSHOT: cinder.stop_snapshot,
-            const.RESOURCE_VOLUME: cinder.stop_volume,
-            const.RESOURCE_FLOATINGIP: neutron.stop_fip,
-            const.RESOURCE_LISTENER: neutron.stop_listener,
-            const.RESOURCE_ROUTER: neutron.stop_router,
-            const.RESOURCE_ALARM: ceilometer.stop_alarm,
-            const.RESOURCE_SHARE: manila.stop_share,
-        }
-
-        self.RESOURCE_GET_MAP = {
-            const.RESOURCE_INSTANCE: nova.server_get,
-            const.RESOURCE_SNAPSHOT: cinder.snapshot_get,
-            const.RESOURCE_VOLUME: cinder.volume_get,
-            const.RESOURCE_IMAGE: glance.image_get,
-            const.RESOURCE_FLOATINGIP: neutron.floatingip_get,
-            const.RESOURCE_ROUTER: neutron.router_get,
-            const.RESOURCE_LISTENER: neutron.listener_get,
-            const.RESOURCE_ALARM: ceilometer.alarm_get,
-            const.RESOURCE_SHARE: manila.share_get,
-        }
+        self.DELETE_METHOD_MAP = services.DELETE_METHOD_MAP
+        self.STOP_METHOD_MAP = services.STOP_METHOD_MAP
+        self.RESOURCE_GET_MAP = services.RESOURCE_GET_MAP
 
         super(MasterService, self).__init__(*args, **kwargs)
 

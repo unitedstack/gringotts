@@ -2,7 +2,6 @@
 Do not instantiate the API class before the cfg.CONF() be called, or it will not
 read the config value from config file.
 """
-
 from oslo.config import cfg
 from gringotts.worker import api as worker_api
 

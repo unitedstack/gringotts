@@ -1,10 +1,11 @@
+import functools
 import time
 from oslo.config import cfg
 
 from gringotts import utils
 from gringotts import constants as const
 
-from gringotts.services import wrap_exception
+from gringotts.services import wrap_exception,register
 from gringotts.services import Resource
 from manilaclient.v1 import client as manila_client
 from manilaclient.exceptions import NotFound
@@ -15,6 +16,12 @@ from gringotts.openstack.common import log
 
 
 LOG = log.getLogger(__name__)
+
+register = functools.partial(register,
+                             ks_client,
+                             service='share',
+                             resource=const.RESOURCE_SHARE,
+                             stopped_state=const.STATE_RUNNING)
 
 
 class Share(Resource):
@@ -48,6 +55,7 @@ def get_manilaclient(region_name=None):
     return c
 
 
+@register(mtype='get')
 @wrap_exception(exc_type='get')
 def share_get(share_id, region_name=None):
     m_client = get_manilaclient(region_name)
@@ -63,6 +71,7 @@ def share_get(share_id, region_name=None):
                  resource_type=const.RESOURCE_SHARE)
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def share_list(project_id, region_name=None, detailed=True, project_name=None):
     """To see all shares in the cloud as admin.
@@ -89,6 +98,7 @@ def share_list(project_id, region_name=None, detailed=True, project_name=None):
     return formatted_shares
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_shares(project_id, region_name=None):
     """Delete all shares that belong to project_id
@@ -104,12 +114,14 @@ def delete_shares(project_id, region_name=None):
         LOG.warn("Delete share: %s" % share.id)
 
 
+@register(mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_share(share_id, region_name=None):
     client = get_manilaclient(region_name)
     client.shares.delete(share_id)
 
 
+@register(mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_share(share_id, region_name=None):
     return True

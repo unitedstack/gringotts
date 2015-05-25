@@ -1,3 +1,4 @@
+import functools
 import requests
 import time
 from oslo.config import cfg
@@ -7,7 +8,7 @@ from gringotts import constants as const
 
 from gringotts.openstack.common import log
 
-from gringotts.services import wrap_exception
+from gringotts.services import wrap_exception,register
 from gringotts.services import Resource
 from gringotts.services import keystone as ks_client
 from neutronclient.v2_0 import client as neutron_client
@@ -16,6 +17,11 @@ from gringotts.openstack.common import timeutils
 
 
 LOG = log.getLogger(__name__)
+
+register = functools.partial(register,
+                             ks_client,
+                             service='network',
+                             stopped_state=const.STATE_RUNNING)
 
 
 OPTS = [
@@ -122,6 +128,7 @@ def pool_list(project_id, region_name=None):
     return pools
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def port_list(project_id, region_name=None, device_id=None, project_name=None):
     client = get_neutronclient(region_name)
@@ -146,6 +153,7 @@ def port_list(project_id, region_name=None, device_id=None, project_name=None):
     return formatted_ports
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def network_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
@@ -164,6 +172,7 @@ def network_list(project_id, region_name=None, project_name=None):
     return formatted_networks
 
 
+@register(resource=const.RESOURCE_FLOATINGIP, mtype='get')
 @wrap_exception(exc_type='get')
 def floatingip_get(fip_id, region_name=None):
     try:
@@ -183,7 +192,8 @@ def floatingip_get(fip_id, region_name=None):
                       is_reserved=True)
 
 
-#@wrap_exception(exc_type='get')
+@register(resource=const.RESOURCE_ROUTER, mtype='get')
+@wrap_exception(exc_type='get')
 def router_get(router_id, region_name=None):
     try:
         router = get_neutronclient(region_name).show_router(router_id).get('router')
@@ -201,6 +211,7 @@ def router_get(router_id, region_name=None):
                   original_status=router['status'])
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def floatingip_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
@@ -224,6 +235,7 @@ def floatingip_list(project_id, region_name=None, project_name=None):
     return formatted_fips
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def router_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
@@ -246,6 +258,7 @@ def router_list(project_id, region_name=None, project_name=None):
     return formatted_routers
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_fips(project_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -272,6 +285,7 @@ def delete_fips(project_id, region_name=None):
             pass
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_networks(project_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -316,6 +330,7 @@ def delete_networks(project_id, region_name=None):
             pass
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_routers(project_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -360,6 +375,7 @@ def delete_routers(project_id, region_name=None):
             pass
 
 
+@register(resource=const.RESOURCE_FLOATINGIP, mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_fip(fip_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -369,6 +385,7 @@ def delete_fip(fip_id, region_name=None):
     client.delete_floatingip(fip_id)
 
 
+@register(resource=const.RESOURCE_FLOATINGIP, mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_fip(fip_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -408,6 +425,7 @@ def _delete_tunnels(tunnels, region_name=None):
 
 
 
+@register(resource=const.RESOURCE_ROUTER, mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_router(router_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -445,11 +463,13 @@ def delete_router(router_id, region_name=None):
     client.delete_router(router_id)
 
 
+@register(resource=const.RESOURCE_ROUTER, mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_router(router_id, region_name=None):
     return True
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def listener_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
@@ -477,6 +497,7 @@ def listener_list(project_id, region_name=None, project_name=None):
     return formatted_listeners
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_listeners(project_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -489,6 +510,7 @@ def delete_listeners(project_id, region_name=None):
             pass
 
 
+@register(resource=const.RESOURCE_LISTENER, mtype='get')
 @wrap_exception(exc_type='get')
 def listener_get(listener_id, region_name=None):
     try:
@@ -508,6 +530,7 @@ def listener_get(listener_id, region_name=None):
                     original_status=listener['status'])
 
 
+@register(resource=const.RESOURCE_LISTENER, mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_listener(listener_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -515,6 +538,7 @@ def stop_listener(listener_id, region_name=None):
     client.update_listener(listener_id, {'listener': update_dict})
 
 
+@register(resource=const.RESOURCE_LISTENER, mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_listener(listener_id, region_name=None):
     client = get_neutronclient(region_name)

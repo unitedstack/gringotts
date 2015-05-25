@@ -1,4 +1,6 @@
 import functools
+import inspect
+
 from decimal import Decimal
 from oslo.config import cfg
 
@@ -51,13 +53,54 @@ def wrap_exception(exc_type=None):
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
                 elif exc_type == 'put':
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
-                LOG.warn(msg)
                 raise GringottsException(message=msg)
         return functools.wraps(f)(wrapped)
     return inner
 
 
 wrap_exception = functools.partial(wrap_exception, exc_type='single')
+
+
+RESOURCE_LIST_METHOD = []
+RESOURCE_DELETE_METHOD = []
+
+RESOURCE_GET_MAP = {}
+RESOURCE_STOPPED_STATE = {}
+DELETE_METHOD_MAP = {}
+STOP_METHOD_MAP = {}
+RESOURCE_CREATE_MAP = {}
+
+
+def register(ks_client, service=None, resource=None, mtype=None,
+             stopped_state=None):
+    def inner(f):
+        def wrapped(uuid, *args, **kwargs):
+            return f(uuid, *args, **kwargs)
+        services = ks_client.get_services()
+        if service in services:
+            if mtype == 'list':
+                RESOURCE_LIST_METHOD.append(f)
+            elif mtype == 'deletes':
+                RESOURCE_DELETE_METHOD.append(f)
+            elif mtype == 'get':
+                RESOURCE_GET_MAP[resource] = f
+                RESOURCE_STOPPED_STATE[resource] = stopped_state
+            elif mtype == 'delete':
+                DELETE_METHOD_MAP[resource] = f
+            elif mtype == 'stop':
+                STOP_METHOD_MAP[resource] = f
+        return functools.wraps(f)(wrapped)
+    return inner
+
+
+def register_class(ks_client, service, resource, cls):
+    if not inspect.isclass(cls):
+        raise ValueError('Only classes may be registered.')
+
+    services = ks_client.get_services()
+    if service in services:
+        if resource not in RESOURCE_CREATE_MAP:
+            RESOURCE_CREATE_MAP[resource] = cls()
 
 
 class Resource(object):
@@ -95,3 +138,14 @@ class Resource(object):
 
     def __eq__(self, other):
         return self.id == other.id and self.original_status == other.original_status
+
+
+SUBMODULES  = [
+    'ceilometer',
+    'cinder',
+    'glance',
+    'keystone',
+    'manila',
+    'neutron',
+    'nova',
+]

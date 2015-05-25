@@ -238,6 +238,29 @@ def get_project_list():
     return get_ks_client().projects.list()
 
 
+def get_services():
+    # Read from cache first
+    cache = _get_cache()
+    key = str('gring-keystone-services')
+    services = cache.get(key)
+    if services:
+        return services
+
+    services = []
+    try:
+        _services = get_ks_client().services.list()
+    except Exception as e:
+        LOG.exception('failed to load services from kesytone:%s' % e)
+        return []
+
+    for s in _services:
+        services.append(s.type)
+
+    cache.set(key, services, CACHE_SECONDS)
+
+    return services
+
+
 @wrap_exception(exc_type='get')
 def get_user(user_id):
     return get_ks_client().users.get(user_id)

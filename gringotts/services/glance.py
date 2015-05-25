@@ -1,3 +1,5 @@
+import functools
+
 from oslo.config import cfg
 import  glanceclient
 from glanceclient.exc import NotFound,HTTPNotFound
@@ -9,11 +11,17 @@ from gringotts.openstack.common import log
 
 from gringotts.openstack.common import timeutils
 from gringotts.services import keystone as ks_client
-from gringotts.services import wrap_exception
+from gringotts.services import wrap_exception,register
 from gringotts.services import Resource
 
 
 LOG = log.getLogger(__name__)
+
+register = functools.partial(register,
+                             ks_client,
+                             service='image',
+                             resource=const.RESOURCE_IMAGE,
+                             stopped_state=const.STATE_RUNNING)
 
 
 class Image(Resource):
@@ -38,6 +46,7 @@ def get_glanceclient(region_name=None):
     return glanceclient.Client('2', endpoint, token=auth_token)
 
 
+@register(mtype='get')
 @wrap_exception(exc_type='get')
 def image_get(image_id, region_name=None):
     try:
@@ -54,6 +63,7 @@ def image_get(image_id, region_name=None):
                  resource_type=const.RESOURCE_IMAGE)
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def image_list(project_id, region_name=None, project_name=None):
     filters = {'owner': project_id}
@@ -74,6 +84,7 @@ def image_list(project_id, region_name=None, project_name=None):
     return formatted_images
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_images(project_id, region_name=None):
     client = get_glanceclient(region_name)
@@ -84,12 +95,14 @@ def delete_images(project_id, region_name=None):
         LOG.warn("Delete image: %s" % image.id)
 
 
+@register(mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_image(image_id, region_name=None):
     client = get_glanceclient(region_name)
     client.images.delete(image_id)
 
 
+@register(mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_image(image_id, region_name):
     return True

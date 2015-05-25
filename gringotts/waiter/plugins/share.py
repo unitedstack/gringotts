@@ -12,6 +12,9 @@ from gringotts.waiter import plugin as waiter_plugin
 from gringotts.waiter.plugin import Collection
 from gringotts.waiter.plugin import Order
 
+from gringotts import services
+from gringotts.services import keystone as ks_client
+
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 
@@ -150,6 +153,12 @@ class ShareCreateEnd(ShareNotificationBase):
     def change_unit_price(self, message, status, order_id):
         quantity = message['payload']['size']
         self.change_order_unit_price(order_id, quantity, status)
+
+
+services.register_class(ks_client,
+                        'share',
+                        const.RESOURCE_SHARE,
+                        ShareCreateEnd)
 
 
 class ShareDeleteEnd(ShareNotificationBase):

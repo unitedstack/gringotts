@@ -1,10 +1,11 @@
+import functools
 import time
 from oslo.config import cfg
 
 from gringotts import utils
 from gringotts import constants as const
 
-from gringotts.services import wrap_exception
+from gringotts.services import wrap_exception,register
 from gringotts.services import Resource
 from cinderclient.v1 import client as cinder_client
 from cinderclient.exceptions import NotFound
@@ -16,6 +17,11 @@ from gringotts.openstack.common import log
 
 LOG = log.getLogger(__name__)
 
+register = functools.partial(register,
+                             ks_client,
+                             service='volume',
+                             resource=const.RESOURCE_VOLUME,
+                             stopped_state=const.STATE_RUNNING)
 
 class Volume(Resource):
     def to_message(self):
@@ -62,6 +68,7 @@ def get_cinderclient(region_name=None):
     c.client.management_url = endpoint
     return c
 
+@register(mtype='get')
 @wrap_exception(exc_type='get')
 def volume_get(volume_id, region_name=None):
     c_client = get_cinderclient(region_name)
@@ -78,6 +85,7 @@ def volume_get(volume_id, region_name=None):
                   attachments=volume.attachments)
 
 
+@register(resource=const.RESOURCE_SNAPSHOT, mtype='get')
 @wrap_exception(exc_type='get')
 def snapshot_get(snapshot_id, region_name=None):
     c_client = get_cinderclient(region_name)
@@ -106,6 +114,7 @@ def volume_type_get(volume_type, region_name=None):
     return vt.name
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def volume_list(project_id, region_name=None, detailed=True, project_name=None):
     """To see all volumes in the cloud as admin.
@@ -135,6 +144,7 @@ def volume_list(project_id, region_name=None, detailed=True, project_name=None):
     return formatted_volumes
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def snapshot_list(project_id, region_name=None, detailed=True, project_name=None):
     """To see all snapshots in the cloud as admin
@@ -162,6 +172,7 @@ def snapshot_list(project_id, region_name=None, detailed=True, project_name=None
     return formatted_snap
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_volumes(project_id, region_name=None):
     """Delete all volumes that belong to project_id
@@ -184,6 +195,7 @@ def delete_volumes(project_id, region_name=None):
         LOG.warn("Delete volume: %s" % volume.id)
 
 
+@register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
 def delete_snapshots(project_id, region_name=None, volume_id=None):
     """Delete all snapshots that belong to project_id
@@ -203,6 +215,7 @@ def delete_snapshots(project_id, region_name=None, volume_id=None):
             pass
 
 
+@register(mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_volume(volume_id, region_name=None):
     client = get_cinderclient(region_name)
@@ -231,15 +244,18 @@ def delete_volume(volume_id, region_name=None):
     client.volumes.delete(volume_id)
 
 
+@register(mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_volume(volume_id, region_name=None):
     return True
 
+@register(resource=const.RESOURCE_SNAPSHOT, mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_snapshot(snap_id, region_name=None):
     client = get_cinderclient(region_name)
     client.volume_snapshots.delete(snap_id)
 
+@register(resource=const.RESOURCE_SNAPSHOT, mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_snapshot(snap_id, region_id=None):
     return True

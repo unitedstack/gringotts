@@ -11,6 +11,7 @@ from wsmeext.pecan import wsexpose
 
 from gringotts.api import acl
 from gringotts.api.v2 import models
+from gringotts import services
 from gringotts import context
 from gringotts.openstack.common import log
 
@@ -28,58 +29,28 @@ class ResourcesController(rest.RestController):
         :param region_name: when in multiple region, this parameter must be specified.
         """
         context.require_admin_context(request.context)
-
-        from gringotts.services import cinder
-        from gringotts.services import glance
-        from gringotts.services import neutron
-        from gringotts.services import nova
-        from gringotts.services import ceilometer
-        from gringotts.services import manila
-
         regions = [region_name] if region_name else cfg.CONF.regions
+
+        DELETE_METHODS = services.RESOURCE_DELETE_METHOD
 
         for region_name in regions:
             LOG.warn("deleting resources of tenant(%s) in region(%s)" % (project_id, region_name))
-
-            # Ensure snapshots to be deleted before volume
-            cinder.delete_snapshots(project_id, region_name=region_name)
-            glance.delete_images(project_id, region_name=region_name)
-            neutron.delete_fips(project_id, region_name=region_name)
-            neutron.delete_routers(project_id, region_name=region_name)
-            neutron.delete_listeners(project_id, region_name=region_name)
-            neutron.delete_networks(project_id, region_name=region_name)
-            nova.delete_servers(project_id, region_name=region_name)
-            ceilometer.delete_alarms(project_id, region_name=region_name)
-            manila.delete_shares(project_id, region_name=region_name)
-            cinder.delete_volumes(project_id, region_name=region_name)
+            for method in DELETE_METHODS:
+                method(project_id, region_name=region_name)
 
     @wsexpose([models.Resource], wtypes.text, wtypes.text)
     def get_all(self, project_id, region_name=None):
         """ Get all resources of specified project_id in all regions
         """
-        from gringotts.services import cinder
-        from gringotts.services import glance
-        from gringotts.services import neutron
-        from gringotts.services import nova
-        from gringotts.services import ceilometer
-        from gringotts.services import manila
-
         project_id = acl.get_limited_to_project(request.headers, 'uos_staff') or project_id
         if project_id is None:
             project_id = request.headers.get('X-Project-Id')
 
-        LIST_METHOD = [cinder.volume_list, cinder.snapshot_list,
-                       glance.image_list,
-                       neutron.network_list, neutron.router_list,
-                       neutron.floatingip_list, neutron.listener_list,
-                       nova.server_list,
-                       ceilometer.alarm_list,
-                       manila.share_list]
-
+        LIST_METHODS = services.RESOURCE_LIST_METHOD
         result = []
         regions = [region_name] if region_name else cfg.CONF.regions
 
-        for method, _region_name in itertools.product(LIST_METHOD, regions):
+        for method, _region_name in itertools.product(LIST_METHODS, regions):
             resources = method(project_id, region_name=_region_name)
             for resource in resources:
                 result.append(models.Resource(region_name=_region_name,
@@ -90,20 +61,8 @@ class ResourcesController(rest.RestController):
 
     @wsexpose(None, wtypes.text)
     def get(self, resource_id):
-        from gringotts.services import cinder
-        from gringotts.services import glance
-        from gringotts.services import neutron
-        from gringotts.services import nova
-        from gringotts.services import ceilometer
-        from gringotts.services import manila
-
-        ceilometer.alarm_get(resource_id)
-        cinder.volume_get(resource_id)
-        cinder.snapshot_get(resource_id)
-        glance.image_get(resource_id)
-        manila.share_get(resource_id)
-        neutron.router_get(resource_id)
-        neutron.floatingip_get(resource_id)
-        neutron.listener_get(resource_id)
-        neutron.router_get(resource_id)
-        nova.server_get(resource_id)
+        """ Just for test resource_get method
+        """
+        GET_METHODS = services.RESOURCE_GET_MAP.values()
+        for method in GET_METHODS:
+            method(resource_id)

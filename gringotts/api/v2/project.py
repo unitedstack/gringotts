@@ -146,13 +146,14 @@ class ProjectsController(rest.RestController):
         """
         user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or user_id
 
-        if not user_id:
-            user_id = request.context.user_id
-
         self.conn = pecan.request.db_conn
         result = []
 
         if not type or type.lower() == 'pay':
+            # if admin call this api, limit to admin's user_id
+            if not user_id:
+                user_id = request.context.user_id
+
             try:
                 user_projects = self.conn.get_user_projects(request.context,
                                                             user_id=user_id)
@@ -188,6 +189,10 @@ class ProjectsController(rest.RestController):
                                             created_at=timeutils.parse_isotime(p['created_at']) if p['created_at'] else None)
                     result.append(up)
         elif type.lower() == 'all':
+            # if admin call this api, limit to admin's user_id
+            if not user_id:
+                user_id = request.context.user_id
+
             k_projects = keystone.get_projects_by_user(user_id)
             project_ids = [p['id'] for p in k_projects]
 

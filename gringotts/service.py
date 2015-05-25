@@ -7,8 +7,11 @@ from oslo.config import cfg
 
 from gringotts.openstack.common import gettextutils
 from gringotts.openstack.common import log
+from gringotts.openstack.common import importutils
 from gringotts.openstack.common import rpc
 
+
+LOG = log.getLogger(__name__)
 
 cfg.CONF.register_opts([
     cfg.StrOpt('host',
@@ -67,3 +70,11 @@ def prepare_service(argv=None):
         argv = sys.argv
     cfg.CONF(argv[1:], project='gringotts')
     log.setup('gringotts')
+
+    #NOTE(suo): Import services/submodules to register methods
+    # If use `from gringotts.services import *` will cause SynaxWarning,
+    # so we import every submodule implicitly.
+    from gringotts import services
+    for m in services.SUBMODULES:
+        importutils.import_module("gringotts.services.%s" % m)
+    LOG.warn('Loaded resources: %s' % services.RESOURCE_GET_MAP.keys())

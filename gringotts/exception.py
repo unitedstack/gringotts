@@ -264,7 +264,7 @@ class UserProjectNotFound(NotFound):
     message = _("Relationship between User %(user_id)s and Project %(project_id)s not found")
 
 
-class ProjectCreateFaild(GringottsException):
+class ProjectCreateFailed(GringottsException):
     message =_("Fail to create project %(project_id)s with project_owner %(user_id)s")
 
 

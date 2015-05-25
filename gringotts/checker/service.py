@@ -15,11 +15,12 @@ from gringotts.service import prepare_service
 from gringotts.services import alert
 from gringotts.services.keystone import User,Project
 
-from gringotts.waiter import plugins
-
 from gringotts.openstack.common import log
 from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import service as os_service
+
+from gringotts import services
+from gringotts.services import keystone
 
 
 LOG = log.getLogger(__name__)
@@ -132,79 +133,18 @@ class CheckerService(os_service.Service):
         self.apsched = APScheduler(config)
         self.ctxt = context.get_admin_context()
 
-        from gringotts.services import cinder
-        from gringotts.services import glance
-        from gringotts.services import neutron
-        from gringotts.services import nova
-        from gringotts.services import keystone
-        from gringotts.services import ceilometer
-        from gringotts.services import manila
+        self.RESOURCE_LIST_METHOD = services.RESOURCE_LIST_METHOD
+        self.DELETE_METHOD_MAP = services.DELETE_METHOD_MAP
+        self.STOP_METHOD_MAP = services.STOP_METHOD_MAP
+        self.RESOURCE_STOPPED_STATE = services.RESOURCE_STOPPED_STATE
+        self.RESOURCE_GET_MAP = services.RESOURCE_GET_MAP
 
-        self.keystone_client = keystone
+        # NOTE(suo): Import waiter plugins to invoke register_class methods.
+        # Don't import this in module level, because it need to read
+        # config file, so it should be imported after service initialization
+        from gringotts.waiter import plugins
 
-        self.RESOURCE_LIST_METHOD = [
-            nova.server_list,
-            glance.image_list,
-            cinder.snapshot_list,
-            cinder.volume_list,
-            neutron.floatingip_list,
-            neutron.router_list,
-            neutron.network_list,
-            neutron.port_list,
-            neutron.listener_list,
-            ceilometer.alarm_list,
-            manila.share_list,
-        ]
-
-        self.RESOURCE_CREATE_MAP = {
-            const.RESOURCE_FLOATINGIP: plugins.floatingip.FloatingIpCreateEnd(),
-            const.RESOURCE_IMAGE: plugins.image.ImageCreateEnd(),
-            const.RESOURCE_INSTANCE: plugins.instance.InstanceCreateEnd(),
-            const.RESOURCE_ROUTER: plugins.router.RouterCreateEnd(),
-            const.RESOURCE_LISTENER: plugins.listener.ListenerCreateEnd(),
-            const.RESOURCE_SNAPSHOT: plugins.snapshot.SnapshotCreateEnd(),
-            const.RESOURCE_VOLUME: plugins.volume.VolumeCreateEnd(),
-            const.RESOURCE_ALARM: plugins.alarm.AlarmCreateEnd(),
-            const.RESOURCE_USER: plugins.user.UserCreatedEnd(),
-            const.RESOURCE_PROJECT: plugins.user.ProjectCreatedEnd(),
-            const.RESOURCE_SHARE: plugins.share.ShareCreateEnd(),
-        }
-
-        self.RESOURCE_GET_MAP = {
-            const.RESOURCE_INSTANCE: (nova.server_get, const.STATE_STOPPED),
-            const.RESOURCE_SNAPSHOT: (cinder.snapshot_get, const.STATE_RUNNING),
-            const.RESOURCE_VOLUME: (cinder.volume_get, const.STATE_RUNNING),
-            const.RESOURCE_IMAGE: (glance.image_get, const.STATE_RUNNING),
-            const.RESOURCE_FLOATINGIP: (neutron.floatingip_get, const.STATE_RUNNING),
-            const.RESOURCE_ROUTER: (neutron.router_get, const.STATE_RUNNING),
-            const.RESOURCE_LISTENER: (neutron.listener_get, const.STATE_RUNNING),
-            const.RESOURCE_ALARM: (ceilometer.alarm_get, const.STATE_RUNNING),
-            const.RESOURCE_SHARE: (manila.share_get, const.STATE_RUNNING),
-        }
-
-        self.DELETE_METHOD_MAP = {
-            const.RESOURCE_INSTANCE: nova.delete_server,
-            const.RESOURCE_IMAGE: glance.delete_image,
-            const.RESOURCE_SNAPSHOT: cinder.delete_snapshot,
-            const.RESOURCE_VOLUME: cinder.delete_volume,
-            const.RESOURCE_FLOATINGIP: neutron.delete_fip,
-            const.RESOURCE_ROUTER: neutron.delete_router,
-            const.RESOURCE_LISTENER: neutron.delete_listener,
-            const.RESOURCE_ALARM: ceilometer.delete_alarm,
-            const.RESOURCE_SHARE: manila.delete_share,
-        }
-
-        self.STOP_METHOD_MAP = {
-            const.RESOURCE_INSTANCE: nova.stop_server,
-            const.RESOURCE_IMAGE: glance.stop_image,
-            const.RESOURCE_SNAPSHOT: cinder.stop_snapshot,
-            const.RESOURCE_VOLUME: cinder.stop_volume,
-            const.RESOURCE_FLOATINGIP: neutron.stop_fip,
-            const.RESOURCE_ROUTER: neutron.stop_router,
-            const.RESOURCE_LISTENER: neutron.stop_listener,
-            const.RESOURCE_ALARM: ceilometer.stop_alarm,
-            const.RESOURCE_SHARE: manila.stop_share,
-        }
+        self.RESOURCE_CREATE_MAP = services.RESOURCE_CREATE_MAP
 
         super(CheckerService, self).__init__(*args, **kwargs)
 
@@ -316,7 +256,7 @@ class CheckerService(os_service.Service):
     def _check_if_resources_match_orders(self, bad_resources, try_to_fix):
         """Check one time to collect orders/resources that may need to fix and notify
         """
-        projects = self.keystone_client.get_project_list()
+        projects = keystone.get_project_list()
         for project in projects:
             if project.id in cfg.CONF.ignore_tenants:
                 continue
@@ -436,7 +376,7 @@ class CheckerService(os_service.Service):
     def _check_if_owed_resources_match_owed_orders(self,
                                                    should_stop_resources,
                                                    should_delete_resources):
-        projects = self.keystone_client.get_project_list()
+        projects = keystone.get_project_list()
         for project in projects:
             orders = list(self.worker_api.get_active_orders(self.ctxt,
                                                             region_id=self.region_name,
@@ -453,8 +393,8 @@ class CheckerService(os_service.Service):
                     order['cron_time'] = timeutils.parse_strtime(
                             order['cron_time'],
                             fmt=ISO8601_UTC_TIME_FORMAT)
-                resource = self.RESOURCE_GET_MAP[order['type']][0](order['resource_id'],
-                                                                   region_name=self.region_name)
+                resource = self.RESOURCE_GET_MAP[order['type']](order['resource_id'],
+                                                                region_name=self.region_name)
                 now = datetime.datetime.utcnow()
                 if order['date_time'] < now:
                     if resource:
@@ -465,7 +405,7 @@ class CheckerService(os_service.Service):
                         continue
                     if order['type'] == const.RESOURCE_FLOATINGIP and not resource.is_reserved and order['owed']:
                         should_delete_resources.append(resource)
-                    elif resource.status != self.RESOURCE_GET_MAP[order['type']][1]:
+                    elif resource.status != self.RESOURCE_STOPPED_STATE[order['type']]:
                         should_stop_resources.append(resource)
 
     def check_if_owed_resources_match_owed_orders(self):
@@ -566,7 +506,7 @@ class CheckerService(os_service.Service):
                     if not orders:
                         continue
 
-                    contact = self.keystone_client.get_uos_user(account['user_id'])
+                    contact = keystone.get_uos_user(account['user_id'])
                     _projects = self.worker_api.get_projects(self.ctxt, user_id=account['user_id'], type='simple')
 
                     orders_dict = {}
@@ -575,8 +515,8 @@ class CheckerService(os_service.Service):
 
                     for order in orders:
                         # check if the resource exists
-                        resource = self.RESOURCE_GET_MAP[order['type']][0](order['resource_id'],
-                                                                           region_name=order['region_id'])
+                        resource = self.RESOURCE_GET_MAP[order['type']](order['resource_id'],
+                                                                        region_name=order['region_id'])
                         if not resource:
                             # alert that the resource not exists
                             LOG.warn("The resource(%s|%s) has been deleted" % \
@@ -641,8 +581,8 @@ class CheckerService(os_service.Service):
                     price_per_hour = 0
                     for order in orders:
                         # check if the resource exists
-                        resource = self.RESOURCE_GET_MAP[order['type']][0](order['resource_id'],
-                                                                           region_name=order['region_id'])
+                        resource = self.RESOURCE_GET_MAP[order['type']](order['resource_id'],
+                                                                        region_name=order['region_id'])
                         if not resource:
                             # alert that the resource not exists
                             LOG.warn("The resource(%s|%s) may has been deleted" % \
@@ -677,7 +617,7 @@ class CheckerService(os_service.Service):
                     if not projects:
                         continue
 
-                    contact = self.keystone_client.get_uos_user(account['user_id'])
+                    contact = keystone.get_uos_user(account['user_id'])
                     country_code = contact.get("country_code") or "86"
                     language = "en_US" if country_code != '86' else "zh_CN"
                     self.notifier.notify_before_owed(self.ctxt, account, contact, projects,
@@ -705,7 +645,7 @@ class CheckerService(os_service.Service):
     def _check_user_to_account(self):
         LOG.warn("Checking if users in keystone match accounts in gringotts")
         accounts = sorted(self.worker_api.get_accounts(self.ctxt), key=lambda account: account['user_id'])
-        users = sorted(self.keystone_client.get_user_list(), key=lambda user: user.id)
+        users = sorted(keystone.get_user_list(), key=lambda user: user.id)
 
         _users = self._figure_out_difference(users, 'id', accounts, 'user_id')
         result = []
@@ -735,7 +675,7 @@ class CheckerService(os_service.Service):
 
     def _check_project_to_project(self):
         LOG.warn("Checking if projects in keystone match projects in gringotts")
-        _k_projects = self.keystone_client.get_projects_by_project_ids()
+        _k_projects = keystone.get_projects_by_project_ids()
         _g_projects = self.worker_api.get_projects(self.ctxt, type='simple')
 
         k_projects = []

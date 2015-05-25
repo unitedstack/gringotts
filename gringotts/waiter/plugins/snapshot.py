@@ -11,6 +11,9 @@ from gringotts.waiter import plugin as waiter_plugin
 from gringotts.waiter.plugin import Collection
 from gringotts.waiter.plugin import Order
 
+from gringotts import services
+from gringotts.services import keystone as ks_client
+
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 
@@ -135,6 +138,12 @@ class SnapshotCreateEnd(SnapshotNotificationBase):
             self.resource_created_again(order_id, action_time, remarks)
         else:
             self.resource_created(order_id, action_time, remarks)
+
+
+services.register_class(ks_client,
+                        'volume',
+                        const.RESOURCE_SNAPSHOT,
+                        SnapshotCreateEnd)
 
 
 class SnapshotDeleteEnd(SnapshotNotificationBase):

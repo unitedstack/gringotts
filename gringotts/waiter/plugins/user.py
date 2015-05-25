@@ -11,6 +11,10 @@ from gringotts import exception
 from gringotts import plugin
 from gringotts.waiter import plugin as waiter_plugin
 
+from gringotts import constants as const
+from gringotts import services
+from gringotts.services import keystone as ks_client
+
 from gringotts.openstack.common import log
 
 
@@ -94,8 +98,8 @@ class UserRegisterEnd(RegisterNotificationBase):
         except Exception:
             LOG.exception('Fail to create project %s with project_owner %s' % \
                     (project_id, user_id))
-            raise exception.ProjectCreateFaild(project_id=project_id,
-                                               user_id=user_id)
+            raise exception.ProjectCreateFailed(project_id=project_id,
+                                                user_id=user_id)
 
         LOG.info('Create project %s with project_owner %s successfully' % (project_id, user_id))
 
@@ -136,6 +140,12 @@ class UserCreatedEnd(RegisterNotificationBase):
         LOG.info('Create account %s for the domain %s successfully' % (user_id, domain_id))
 
 
+services.register_class(ks_client,
+                        'identity',
+                        const.RESOURCE_USER,
+                        UserCreatedEnd)
+
+
 class ProjectCreatedEnd(RegisterNotificationBase):
     """Handle the event that project be created"""
 
@@ -154,10 +164,16 @@ class ProjectCreatedEnd(RegisterNotificationBase):
         except Exception:
             LOG.exception('Fail to create project %s with project_owner %s' % \
                     (project_id, user_id))
-            raise exception.ProjectCreateFaild(project_id=project_id,
-                                               user_id=user_id)
+            raise exception.ProjectCreateFailed(project_id=project_id,
+                                                user_id=user_id)
 
         LOG.info('Create project %s with billling_owner %s successfully' % (project_id, user_id))
+
+
+services.register_class(ks_client,
+                        'identity',
+                        const.RESOURCE_PROJECT,
+                        ProjectCreatedEnd)
 
 
 class ProjectDeletedEnd(RegisterNotificationBase):

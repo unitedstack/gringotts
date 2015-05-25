@@ -14,6 +14,9 @@ from gringotts.waiter import plugin as waiter_plugin
 from gringotts.waiter.plugin import Collection
 from gringotts.waiter.plugin import Order
 
+from gringotts import services
+from gringotts.services import keystone as ks_client
+
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
@@ -241,6 +244,11 @@ class InstanceCreateEnd(ComputeNotificationBase):
 
         self.change_flavor_unit_price(order_id, product_name, service, region_id, status)
 
+
+services.register_class(ks_client,
+                        'compute',
+                        const.RESOURCE_INSTANCE,
+                        InstanceCreateEnd)
 
 class InstanceStopEnd(ComputeNotificationBase):
     """Handle the events that instances be stopped, for now,
