@@ -1,6 +1,12 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 """Plugins for executing specific actions acrronding to notification events.
 """
+
+from datetime import datetime
+from datetime import timedelta
+
 from oslo.config import cfg
 from stevedore import extension
 
@@ -10,8 +16,8 @@ from gringotts import plugin
 from gringotts.waiter import plugin as waiter_plugin
 from gringotts.waiter.plugin import Collection
 from gringotts.waiter.plugin import Order
-
 from gringotts import services
+from gringotts.services import lotus
 from gringotts.services import keystone as ks_client
 
 from gringotts.openstack.common import log
@@ -94,6 +100,61 @@ class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
                       project_id=project_id)
         return order
 
+    def _send_email_notification(self, message):
+
+        def convert_to_localtime(timestamp):
+            FORMAT = '%Y-%m-%d %H:%M:%S.%f'
+            try:
+                # convert from UTC to UTC+8(Beijing)
+                dt = datetime.strptime(timestamp, FORMAT) + timedelta(hours=8)
+                return dt.strftime(FORMAT[:-3])
+            except (ValueError):
+                return timestamp
+
+        CTX_TEMPLATE = '_context_%s'
+
+        user = ks_client.get_uos_user(message[CTX_TEMPLATE % 'user_id'])
+        username = user.get('name', '')
+        if username == 'doctor':
+            return
+
+        event_type = message['event_type']
+        if 'create' in event_type:
+            event_name = u'创建公网IP'
+        elif 'delete' in event_type:
+            event_name = u'删除公网IP'
+        else:
+            return
+
+        content = []
+        content.append(u'事件: {}'.format(event_name))
+        content.append(u'时间: {}'.format(
+            convert_to_localtime(message['timestamp'])))
+        content.append('<hr noshade size=1>')
+        content.append(u'项目: {}'.format(
+            message[CTX_TEMPLATE % 'project_name']))
+        content.append(u'用户名: {}'.format(username))
+        content.append(u'姓名: {}'.format(user.get('real_name', '')))
+        content.append(u'Email: {}'.format(user.get('email', '')))
+        content.append(u'手机号: {}'.format(user.get('mobile_number', '')))
+
+        floatingip = message['payload']['floatingip']
+        content.append(
+            u'公网IP地址: {}'.format(floatingip['floating_ip_address']))
+        # format of created_at is %Y-%m-%dT%H:%M:%S.%f
+        content.append(u'创建时间: {}'.format(
+            convert_to_localtime(floatingip['created_at'].replace('T', ' '))))
+
+        lotus.send_notification_email(
+            u'公网IP变动通知', u'<br />'.join(content))
+
+    def send_email_notification(self, message):
+        try:
+            self._send_email_notification(message)
+        except (Exception):
+            # failure of this should not affect accounting function
+            pass
+
 
 class FloatingIpCreateEnd(FloatingIpNotificationBase):
     """Handle the event that floating ip be created
@@ -104,6 +165,8 @@ class FloatingIpCreateEnd(FloatingIpNotificationBase):
         LOG.warn('Do action for event: %s, resource_id: %s',
                  message['event_type'],
                  message['payload']['floatingip']['id'])
+
+        self.send_email_notification(message)
 
         # Generate uuid of an order
         order_id = uuidutils.generate_uuid()
@@ -116,14 +179,14 @@ class FloatingIpCreateEnd(FloatingIpNotificationBase):
             if ext.name.startswith('suspend'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_SUSPEND)
-                if sub and state==const.STATE_SUSPEND:
+                if sub and state == const.STATE_SUSPEND:
                     p = gringutils._quantize_decimal(sub['unit_price'])
                     unit_price += p * sub['quantity']
                     unit = sub['unit']
             elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
-                if sub and (not state or state==const.STATE_RUNNING):
+                if sub and (not state or state == const.STATE_RUNNING):
                     p = gringutils._quantize_decimal(sub['unit_price'])
                     unit_price += p * sub['quantity']
                     unit = sub['unit']
@@ -191,6 +254,8 @@ class FloatingIpDeleteEnd(FloatingIpNotificationBase):
         LOG.warn('Do action for event: %s, resource_id: %s',
                  message['event_type'],
                  message['payload']['floatingip_id'])
+
+        self.send_email_notification(message)
 
         # Get the order of this resource
         resource_id = message['payload']['floatingip_id']
