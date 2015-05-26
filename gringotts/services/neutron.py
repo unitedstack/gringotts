@@ -510,11 +510,19 @@ def delete_listeners(project_id, region_name=None):
             pass
 
 
-@register(resource=const.RESOURCE_LISTENER, mtype='get')
+def _is_last_listener(client, loadbalancer_id, listener_id):
+    lb = client.show_loadbalancer(listener['loadbalancer_id']).get('loadbalancer')
+    if len(lb['listener_ids']) == 1 and listener_id in lb['listener_ids']:
+        return True
+    return False
+
+
+@register(resource=const.RESOURCE_LISTENER, mtype='get', stopped_state=const.STATE_STOPPED)
 @wrap_exception(exc_type='get')
 def listener_get(listener_id, region_name=None):
+    client = get_neutronclient(region_name)
     try:
-        listener = get_neutronclient(region_name).show_listener(listener_id).get('listener')
+        listener = client.show_listener(listener_id).get('listener')
     except exceptions.NotFound:
         return None
     except exceptions.NeutronException as e:
@@ -523,10 +531,13 @@ def listener_get(listener_id, region_name=None):
         raise e
 
     status = utils.transform_status(listener['status'])
+    admin_state = const.STATE_RUNNING if listener['admin_state_up'] else const.STATE_STOPPED
+
     return Listener(id=listener['id'],
                     name=listener['name'],
                     resource_type=const.RESOURCE_LISTENER,
                     status=status,
+                    admin_state=admin_state,
                     original_status=listener['status'])
 
 

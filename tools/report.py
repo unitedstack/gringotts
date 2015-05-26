@@ -40,7 +40,9 @@ def get_uos_user(user_id):
 book = Workbook(encoding='utf-8')
 sheet1 = book.add_sheet('Sheet1')
 
-COLUMNS = [u"姓名", u"电话", u"邮箱", u"公司", u"账户余额(元)", u"bonus充值(元)", u"money充值(元)", u"消费总额(元)", u"预估每天消费(元)"]
+COLUMNS = [u"邮箱", u"电话", u"姓名", u"公司", u"注册时间",
+           u"账户余额(元)", u"bonus充值(元)", u"money充值(元)", u"消费总额(元)", u"预估每天消费(元)",
+           u"user_id"]
 
 for i in range(len(COLUMNS)):
     sheet1.write(0, i, COLUMNS[i])
@@ -69,26 +71,31 @@ for account in accounts['accounts']:
     mobile_number = contact.get('mobile_number') or 'unknown'
     email = contact.get('email')
     company = contact.get('company') or 'unknown'
+    created_at = contact.get('created_at') or account['created_at'] or 'unknown'
 
-    sheet1.write(j, 0, username)
+    sheet1.write(j, 0, email)
     sheet1.write(j, 1, mobile_number)
-    sheet1.write(j, 2, email)
+    sheet1.write(j, 2, username)
     sheet1.write(j, 3, company)
-    sheet1.write(j, 4, balance)
-    sheet1.write(j, 5, bonus)
-    sheet1.write(j, 6, money)
-    sheet1.write(j, 7, consumption)
-    sheet1.write(j, 8, consumption_per_day)
+    sheet1.write(j, 4, created_at)
+    sheet1.write(j, 5, balance)
+    sheet1.write(j, 6, bonus)
+    sheet1.write(j, 7, money)
+    sheet1.write(j, 8, consumption)
+    sheet1.write(j, 9, consumption_per_day['price_per_day'])
+    sheet1.write(j, 10, account['user_id'])
     j += 1
 
-sheet1.col(0).width = 5000
+sheet1.col(0).width = 10000
 sheet1.col(1).width = 5000
-sheet1.col(2).width = 10000
+sheet1.col(2).width = 5000
 sheet1.col(3).width = 10000
-sheet1.col(4).width = 4000
+sheet1.col(4).width = 6000
 sheet1.col(5).width = 4000
 sheet1.col(6).width = 4000
 sheet1.col(7).width = 4000
 sheet1.col(8).width = 4000
+sheet1.col(9).width = 4000
+sheet1.col(10).width = 10000
 
 book.save('accounts.xls')

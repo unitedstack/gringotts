@@ -211,14 +211,15 @@ class CheckerService(os_service.Service):
             # Situation 2: There may exist resource whose status doesn't match with its order's
             if resource.status == const.STATE_ERROR:
                 bad_resources.append(resource)
-            elif hasattr(resource, 'admin_state') and resource.admin_state != order['status']:
+            elif resource.resource_type == const.RESOURCE_LISTENER and \
+                    resource.admin_state != order['status']:
                 ## for loadbalancer listener
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
                                                       action_time,
                                                       resource.admin_state,
                                                       resource.project_id))
-            elif not hasattr(resource, 'admin_state') and resource.status != order['status']:
+            elif resource.status != order['status']:
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
                                                       action_time,
@@ -405,6 +406,9 @@ class CheckerService(os_service.Service):
                         continue
                     if order['type'] == const.RESOURCE_FLOATINGIP and not resource.is_reserved and order['owed']:
                         should_delete_resources.append(resource)
+                    elif resource.resource_type == const.RESOURCE_LISTENER:
+                        if resource.admin_state != self.RESOURCE_STOPPED_STATE[order['type']]:
+                            should_stop_resources.append(resource)
                     elif resource.status != self.RESOURCE_STOPPED_STATE[order['type']]:
                         should_stop_resources.append(resource)
 
