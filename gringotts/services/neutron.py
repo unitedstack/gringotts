@@ -535,7 +535,7 @@ def listener_get(listener_id, region_name=None):
             return None
         raise e
 
-    is_last = _is_last_up_listener(client, listener['loadbalancer_id'], listener_id)
+    is_last_up = _is_last_up_listener(client, listener['loadbalancer_id'], listener_id)
     status = utils.transform_status(listener['status'])
     admin_state = const.STATE_RUNNING if listener['admin_state_up'] else const.STATE_STOPPED
 
@@ -544,7 +544,7 @@ def listener_get(listener_id, region_name=None):
                     resource_type=const.RESOURCE_LISTENER,
                     status=status,
                     admin_state=admin_state,
-                    is_last=is_last,
+                    is_last_up=is_last_up,
                     original_status=listener['status'])
 
 

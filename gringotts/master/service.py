@@ -370,6 +370,10 @@ class MasterService(rpc_service.Service):
                                           deleted_at,
                                           "Resource Has Been Deleted")
                 return
+
+            # TODO(suo): Too ugly, maybe should have another order_status attribute in resource,
+            # status is just for judging resource status, and order_status is for determining
+            # order status
             if (resource.resource_type == const.RESOURCE_LISTENER and resource.admin_state != order['status']) or \
                     (resource.resource_type != const.RESOURCE_LISTENER and resource.status != order['status']):
                 # alert that the status of resource and order don't match

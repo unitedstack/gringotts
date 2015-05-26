@@ -53,8 +53,9 @@ cfg.CONF.register_opts(OPTS, group="checker")
 
 
 class Situation2Item(object):
-    def __init__(self, order_id, action_time, change_to, project_id):
+    def __init__(self, order_id, resource_type, action_time, change_to, project_id):
         self.order_id = order_id
+        self.resource_type = resource_type
         self.action_time = action_time
         self.change_to = change_to
         self.project_id = project_id
@@ -216,6 +217,7 @@ class CheckerService(os_service.Service):
                 ## for loadbalancer listener
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
+                                                      resource.resource_type,
                                                       action_time,
                                                       resource.admin_state,
                                                       resource.project_id))
@@ -223,6 +225,7 @@ class CheckerService(os_service.Service):
                     resource.status != order['status']:
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
+                                                      resource.resource_type,
                                                       action_time,
                                                       resource.status,
                                                       resource.project_id))
@@ -342,11 +345,17 @@ class CheckerService(os_service.Service):
             LOG.warn('Situation 2: In project(%s), the order(%s) and its resource\'s status doesn\'t match' % \
                     (item.project_id, item.order_id))
             if cfg.CONF.checker.try_to_fix:
-                self.master_api.resource_changed(self.ctxt,
-                                                 item.order_id,
-                                                 item.action_time,
-                                                 change_to=item.change_to,
-                                                 remarks="System Adjust")
+                if item.resource_type == const.RESOURCE_INSTANCE and \
+                        item.change_to == const.STATE_STOPPED:
+                    self.master_api.instance_stopped(self.ctxt,
+                                                     item.order_id,
+                                                     item.action_time)
+                else:
+                    self.master_api.resource_changed(self.ctxt,
+                                                     item.order_id,
+                                                     item.action_time,
+                                                     change_to=item.change_to,
+                                                     remarks="System Adjust")
         ## Situation 3
         for item in try_to_fix_situ_3:
             LOG.warn('Situation 3: In project(%s), the order(%s) has no bills' % \
@@ -409,7 +418,7 @@ class CheckerService(os_service.Service):
                     if order['type'] == const.RESOURCE_FLOATINGIP and not resource.is_reserved and order['owed']:
                         should_delete_resources.append(resource)
                     elif resource.resource_type == const.RESOURCE_LISTENER and \
-                            not resource.is_last and \
+                            not resource.is_last_up and \
                             resource.admin_state != self.RESOURCE_STOPPED_STATE[order['type']]:
                         should_stop_resources.append(resource)
                     elif resource.resource_type != const.RESOURCE_LISTENER and \
