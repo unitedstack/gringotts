@@ -510,9 +510,14 @@ def delete_listeners(project_id, region_name=None):
             pass
 
 
-def _is_last_listener(client, loadbalancer_id, listener_id):
-    lb = client.show_loadbalancer(listener['loadbalancer_id']).get('loadbalancer')
-    if len(lb['listener_ids']) == 1 and listener_id in lb['listener_ids']:
+def _is_last_up_listener(client, loadbalancer_id, listener_id):
+    lb = client.show_loadbalancer(loadbalancer_id).get('loadbalancer')
+    up_listeners = []
+    for lid in lb['listener_ids']:
+        listener = client.show_listener(lid).get('listener')
+        if listener['admin_state_up']:
+            up_listeners.append(lid)
+    if len(up_listeners) == 1 and listener_id in up_listeners:
         return True
     return False
 
@@ -530,6 +535,7 @@ def listener_get(listener_id, region_name=None):
             return None
         raise e
 
+    is_last = _is_last_up_listener(client, listener['loadbalancer_id'], listener_id)
     status = utils.transform_status(listener['status'])
     admin_state = const.STATE_RUNNING if listener['admin_state_up'] else const.STATE_STOPPED
 
@@ -538,6 +544,7 @@ def listener_get(listener_id, region_name=None):
                     resource_type=const.RESOURCE_LISTENER,
                     status=status,
                     admin_state=admin_state,
+                    is_last=is_last,
                     original_status=listener['status'])
 
 

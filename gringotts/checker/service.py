@@ -219,7 +219,8 @@ class CheckerService(os_service.Service):
                                                       action_time,
                                                       resource.admin_state,
                                                       resource.project_id))
-            elif resource.status != order['status']:
+            elif resource.resource_type != const.RESOURCE_LISTENER and \
+                    resource.status != order['status']:
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
                                                       action_time,
@@ -394,6 +395,7 @@ class CheckerService(os_service.Service):
                     order['cron_time'] = timeutils.parse_strtime(
                             order['cron_time'],
                             fmt=ISO8601_UTC_TIME_FORMAT)
+
                 resource = self.RESOURCE_GET_MAP[order['type']](order['resource_id'],
                                                                 region_name=self.region_name)
                 now = datetime.datetime.utcnow()
@@ -406,10 +408,12 @@ class CheckerService(os_service.Service):
                         continue
                     if order['type'] == const.RESOURCE_FLOATINGIP and not resource.is_reserved and order['owed']:
                         should_delete_resources.append(resource)
-                    elif resource.resource_type == const.RESOURCE_LISTENER:
-                        if resource.admin_state != self.RESOURCE_STOPPED_STATE[order['type']]:
-                            should_stop_resources.append(resource)
-                    elif resource.status != self.RESOURCE_STOPPED_STATE[order['type']]:
+                    elif resource.resource_type == const.RESOURCE_LISTENER and \
+                            not resource.is_last and \
+                            resource.admin_state != self.RESOURCE_STOPPED_STATE[order['type']]:
+                        should_stop_resources.append(resource)
+                    elif resource.resource_type != const.RESOURCE_LISTENER and \
+                            resource.status != self.RESOURCE_STOPPED_STATE[order['type']]:
                         should_stop_resources.append(resource)
 
     def check_if_owed_resources_match_owed_orders(self):

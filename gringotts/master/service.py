@@ -370,7 +370,8 @@ class MasterService(rpc_service.Service):
                                           deleted_at,
                                           "Resource Has Been Deleted")
                 return
-            if resource.status != order['status']:
+            if (resource.resource_type == const.RESOURCE_LISTENER and resource.admin_state != order['status']) or \
+                    (resource.resource_type != const.RESOURCE_LISTENER and resource.status != order['status']):
                 # alert that the status of resource and order don't match
                 LOG.warn("The status of the resource(%s|%s|%s) doesn't match with the order(%s|%s|%s)." % \
                           (resource.resource_type, resource.id, resource.original_status,
