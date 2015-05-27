@@ -26,6 +26,9 @@ enable_bonus=False
 discount = 10:0, 500:0.1, 1000:0.2, 5000:0.3, 10000:0.4
 #ignore_tenants=xxxx # a list of tenant id
 
+#lotus_endpoint=http://localhost:9527/v1
+#notification_email_receivers=
+
 [waiter]
 queue_name=gringotts.notification
 initial_balance=10
