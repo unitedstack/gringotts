@@ -127,22 +127,22 @@ class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
             return
 
         content = []
-        content.append(u'事件: {}'.format(event_name))
-        content.append(u'时间: {}'.format(
+        content.append(u'事件: %s' % (event_name))
+        content.append(u'时间: %s' % (
             convert_to_localtime(message['timestamp'])))
         content.append('<hr noshade size=1>')
-        content.append(u'项目: {}'.format(
+        content.append(u'项目: %s' % (
             message[CTX_TEMPLATE % 'project_name']))
-        content.append(u'用户名: {}'.format(username))
-        content.append(u'姓名: {}'.format(user.get('real_name', '')))
-        content.append(u'Email: {}'.format(user.get('email', '')))
-        content.append(u'手机号: {}'.format(user.get('mobile_number', '')))
+        content.append(u'用户名: %s' % (username))
+        content.append(u'姓名: %s' % (user.get('real_name', '')))
+        content.append(u'Email: %s' % (user.get('email', '')))
+        content.append(u'手机号: %s' % (user.get('mobile_number', '')))
 
         floatingip = message['payload']['floatingip']
         content.append(
-            u'公网IP地址: {}'.format(floatingip['floating_ip_address']))
+            u'公网IP地址: %s' % (floatingip['floating_ip_address']))
         # format of created_at is %Y-%m-%dT%H:%M:%S.%f
-        content.append(u'创建时间: {}'.format(
+        content.append(u'创建时间: %s' % (
             convert_to_localtime(floatingip['created_at'].replace('T', ' '))))
 
         lotus.send_notification_email(
@@ -151,9 +151,9 @@ class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
     def send_email_notification(self, message):
         try:
             self._send_email_notification(message)
-        except (Exception):
+        except (Exception) as e:
             # failure of this should not affect accounting function
-            pass
+            LOG.warn('Send email notification failed, %s', e)
 
 
 class FloatingIpCreateEnd(FloatingIpNotificationBase):
