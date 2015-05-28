@@ -135,6 +135,7 @@ class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
             message[CTX_TEMPLATE % 'project_name']))
         content.append(u'用户名: %s' % (username))
         content.append(u'姓名: %s' % (user.get('real_name', '')))
+        content.append(u'公司: %s' % (user.get('company', '')))
         content.append(u'Email: %s' % (user.get('email', '')))
         content.append(u'手机号: %s' % (user.get('mobile_number', '')))
 
