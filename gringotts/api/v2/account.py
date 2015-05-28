@@ -238,7 +238,7 @@ class AccountController(rest.RestController):
         if not cfg.CONF.enable_owe:
             return -1
 
-        user_id = acl.get_limited_to_user(request.headers, 'uos_admin') or self._id
+        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or self._id
 
         account = self._account(user_id=user_id)
         if account.balance < 0:
@@ -269,7 +269,7 @@ class AccountController(rest.RestController):
     @wsexpose(models.Estimate)
     def estimate_per_day(self):
         self.conn = pecan.request.db_conn
-        user_id = acl.get_limited_to_user(request.headers, 'uos_admin') or self._id
+        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or self._id
 
         account = self._account(user_id=user_id)
         orders = self.conn.get_active_orders(request.context,
