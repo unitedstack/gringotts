@@ -41,7 +41,7 @@ allow_delay_seconds=300
 
 [worker]
 # There are three options: local, rpc, http, default is local
-protocol=local
+protocol=http
 
 [checker]
 enable_center_jobs=True
