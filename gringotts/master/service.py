@@ -386,7 +386,7 @@ class MasterService(rpc_service.Service):
                 if cfg.CONF.try_to_fix:
                     action_time = utils.format_datetime(timeutils.strtime())
                     change_to = resource.admin_state if hasattr(resource, 'admin_state') \
-                            else resource.stauts
+                            else resource.status
                     self.resource_changed(self.ctxt, order['order_id'], action_time,
                                           change_to, "System Adjust")
                 return
