@@ -336,7 +336,7 @@ class CheckerService(os_service.Service):
         for resource in try_to_fix_situ_1:
             LOG.warn('Situation 1: In project(%s), the resource(%s) has no order' % \
                     (resource.project_id, resource.id))
-            if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.try_to_fix:
                 create_cls = self.RESOURCE_CREATE_MAP[resource.resource_type]
                 create_cls.process_notification(resource.to_message(),
                                                 resource.status)
@@ -344,7 +344,7 @@ class CheckerService(os_service.Service):
         for item in try_to_fix_situ_2:
             LOG.warn('Situation 2: In project(%s), the order(%s) and its resource\'s status doesn\'t match' % \
                     (item.project_id, item.order_id))
-            if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.try_to_fix:
                 if item.resource_type == const.RESOURCE_INSTANCE and \
                         item.change_to == const.STATE_STOPPED:
                     self.master_api.instance_stopped(self.ctxt,
@@ -360,7 +360,7 @@ class CheckerService(os_service.Service):
         for item in try_to_fix_situ_3:
             LOG.warn('Situation 3: In project(%s), the order(%s) has no bills' % \
                     (item.project_id, item.order_id))
-            if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.try_to_fix:
                 self.master_api.resource_created_again(self.ctxt,
                                                        item.order_id,
                                                        item.resource_created_at,
@@ -369,7 +369,7 @@ class CheckerService(os_service.Service):
         for item in try_to_fix_situ_4:
             LOG.warn('Situation 4: In project(%s), the order(%s)\'s resource has been deleted.' % \
                     (item.project_id, item.order_id))
-            if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.try_to_fix:
                 self.master_api.resource_deleted(self.ctxt,
                                                  item.order_id,
                                                  item.deleted_at,
@@ -378,7 +378,7 @@ class CheckerService(os_service.Service):
         for item in try_to_fix_situ_5:
             LOG.warn('Situation 5: In project(%s), the order(%s)\'s unit_price is wrong, should be %s' % \
                     (item.project_id, item.order_id, item.unit_price))
-            if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.try_to_fix:
                 create_cls = self.RESOURCE_CREATE_MAP[item.resource.resource_type]
                 create_cls.change_unit_price(item.resource.to_message(),
                                              item.resource.status,
@@ -449,7 +449,7 @@ class CheckerService(os_service.Service):
 
         for resource in should_stop_resources:
             LOG.warn("The resource(%s) is owed, should be stopped" % resource)
-            if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.try_to_fix:
                 try:
                     self.STOP_METHOD_MAP[resource.resource_type](resource.id, self.region_name)
                 except Exception:
@@ -457,7 +457,7 @@ class CheckerService(os_service.Service):
 
         for resource in should_delete_resources:
             LOG.warn("The resource(%s) is reserved for its full days, should be deleted" % resource)
-            if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.try_to_fix:
                 try:
                     self.DELETE_METHOD_MAP[resource.resource_type](resource.id, self.region_name)
                 except Exception:
@@ -686,7 +686,7 @@ class CheckerService(os_service.Service):
         users = [u for u in users_1 if u in users_2]
         for user in users:
             LOG.warn('Situation 6: The user(%s) has not been created in gringotts' % user.user_id)
-            if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.try_to_fix:
                 create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_USER]
                 create_cls.process_notification(user.to_message())
 
@@ -754,13 +754,13 @@ class CheckerService(os_service.Service):
         for p in creating_projects:
             LOG.warn("Situation 7: The project(%s) exists in keystone but not in gringotts, its billing owner is %s" % \
                     (p.project_id, p.billing_owner_id))
-            if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
+            if cfg.CONF.try_to_fix and p.billing_owner_id:
                 create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_PROJECT]
                 create_cls.process_notification(p.to_message())
 
         for p in deleting_projects:
             LOG.warn("Situation 8: The project(%s) has been deleted, but its resources has not been cleared" % p.project_id)
-            if cfg.CONF.checker.try_to_fix:
+            if cfg.CONF.try_to_fix:
                 try:
                     self.worker_api.delete_resources(self.ctxt, p.project_id)
                 except Exception:
@@ -771,7 +771,7 @@ class CheckerService(os_service.Service):
         for p in billing_projects:
             LOG.warn("Situation 9: The project(%s)\'s billing owner in gringotts is not equal to keystone\'s, should be: %s" % \
                     (p.project_id, p.billing_owner_id))
-            if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
+            if cfg.CONF.try_to_fix and p.billing_owner_id:
                 try:
                     self.worker_api.change_billing_owner(self.ctxt, p.project_id, p.billing_owner_id)
                 except Exception:
