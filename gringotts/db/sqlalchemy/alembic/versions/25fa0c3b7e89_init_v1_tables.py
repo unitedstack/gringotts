@@ -18,6 +18,10 @@ from gringotts.services import keystone
 
 
 def upgrade():
+    # Check keystone service is available first
+    admin_user_id = keystone.get_admin_user_id()
+    admin_project_id = keystone.get_admin_tenant_id()
+
     op.create_table(
         'product',
 
@@ -220,10 +224,6 @@ def upgrade():
 
     for PRODUCT in PRODUCT_SQLS:
         op.execute(PRODUCT_SQL_PRE + PRODUCT)
-
-    # Add account
-    admin_user_id = keystone.get_admin_user_id()
-    admin_project_id = keystone.get_admin_tenant_id()
 
     now = datetime.datetime.utcnow()
     ACCOUNT_SQL_PRE = "INSERT INTO account VALUES"
