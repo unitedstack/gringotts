@@ -113,7 +113,11 @@ class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
 
         CTX_TEMPLATE = '_context_%s'
 
-        user = ks_client.get_uos_user(message[CTX_TEMPLATE % 'user_id'])
+        user_id = message.get(CTX_TEMPLATE % 'user_id')
+        if not user_id:
+            return
+
+        user = ks_client.get_uos_user(user_id)
         username = user.get('name', '')
         if username == 'doctor':
             return
