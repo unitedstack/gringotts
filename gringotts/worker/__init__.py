@@ -8,7 +8,7 @@ from gringotts.worker import api as worker_api
 
 worker_opts = [
     cfg.StrOpt('protocol',
-                default='local',
+                default='http',
                 help="The protocol that worker works, three options:"
                      "local, http, rpc"),
 ]
