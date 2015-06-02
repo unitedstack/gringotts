@@ -167,8 +167,8 @@ class CheckerService(os_service.Service):
 
         center_jobs = [
             (self.check_owed_accounts_and_notify, 24, False),
-            (self.check_user_to_account, 2, True),
-            (self.check_project_to_project, 2, True),
+            #(self.check_user_to_account, 2, True),
+            #(self.check_project_to_project, 2, True),
         ]
 
         if cfg.CONF.checker.enable_non_center_jobs:
