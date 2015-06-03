@@ -340,11 +340,24 @@ class ChargeController(rest.RestController):
                                         charges=charges_list)
 
 
+class TransferMoneyController(rest.RestController):
+
+    @wsexpose(None, body=models.TransferMoneyBody)
+    def post(self, data):
+        is_domain_owner = acl.context_is_domain_owner(request.headers)
+        if not is_domain_owner:
+            raise exception.NotAuthorized()
+
+        conn = pecan.request.db_conn
+        conn.transfer_money(request.context, data)
+
+
 class AccountsController(rest.RestController):
     """Manages operations on the accounts collection
     """
 
     charges = ChargeController()
+    transfer = TransferMoneyController()
 
     @pecan.expose()
     def _lookup(self, user_id, *remainder):
