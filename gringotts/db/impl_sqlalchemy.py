@@ -9,6 +9,7 @@ from sqlalchemy import desc, asc
 from sqlalchemy import func
 from sqlalchemy import not_
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+import wsme
 
 from oslo.config import cfg
 
@@ -1786,3 +1787,48 @@ class Connection(base.Connection):
             order.total_price -= more_fee
             account.balance += more_fee
             account.consumption -= more_fee
+
+    def transfer_money(self, cxt, data):
+        session = db_session.get_session()
+        with session.begin():
+            account_to = session.query(sa_models.Account).\
+                    filter_by(user_id=data.user_id_to).with_lockmode('update').one()
+            account_from = session.query(sa_models.Account).\
+                    filter_by(user_id=data.user_id_from).with_lockmode('update').one()
+
+            if cxt.domain_id != account_to.domain_id or \
+                    cxt.domain_id != account_from.domain_id or \
+                    account_to.domain_id != account_from.domain_id:
+                raise exception.NotAuthorized()
+
+            if account_from.balance < data.money:
+                raise exception.InvalidTransferMoneyValue(value=data.money)
+
+            account_to.balance += data.money
+            account_from.balance -= data.money
+
+            remarks = data.remarks if data.remarks != wsme.Unset else None
+            charge_time = datetime.datetime.utcnow()
+            charge_to = sa_models.Charge(charge_id=uuidutils.generate_uuid(),
+                                       user_id=account_to.user_id,
+                                       project_id=account_to.project_id,
+                                       domain_id=account_to.domain_id,
+                                       value=data.money,
+                                       type="transfer",
+                                       come_from="transfer",
+                                       charge_time=charge_time,
+                                       operator=cxt.user_id,
+                                       remarks=remarks)
+            session.add(charge_to)
+
+            charge_from = sa_models.Charge(charge_id=uuidutils.generate_uuid(),
+                                       user_id=account_from.user_id,
+                                       project_id=account_from.project_id,
+                                       domain_id=account_from.domain_id,
+                                       value=-data.money,
+                                       type="transfer",
+                                       come_from="transfer",
+                                       charge_time=charge_time,
+                                       operator=cxt.user_id,
+                                       remarks=remarks)
+            session.add(charge_from)

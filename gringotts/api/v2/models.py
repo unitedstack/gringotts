@@ -675,3 +675,10 @@ class GetBalanceResponse(Response):
 
 class CheckReqResponse(Response):
     data = [CheckReq]
+
+
+class TransferMoneyBody(APIBase):
+    user_id_to = wtypes.text
+    user_id_from = wtypes.text
+    money = decimal.Decimal
+    remarks = wtypes.text

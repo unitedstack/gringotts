@@ -196,6 +196,11 @@ class InvalidChargeValue(Invalid):
     message = _("The charge value %(value)s is invalid.")
 
 
+class InvalidTransferMoneyValue(Invalid):
+    message = _("The transfer money value %(value)s is invalid.\
+            Should't greater than total balance")
+
+
 class InvalidUUID(Invalid):
     message = _("Expected a uuid but received %(uuid)s.")
 
