@@ -201,6 +201,10 @@ class InvalidTransferMoneyValue(Invalid):
             Should't greater than total balance")
 
 
+class NoBalanceToTransfer(Invalid):
+    message = _("The balance value is %(value)s,not enough to transfer")
+
+
 class InvalidUUID(Invalid):
     message = _("Expected a uuid but received %(uuid)s.")
 

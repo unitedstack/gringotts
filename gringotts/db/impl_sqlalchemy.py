@@ -1801,6 +1801,9 @@ class Connection(base.Connection):
                     account_to.domain_id != account_from.domain_id:
                 raise exception.NotAuthorized()
 
+            if account_from.balance <= 0:
+                raise exception.NoBalanceToTransfer(value=account_from.balance)
+
             if account_from.balance < data.money:
                 raise exception.InvalidTransferMoneyValue(value=data.money)
 
