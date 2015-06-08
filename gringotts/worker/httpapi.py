@@ -294,8 +294,8 @@ class WorkerAPI(object):
                 if body['code'] != "0":
                     raise Exception
             except Exception:
-                msg = "Deduct external account(%s) failed, deduct money(%s), req_id(%s)" % \
-                        (user_id, money, req_id)
+                msg = "Check request account(%s) failed, deduct money(%s), req_id(%s), reason: %s" % \
+                        (user_id, money, req_id, body)
                 LOG.exception(msg)
                 raise exception.DeductError(user_id=user_id,
                                             money=money,
@@ -310,8 +310,8 @@ class WorkerAPI(object):
                 if body['code'] != "0":
                     raise Exception
             except Exception:
-                msg = "Deduct external account(%s) failed, deduct money(%s), req_id(%s)" % \
-                        (user_id, money, req_id)
+                msg = "Deduct external account(%s) failed, deduct money(%s), req_id(%s), response: %s" % \
+                        (user_id, money, req_id, body)
                 LOG.exception(msg)
                 raise exception.DeductError(user_id=user_id,
                                             money=money,

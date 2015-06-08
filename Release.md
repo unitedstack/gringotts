@@ -11,3 +11,4 @@ Release Notes
 * 根据keystone service-list来动态加载服务
 * 自动检查获取资源的准确状态
 * 欠费删除路由器/公网IP时，如果绑定了tunnel，就删除不掉
+* 新增父子账户间转账功能
