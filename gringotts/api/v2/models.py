@@ -570,6 +570,7 @@ class NetworkQuotaBody(APIBase):
     listener = int
     pool = int
     security_group = int
+    portforwardings = int
 
 
 class QuotaBody(APIBase):
@@ -609,6 +610,7 @@ class NetworkQuota(APIBase):
     listener = QuotaItem
     pool = QuotaItem
     security_group = QuotaItem
+    portforwardings = QuotaItem
 
 
 class Quota(APIBase):

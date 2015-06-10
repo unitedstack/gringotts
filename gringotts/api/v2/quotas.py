@@ -120,6 +120,8 @@ class QuotasController(rest.RestController):
                                           used=nnq['subnet']['in_use']),
                 security_group = models.QuotaItem(limit=nnq['security_group']['limit'],
                                                   used=nnq['security_group']['in_use']),
+                portforwardings = models.QuotaItem(limit=nnq['portforwardings']['limit'],
+                                                   used=nnq['portforwardings']['in_use']),
             )
 
         return models.Quota(project_id=project_id,

@@ -235,6 +235,20 @@ def floatingip_list(project_id, region_name=None, project_name=None):
     return formatted_fips
 
 
+@wrap_exception(exc_type='list')
+def port_forwarding_list(project_id, region_name=None, project_name=None):
+    client = get_neutronclient(region_name)
+    routers = router_list(project_id, region_name, project_name)
+    portforwardings = []
+    for router in routers:
+        router_id = router['id']
+        router_detail = client.show_router(router_id)
+        port_forwarding = router_detail['router']['portforwardings']
+        if port_forwarding:
+            portforwardings.append(port_forwarding)
+    return portforwardings
+
+
 @register(mtype='list')
 @wrap_exception(exc_type='list')
 def router_list(project_id, region_name=None, project_name=None):
@@ -601,6 +615,7 @@ def quota_get(project_id, region_name=None):
     pool_n = len(pool_list(project_id, region_name))
     router_n = len(router_list(project_id, region_name))
     sg_n = len(security_group_list(project_id, region_name))
+    pf_n = len(port_forwarding_list(project_id, region_name))
 
     quota = {'floatingip': {'in_use': fip_n, 'limit': limit.get('floatingip')},
              'listener': {'in_use': listener_n, 'limit': limit.get('listener')},
@@ -609,5 +624,6 @@ def quota_get(project_id, region_name=None):
              'pool': {'in_use': pool_n, 'limit': limit.get('pool')},
              'router': {'in_use': router_n, 'limit': limit.get('router')},
              'security_group': {'in_use': sg_n, 'limit': limit.get('security_group')},
-             'subnet': {'in_use': subnet_n, 'limit': limit.get('subnet')}}
+             'subnet': {'in_use': subnet_n, 'limit': limit.get('subnet')},
+             'portforwardings': {'in_use': pf_n, 'limit': limit.get('portforwardings')}}
     return quota
