@@ -42,7 +42,7 @@ def alert_client():
     return ALERT_CLIENT
 
 
-@wrap_exception()
+@wrap_exception(with_raise=False)
 def alert_bad_resources(resources):
     to = cfg.CONF.alert_to
     subject = "[%s][%s] Bad Resources" % (cfg.CONF.cloud_name, cfg.CONF.region_name)
@@ -85,7 +85,7 @@ def alert_bad_resources(resources):
     LOG.warn('Send alert emails successfully')
 
 
-@wrap_exception()
+@wrap_exception(with_raise=False)
 def wrong_billing_order(order, wtype, resource=None):
     to = cfg.CONF.alert_to
     subject = "[%s][%s] Wrong Billing Order" % \

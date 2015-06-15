@@ -13,7 +13,7 @@ from gringotts.openstack.common import log
 LOG = log.getLogger(__name__)
 
 
-def wrap_exception(exc_type=None):
+def wrap_exception(exc_type=None, with_raise=True):
     """ Wrap exception around resource method
 
     This decorator wraps a method to catch any exceptions that may get thrown.
@@ -53,7 +53,10 @@ def wrap_exception(exc_type=None):
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
                 elif exc_type == 'put':
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
-                raise GringottsException(message=msg)
+                if with_raise:
+                    raise GringottsException(message=msg)
+                else:
+                    LOG.error(msg)
         return functools.wraps(f)(wrapped)
     return inner
 
