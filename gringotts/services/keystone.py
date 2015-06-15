@@ -271,7 +271,7 @@ def get_project(project_id):
     return get_ks_client().projects.get(project_id)
 
 
-@wrap_exception(exc_type='get')
+@wrap_exception(exc_type='get', with_raise=False)
 def get_uos_user(user_id):
 
     internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url + '/US-INTERNAL'+ '/' + api
