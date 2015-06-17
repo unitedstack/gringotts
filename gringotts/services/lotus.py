@@ -50,7 +50,7 @@ def request_to_lotus(method, api_url, body=None, headers=None):
                    data=body)
 
 
-@wrap_exception()
+@wrap_exception(with_raise=False)
 def send_email(receivers, subject, content):
     email_api = '/publish/publish_email'
     body = {
