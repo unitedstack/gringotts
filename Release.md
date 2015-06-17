@@ -1,6 +1,9 @@
 Release Notes
 -------------
 
+**0.4.7**
+* 调用部分接口发生错误时，不抛出异常，包括(alert, get user, billing)
+
 **0.4.6**
 
 * 在执行gring-dbsync时，先检查keystone服务是否可用
