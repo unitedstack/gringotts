@@ -53,15 +53,14 @@ def wrap_exception(exc_type=None, with_raise=True):
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
                 elif exc_type == 'put':
                     msg = 'Fail to do %s for resource: %s, reason: %s' % (f.__name__, uuid, e)
+                else:
+                    msg = 'Fail to do %s, reason: %s' % (f.__name__, e)
                 if with_raise:
                     raise GringottsException(message=msg)
                 else:
                     LOG.error(msg)
         return functools.wraps(f)(wrapped)
     return inner
-
-
-wrap_exception = functools.partial(wrap_exception, exc_type='single')
 
 
 RESOURCE_LIST_METHOD = []
