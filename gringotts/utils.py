@@ -1,7 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+import bisect
+import hashlib
+import six
+import struct
 import sys
 import calendar
+
 from dateutil import tz
 from decimal import Decimal, ROUND_HALF_UP
 from oslo.config import cfg
@@ -143,3 +148,59 @@ def version_api(url, version=None):
     else:
         version = "v%s" % version[-1]
         return url + version
+
+
+def smart_str(s, encoding='utf-8', strings_only=False, errors='strict'):
+    """Returns a bytestring version of 's', encoded as specified in 'encoding'.
+
+    If strings_only is True, don't convert (some) non-string-like objects.
+    """
+    if strings_only and isinstance(s, (types.NoneType, int)):
+        return s
+    if not isinstance(s, basestring):
+        try:
+            return str(s)
+        except UnicodeEncodeError:
+            if isinstance(s, Exception):
+                # An Exception subclass containing non-ASCII data that doesn't
+                # know how to print itself properly. We shouldn't raise a
+                # further exception.
+                return ' '.join([smart_str(arg, encoding, strings_only,
+                        errors) for arg in s])
+            return unicode(s).encode(encoding, errors)
+    elif isinstance(s, unicode):
+        return s.encode(encoding, errors)
+    elif s and encoding != 'utf-8':
+        return s.decode('utf-8', errors).encode(encoding, errors)
+    else:
+        return s
+
+
+class HashRing(object):
+
+    def __init__(self, nodes, replicas=100):
+        self._ring = dict()
+        self._sorted_keys = []
+
+        for node in nodes:
+            for r in six.moves.range(replicas):
+                hashed_key = self._hash('%s-%s' % (node, r))
+                self._ring[hashed_key] = node
+                self._sorted_keys.append(hashed_key)
+        self._sorted_keys.sort()
+
+    @staticmethod
+    def _hash(key):
+        return struct.unpack_from('>I',
+                                  hashlib.md5(smart_str(key)).digest())[0]
+
+    def _get_position_on_ring(self, key):
+        hashed_key = self._hash(key)
+        position = bisect.bisect(self._sorted_keys, hashed_key)
+        return position if position < len(self._sorted_keys) else 0
+
+    def get_node(self, key):
+        if not self._ring:
+            return None
+        pos = self._get_position_on_ring(key)
+        return self._ring[self._sorted_keys[pos]]

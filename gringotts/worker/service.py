@@ -54,6 +54,15 @@ class WorkerService(rpc_service.Service):
             LOG.exception('Fail to create bill for the order: %s' % order_id)
             raise exception.BillCreateFailed(order_id=order_id)
 
+    def update_bill(self, ctxt, order_id):
+        try:
+            result = self.db_conn.update_bill(ctxt, order_id)
+            LOG.debug('Update bill for order %s successfully.' % order_id)
+            return result
+        except Exception:
+            LOG.exception('Fail to update bill for the order: %s' % order_id)
+            raise exception.BillUpdateFailed(order_id=order_id)
+
     def close_bill(self, ctxt, order_id, action_time):
         if isinstance(action_time, basestring):
             action_time = timeutils.parse_strtime(action_time,

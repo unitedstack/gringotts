@@ -341,7 +341,7 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin,
         }
         return order_put_ref
 
-    def new_bill_ref(self, order_id, action_time, remarks=None,
+    def new_bill_ref(self, order_id, action_time=None, remarks=None,
                      end_time=None):
         bill_ref = {
             'order_id': order_id,

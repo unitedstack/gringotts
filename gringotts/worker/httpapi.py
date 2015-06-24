@@ -43,13 +43,18 @@ class WorkerAPI(object):
         resp, body = self.client.post('/bills', body=_body)
         return body
 
+    def update_bill(self, ctxt, order_id):
+        _body = dict(order_id=order_id)
+        resp, body = self.client.put('/bills/update', body=_body)
+        return body
+
     def close_bill(self, ctxt, order_id, action_time):
         if isinstance(action_time, basestring):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
         _body = dict(order_id=order_id,
                      action_time=action_time)
-        resp, body = self.client.put('/bills', body=_body)
+        resp, body = self.client.put('/bills/close', body=_body)
         return body
 
     def destory_resource(self, ctxt, order_id):

@@ -18,9 +18,7 @@ from gringotts.db import base
 from gringotts.db import models as db_models
 from gringotts.db.sqlalchemy import migration
 from gringotts.db.sqlalchemy import models as sa_models
-from gringotts.db.sqlalchemy.models import Base
 from gringotts import exception
-from gringotts import utils as gringutils
 from gringotts.openstack.common.db import exception as db_exception
 from gringotts.openstack.common.db.sqlalchemy import session as db_session
 from gringotts.openstack.common import jsonutils
@@ -28,12 +26,16 @@ from gringotts.openstack.common import log
 from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import uuidutils
 from gringotts.price import pricing
+from gringotts import utils as gringutils
+
 
 LOG = log.getLogger(__name__)
 cfg.CONF.import_opt('enable_owe', 'gringotts.master.service')
-cfg.CONF.import_opt('allow_delay_seconds', 'gringotts.master.service', group='master')
+cfg.CONF.import_opt('allow_delay_seconds',
+                    'gringotts.master.service', group='master')
 
 get_session = db_session.get_session
+quantize = gringutils._quantize_decimal
 
 
 def require_admin_context(f):
@@ -91,7 +93,8 @@ def model_query(context, model, *args, **kwargs):
     session = kwargs.get('session') or get_session()
     query = session.query(model, *args)
 
-    if gring_context.is_domain_owner_context(context) and hasattr(model, 'domain_id'):
+    if (gring_context.is_domain_owner_context(context) and
+            hasattr(model, 'domain_id')):
         query = query.filter_by(domain_id=context.domain_id)
     if gring_context.is_user_context(context) and hasattr(model, 'user_id'):
         query = query.filter_by(user_id=context.user_id)
@@ -115,7 +118,7 @@ def _paginate_query(query, model, limit, sort_keys, offset=None,
     if 'id' not in sort_keys:
         # TODO(justinsb): If this ever gives a false-positive, check
         # the actual primary key, rather than assuming its id
-        LOG.warn(_('Id not in sort_keys; is sort_keys unique?'))
+        LOG.warn('Id not in sort_keys; is sort_keys unique?')
 
     assert(not (sort_dir and sort_dirs))
 
@@ -137,8 +140,8 @@ def _paginate_query(query, model, limit, sort_keys, offset=None,
                 'desc': desc,
             }[current_sort_dir]
         except KeyError:
-            raise ValueError(_("Unknown sort direction, "
-                               "must be 'desc' or 'asc'"))
+            raise ValueError("Unknown sort direction, "
+                             "must be 'desc' or 'asc'")
         try:
             sort_key_attr = getattr(model, current_sort_key)
         except AttributeError:
@@ -180,7 +183,7 @@ class Connection(base.Connection):
     def clear(self):
         session = db_session.get_session()
         engine = session.get_bind()
-        for table in reversed(Base.metadata.sorted_tables):
+        for table in reversed(sa_models.Base.metadata.sorted_tables):
             engine.execute(table.delete())
 
     @staticmethod
@@ -338,8 +341,9 @@ class Connection(base.Connection):
         return self._row_to_db_product_model(product_ref)
 
     def get_products_count(self, context, filters=None):
-        query = get_session().query(sa_models.Product,
-                                    func.count(sa_models.Product.id).label('count'))
+        query = get_session().query(
+            sa_models.Product,
+            func.count(sa_models.Product.id).label('count'))
         if 'name' in filters:
             query = query.filter_by(name=filters['name'])
         if 'service' in filters:
@@ -411,7 +415,8 @@ class Connection(base.Connection):
                 filter(sa_models.Order.project_id.notin_(excluded_projects)).\
                 all()
             for order in orders:
-                # get all subscriptions of this order that belongs to this product
+                # get all subscriptions of this order that belongs to
+                # this product
                 p_subs = session.query(sa_models.Subscription).\
                     filter_by(order_id=order.order_id).\
                     filter_by(product_id=product.product_id).\
@@ -451,13 +456,13 @@ class Connection(base.Connection):
                 filter_by(deleted=False).\
                 one()
         except NoResultFound:
-            msg = "Product with name(%s) within service(%s) in region_id(%s) not found" % \
-                (product_name, service, region_id)
+            msg = "Product with name(%s) within service(%s) in region_id(%s) "
+            "not found" % (product_name, service, region_id)
             LOG.warning(msg)
             return None
         except MultipleResultsFound:
-            msg = "Duplicated products with name(%s) within service(%s) in region_id(%s)" % \
-                (product_name, service, region_id)
+            msg = "Duplicated products with name(%s) within service(%s) in "
+            "region_id(%s)" % (product_name, service, region_id)
             LOG.error(msg)
             raise exception.DuplicatedProduct(reason=msg)
 
@@ -493,7 +498,8 @@ class Connection(base.Connection):
         session = db_session.get_session()
         with session.begin():
             # Get subs of this order
-            subs = model_query(context, sa_models.Subscription, session=session).\
+            subs = model_query(
+                context, sa_models.Subscription, session=session).\
                 filter_by(order_id=kwargs['order_id']).\
                 filter_by(type=kwargs['change_to']).\
                 with_lockmode('read').all()
@@ -538,7 +544,7 @@ class Connection(base.Connection):
         try:
             ref = query.one()
         except NoResultFound:
-            LOG.warning('The order of the resource(%s) not found' % resource_id)
+            LOG.warning('The order of the resource(%s) not found', resource_id)
             raise exception.ResourceOrderNotFound(resource_id=resource_id)
 
         return self._row_to_db_order_model(ref)
@@ -559,7 +565,8 @@ class Connection(base.Connection):
     def get_orders(self, context, start_time=None, end_time=None, type=None,
                    status=None, limit=None, offset=None, sort_key=None,
                    sort_dir=None, with_count=False, region_id=None,
-                   user_id=None, project_ids=None, owed=None, read_deleted=True):
+                   user_id=None, project_ids=None, owed=None,
+                   read_deleted=True):
         """Get orders that have bills during start_time and end_time.
         If start_time is None or end_time is None, will ignore the datetime
         range, and return all orders
@@ -579,11 +586,14 @@ class Connection(base.Connection):
         if owed:
             query = query.filter_by(owed=owed)
         if not read_deleted:
-            query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
+            query = query.filter(
+                not_(sa_models.Order.status == const.STATE_DELETED))
 
         if all([start_time, end_time]):
-            query = query.join(sa_models.Bill,
-                               sa_models.Order.order_id == sa_models.Bill.order_id)
+            query = query.join(
+                sa_models.Bill,
+                sa_models.Order.order_id == sa_models.Bill.order_id
+            )
             query = query.filter(sa_models.Bill.start_time >= start_time,
                                  sa_models.Bill.start_time < end_time)
             query = query.group_by(sa_models.Bill.order_id)
@@ -595,13 +605,15 @@ class Connection(base.Connection):
                                 limit=limit, offset=offset,
                                 sort_key=sort_key, sort_dir=sort_dir,
                                 query=query)
+        rows = (self._row_to_db_order_model(o) for o in result)
         if with_count:
-            return (self._row_to_db_order_model(o) for o in result), total_count
+            return rows, total_count
         else:
-            return (self._row_to_db_order_model(o) for o in result)
+            return rows
 
     @require_admin_context
-    def get_active_order_count(self, context, region_id=None, owed=None, type=None):
+    def get_active_order_count(self, context, region_id=None,
+                               owed=None, type=None):
         query = model_query(context, sa_models.Order,
                             func.count(sa_models.Order.id).label('count'))
         if region_id:
@@ -611,13 +623,18 @@ class Connection(base.Connection):
         if type:
             query = query.filter_by(type=type)
 
-        query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
+        query = query.filter(
+            not_(sa_models.Order.status == const.STATE_DELETED)
+        )
         if not owed:
-            query = query.filter(not_(sa_models.Order.cron_time == None))
+            query = query.filter(
+                not_(sa_models.Order.cron_time == None)  # noqa
+            )
         return query.one().count or 0
 
     @require_admin_context
-    def get_stopped_order_count(self, context, region_id=None, owed=None, type=None):
+    def get_stopped_order_count(self, context, region_id=None,
+                                owed=None, type=None):
         query = model_query(context, sa_models.Order,
                             func.count(sa_models.Order.id).label('count'))
         if region_id:
@@ -628,12 +645,14 @@ class Connection(base.Connection):
             query = query.filter_by(type=type)
 
         query = query.filter(sa_models.Order.status == const.STATE_STOPPED)
-        query = query.filter(sa_models.Order.unit_price == gringutils._quantize_decimal('0'))
+        query = query.filter(
+            sa_models.Order.unit_price == quantize('0'))
         return query.one().count or 0
 
     @require_context
-    def get_active_orders(self, context, type=None, limit=None, offset=None, sort_key=None,
-                          sort_dir=None, region_id=None, user_id=None, project_id=None, owed=None,
+    def get_active_orders(self, context, type=None, limit=None, offset=None,
+                          sort_key=None, sort_dir=None, region_id=None,
+                          user_id=None, project_id=None, owed=None,
                           charged=None, within_one_hour=None):
         """Get all active orders
         """
@@ -656,7 +675,8 @@ class Connection(base.Connection):
             one_hour_later = timeutils.utcnow() + datetime.timedelta(hours=1)
             query = query.filter(sa_models.Order.cron_time < one_hour_later)
 
-        query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
+        query = query.filter(
+            not_(sa_models.Order.status == const.STATE_DELETED))
 
         result = paginate_query(context, sa_models.Order,
                                 limit=limit, offset=offset,
@@ -716,7 +736,8 @@ class Connection(base.Connection):
     def update_subscription(self, context, **kwargs):
         session = db_session.get_session()
         with session.begin():
-            subs = model_query(context, sa_models.Subscription, session=session).\
+            subs = model_query(
+                context, sa_models.Subscription, session=session).\
                 filter_by(order_id=kwargs['order_id']).\
                 filter_by(type=kwargs['change_to']).\
                 with_lockmode('update').all()
@@ -729,45 +750,54 @@ class Connection(base.Connection):
         with session.begin():
             try:
                 if kwargs['old_flavor']:
-                    old_product = model_query(context, sa_models.Product, session=session).\
-                            filter_by(name=kwargs['old_flavor']).\
-                            filter_by(service=kwargs['service']).\
-                            filter_by(region_id=kwargs['region_id']).\
-                            filter_by(deleted=False).\
-                            with_lockmode('update').one()
-                new_product = model_query(context, sa_models.Product, session=session).\
-                        filter_by(name=kwargs['new_flavor']).\
+                    old_product = model_query(
+                        context, sa_models.Product, session=session).\
+                        filter_by(name=kwargs['old_flavor']).\
                         filter_by(service=kwargs['service']).\
                         filter_by(region_id=kwargs['region_id']).\
                         filter_by(deleted=False).\
                         with_lockmode('update').one()
+                new_product = model_query(
+                    context, sa_models.Product, session=session).\
+                    filter_by(name=kwargs['new_flavor']).\
+                    filter_by(service=kwargs['service']).\
+                    filter_by(region_id=kwargs['region_id']).\
+                    filter_by(deleted=False).\
+                    with_lockmode('update').one()
             except NoResultFound:
-                msg = "Product with name(%s/%s) within service(%s) in region_id(%s) not found" % \
-                       (kwargs['old_flavor'], kwargs['new_flavor'], kwargs['service'], kwargs['region_id'])
+                msg = "Product with name(%s/%s) within service(%s) in "
+                "region_id(%s) not found" % \
+                    (kwargs['old_flavor'], kwargs['new_flavor'],
+                     kwargs['service'], kwargs['region_id'])
                 LOG.error(msg)
                 return None
             except MultipleResultsFound:
-                msg = "Duplicated products with name(%s/%s) within service(%s) in region_id(%s)" % \
-                       (kwargs['old_flavor'], kwargs['new_flavor'], kwargs['service'], kwargs['region_id'])
+                msg = "Duplicated products with name(%s/%s) within "
+                "service(%s) in region_id(%s)" % \
+                    (kwargs['old_flavor'], kwargs['new_flavor'],
+                     kwargs['service'], kwargs['region_id'])
                 LOG.error(msg)
                 raise exception.DuplicatedProduct(reason=msg)
 
             try:
                 if kwargs['old_flavor']:
-                    sub = model_query(context, sa_models.Subscription, session=session).\
+                    sub = model_query(
+                        context, sa_models.Subscription, session=session).\
                         filter_by(order_id=kwargs['order_id']).\
                         filter_by(product_id=old_product.product_id).\
                         filter_by(type=kwargs['change_to']).\
                         with_lockmode('update').one()
                 else:
-                    subs = model_query(context, sa_models.Subscription, session=session).\
+                    subs = model_query(
+                        context, sa_models.Subscription, session=session).\
                         filter_by(order_id=kwargs['order_id']).\
                         filter_by(type=kwargs['change_to']).\
                         all()
                     sub = None
                     for s in subs:
-                        p = model_query(context, sa_models.Product, session=session).\
-                                filter_by(product_id=s.product_id).one()
+                        p = model_query(
+                            context, sa_models.Product, session=session).\
+                            filter_by(product_id=s.product_id).one()
                         if p.name.startswith('instance'):
                             sub = s
                             break
@@ -775,7 +805,7 @@ class Connection(base.Connection):
                         return None
             except NoResultFound:
                 msg = "Subscription with order_id(%s), type(%s) not found" % \
-                        (kwargs['order_id'], kwargs['change_to'])
+                    (kwargs['order_id'], kwargs['change_to'])
                 LOG.error(msg)
                 return None
             sub.unit_price = new_product.unit_price
@@ -808,8 +838,10 @@ class Connection(base.Connection):
             filter_by(product_id=product_id)
 
         if all([start_time, end_time]):
-            query = query.filter(sa_models.Subscription.created_at >= start_time)
-            query = query.filter(sa_models.Subscription.created_at < end_time)
+            query = query.filter(
+                sa_models.Subscription.created_at >= start_time)
+            query = query.filter(
+                sa_models.Subscription.created_at < end_time)
 
         ref = paginate_query(context, sa_models.Subscription,
                              limit=limit, offset=offset,
@@ -888,8 +920,9 @@ class Connection(base.Connection):
     @require_context
     def get_bills_count(self, context, order_id=None, project_id=None,
                         type=None, start_time=None, end_time=None):
-        query = get_session().query(sa_models.Bill,
-                                    func.count(sa_models.Bill.id).label('count'))
+        query = get_session().query(
+            sa_models.Bill,
+            func.count(sa_models.Bill.id).label('count'))
         if order_id:
             query = query.filter_by(order_id=order_id)
         if project_id:
@@ -906,10 +939,12 @@ class Connection(base.Connection):
         return query.one().count or 0
 
     @require_context
-    def get_bills_sum(self, context, region_id=None, start_time=None, end_time=None,
-                      order_id=None, user_id=None, project_id=None, type=None):
-        query = get_session().query(sa_models.Bill,
-                                    func.sum(sa_models.Bill.total_price).label('sum'))
+    def get_bills_sum(self, context, region_id=None, start_time=None,
+                      end_time=None, order_id=None, user_id=None,
+                      project_id=None, type=None):
+        query = get_session().query(
+            sa_models.Bill,
+            func.sum(sa_models.Bill.total_price).label('sum'))
 
         if order_id:
             query = query.filter_by(order_id=order_id)
@@ -1024,8 +1059,10 @@ class Connection(base.Connection):
 
         return self._row_to_db_account_model(account)
 
-    def update_account(self, context, user_id, project_id=None, operator=None, **data):
-        """Do the charge charge account trick"""
+    def update_account(self, context, user_id, project_id=None,
+                       operator=None, **data):
+        """Do the charge charge account trick
+        """
         session = db_session.get_session()
         with session.begin():
             # add up account balance
@@ -1076,7 +1113,8 @@ class Connection(base.Connection):
 
     @require_admin_context
     def deduct_account(self, context, user_id, deduct=True, **data):
-        """Deduct account by user_id"""
+        """Deduct account by user_id
+        """
         session = db_session.get_session()
         with session.begin():
             if deduct:
@@ -1096,31 +1134,33 @@ class Connection(base.Connection):
 
     @require_admin_context
     def get_deduct(self, context, req_id):
-        """Get deduct by deduct id"""
+        """Get deduct by deduct id
+        """
         try:
             deduct = get_session().query(sa_models.Deduct).\
-                    filter_by(req_id=req_id).\
-                    one()
+                filter_by(req_id=req_id).\
+                one()
         except NoResultFound:
             raise exception.DeductNotFound(req_id=req_id)
         return self._row_to_db_deduct_model(deduct)
 
     def set_charged_orders(self, context, user_id, project_id=None):
-        """Set owed orders to charged"""
+        """Set owed orders to charged
+        """
         session = db_session.get_session()
         with session.begin():
             # set owed order in all regions to charged
             if project_id:
                 query = session.query(sa_models.Order).\
-                        filter_by(project_id=project_id).\
-                        filter_by(owed=True)
+                    filter_by(project_id=project_id).\
+                    filter_by(owed=True)
             else:
                 query = session.query(sa_models.Order).\
-                        filter_by(user_id=user_id).\
-                        filter_by(owed=True)
+                    filter_by(user_id=user_id).\
+                    filter_by(owed=True)
 
-            orders = query.filter(not_(sa_models.Order.status==const.STATE_DELETED)).\
-                    all()
+            orders = query.filter(
+                not_(sa_models.Order.status == const.STATE_DELETED)).all()
 
             for order in orders:
                 order.owed = False
@@ -1133,8 +1173,8 @@ class Connection(base.Connection):
             for order_id in order_ids:
                 try:
                     order = session.query(sa_models.Order).\
-                            filter_by(order_id=order_id).\
-                            one()
+                        filter_by(order_id=order_id).\
+                        one()
                 except NoResultFound:
                     continue
                 order.charged = False
@@ -1164,11 +1204,13 @@ class Connection(base.Connection):
 
         return (self._row_to_db_charge_model(r) for r in result)
 
-    def get_charges_price_and_count(self, context, user_id=None, project_id=None,
-                                    type=None, start_time=None, end_time=None):
-        query = get_session().query(sa_models.Charge,
-                                    func.count(sa_models.Charge.id).label('count'),
-                                    func.sum(sa_models.Charge.value).label('sum'))
+    def get_charges_price_and_count(self, context, user_id=None,
+                                    project_id=None, type=None,
+                                    start_time=None, end_time=None):
+        query = get_session().query(
+            sa_models.Charge,
+            func.count(sa_models.Charge.id).label('count'),
+            func.sum(sa_models.Charge.value).label('sum'))
 
         if project_id:
             query = query.filter_by(project_id=project_id)
@@ -1199,13 +1241,13 @@ class Connection(base.Connection):
     def get_project_billing_owner(self, context, project_id):
         try:
             project = model_query(context, sa_models.Project).\
-                    filter_by(project_id=project_id).one()
+                filter_by(project_id=project_id).one()
         except NoResultFound:
             raise exception.ProjectNotFound(project_id=project_id)
 
         try:
             account = model_query(context, sa_models.Account).\
-                    filter_by(user_id=project.user_id).one()
+                filter_by(user_id=project.user_id).one()
         except NoResultFound:
             raise exception.AccountNotFound(user_id=project.user_id)
 
@@ -1215,14 +1257,15 @@ class Connection(base.Connection):
     def get_project(self, context, project_id):
         try:
             project = get_session().query(sa_models.Project).\
-                    filter_by(project_id=project_id).one()
+                filter_by(project_id=project_id).one()
         except NoResultFound:
             raise exception.ProjectNotFound(project_id=project_id)
 
         return self._row_to_db_project_model(project)
 
     @require_context
-    def get_user_projects(self, context, user_id=None, limit=None, offset=None):
+    def get_user_projects(self, context, user_id=None,
+                          limit=None, offset=None):
         # get user's all historical projects
         query = model_query(context, sa_models.UserProject)
         if user_id:
@@ -1235,17 +1278,18 @@ class Connection(base.Connection):
         for u in user_projects:
             try:
                 p = model_query(context, sa_models.Project).\
-                        filter_by(project_id=u.project_id).\
-                        filter_by(user_id=u.user_id).\
-                        one()
+                    filter_by(project_id=u.project_id).\
+                    filter_by(user_id=u.user_id).\
+                    one()
             except NoResultFound:
                 p = None
 
-            up = db_models.UserProject(user_id=user_id,
-                                       project_id=u.project_id,
-                                       user_consumption=u.consumption,
-                                       project_consumption=p.consumption if p else u.consumption,
-                                       is_historical=False if p else True)
+            up = db_models.UserProject(
+                user_id=user_id,
+                project_id=u.project_id,
+                user_consumption=u.consumption,
+                project_consumption=p.consumption if p else u.consumption,
+                is_historical=False if p else True)
             result.append(up)
 
         return result
@@ -1253,8 +1297,8 @@ class Connection(base.Connection):
     @require_context
     def get_projects_by_project_ids(self, context, project_ids):
         projects = get_session().query(sa_models.Project).\
-                filter(sa_models.Project.project_id.in_(project_ids)).\
-                all()
+            filter(sa_models.Project.project_id.in_(project_ids)).\
+            all()
         return (self._row_to_db_project_model(p) for p in projects)
 
     @require_context
@@ -1274,7 +1318,7 @@ class Connection(base.Connection):
         with session.begin():
             # ensure user exists
             try:
-                user = model_query(context, sa_models.Account).\
+                model_query(context, sa_models.Account).\
                     filter_by(user_id=user_id).one()
             except NoResultFound:
                 LOG.error("Could not find the user: %s" % user_id)
@@ -1282,7 +1326,8 @@ class Connection(base.Connection):
 
             # ensure project exists
             try:
-                project = model_query(context, sa_models.Project, session=session).\
+                project = model_query(
+                    context, sa_models.Project, session=session).\
                     filter_by(project_id=project_id).\
                     with_lockmode('update').one()
             except NoResultFound:
@@ -1291,8 +1336,8 @@ class Connection(base.Connection):
 
             # change user_id of all orders belongs to this project
             orders = model_query(context, sa_models.Order, session=session).\
-                    filter_by(project_id=project_id).\
-                    with_lockmode('update').all()
+                filter_by(project_id=project_id).\
+                with_lockmode('update').all()
             for order in orders:
                 order.user_id = user_id
 
@@ -1301,7 +1346,8 @@ class Connection(base.Connection):
 
             # add/update relationship between user and project
             try:
-                user_project = model_query(context, sa_models.UserProject, session=session).\
+                user_project = model_query(
+                    context, sa_models.UserProject, session=session).\
                     filter_by(user_id=user_id).\
                     filter_by(project_id=project_id).\
                     one()
@@ -1313,15 +1359,173 @@ class Connection(base.Connection):
                                                   domain_id=project.domain_id))
 
     @require_admin_context
-    def create_bill(self, context, order_id, action_time=None, remarks=None, end_time=None,
+    def update_bill(self, context, order_id, external_balance=None):
+        """Update the latest bill, there are three type of results:
+        0, Update bill successfully, including account is owed and order is
+           owed, or account is not owed and balance is greater than 0
+        1, Suspend to update bill, but set order to owed, that is account is
+           owed and order is not owed
+        2, Update bill successfully, but set account to owed, that is account
+           is not owed and balance is less than 0
+        """
+        session = db_session.get_session()
+        result = {'type': -1, 'resource_owed': False}
+        with session.begin():
+            # Get order
+            order = model_query(context, sa_models.Order, session=session).\
+                filter_by(order_id=order_id).\
+                with_lockmode('update').one()
+
+            # Update the latest bill
+            try:
+                bill = model_query(context, sa_models.Bill, session=session).\
+                    filter_by(order_id=order_id).\
+                    order_by(desc(sa_models.Bill.id)).all()[0]
+            except IndexError:
+                LOG.warning('There is no latest bill for the order: %s',
+                            order_id)
+                return result
+
+            action_time = bill.end_time
+            now = timeutils.utcnow() + datetime.timedelta(
+                seconds=cfg.CONF.master.allow_delay_seconds)
+
+            if action_time > now:
+                LOG.warn('The latest bill end_time(%s) of the order(%s) is '
+                         'greater than utc now(%s)',
+                         bill.end_time, order_id, now)
+                return result
+
+            # get project
+            try:
+                project = model_query(
+                    context, sa_models.Project, session=session).\
+                    filter_by(project_id=order.project_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                LOG.error('Could not find the project: %s', order.project_id)
+                raise exception.ProjectNotFound(project_id=order.project_id)
+
+            if project.user_id != bill.user_id:
+                # billing owner of this project has been changed
+                new_bill = sa_models.Bill(
+                    bill_id=uuidutils.generate_uuid(),
+                    start_time=action_time,
+                    end_time=action_time + datetime.timedelta(hours=1),
+                    type=order.type,
+                    status=const.BILL_PAYED,
+                    unit_price=order.unit_price,
+                    unit=order.unit,
+                    total_price=order.unit_price,
+                    order_id=order.order_id,
+                    resource_id=order.resource_id,
+                    remarks="The Billing Owner Has Changed",
+                    user_id=project.user_id,
+                    project_id=order.project_id,
+                    region_id=order.region_id,
+                    domain_id=order.domain_id)
+                session.add(new_bill)
+            else:
+                # update the latest bill
+                bill.end_time += datetime.timedelta(hours=1)
+                bill.total_price += order.unit_price
+                bill.updated_at = datetime.datetime.utcnow()
+
+            # Update order
+            cron_time = action_time + datetime.timedelta(hours=1)
+            order.total_price += order.unit_price
+            order.cron_time = cron_time
+            order.updated_at = datetime.datetime.utcnow()
+
+            # Update project and user_project
+            try:
+                user_project = model_query(
+                    context, sa_models.UserProject, session=session).\
+                    filter_by(project_id=order.project_id).\
+                    filter_by(user_id=project.user_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                LOG.error("Could not find the relationship between user(%s) "
+                          "and project(%s)",
+                          project.user_id, order.project_id)
+                raise exception.UserProjectNotFound(
+                    user_id=project.user_id,
+                    project_id=order.project_id)
+            project.consumption += order.unit_price
+            project.updated_at = datetime.datetime.utcnow()
+            user_project.consumption += order.unit_price
+            user_project.updated_at = datetime.datetime.utcnow()
+
+            # Update account
+            try:
+                account = model_query(
+                    context, sa_models.Account, session=session).\
+                    filter_by(user_id=project.user_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                LOG.error('Could not find the account: %s', project.user_id)
+                raise exception.AccountNotFound(user_id=project.user_id)
+
+            # override account balance before deducting
+            if external_balance is not None:
+                external_balance = quantize(
+                    external_balance)
+                account.balance = external_balance
+
+            account.balance -= order.unit_price
+            account.consumption += order.unit_price
+            account.updated_at = datetime.datetime.utcnow()
+
+            result['user_id'] = account.user_id
+            result['project_id'] = project.project_id
+            result['resource_type'] = order.type
+            result['resource_name'] = order.resource_name
+            result['resource_id'] = order.resource_id
+            result['region_id'] = order.region_id
+            result['deduct_value'] = order.unit_price
+            result['type'] = const.BILL_NORMAL
+
+            if not cfg.CONF.enable_owe:
+                return result
+
+            # Account is owed
+            if self._check_if_account_first_owed(account):
+                account.owed = True
+                result['type'] = const.BILL_ACCOUNT_OWED
+            # Order is owed
+            elif self._check_if_order_first_owed(account, order):
+                reserved_days = gringutils.cal_reserved_days(account.level)
+                date_time = (datetime.datetime.utcnow() +
+                             datetime.timedelta(days=reserved_days))
+                order.date_time = date_time
+                order.owed = True
+                result['type'] = const.BILL_ORDER_OWED
+                result['date_time'] = date_time
+            # Account is charged but order is still owed
+            elif self._check_if_account_charged(account, order):
+                result['type'] = const.BILL_OWED_ACCOUNT_CHARGED
+                order.owed = False
+                order.date_time = None
+                order.charged = False
+
+            if order.owed:
+                result['resource_owed'] = True
+
+            return result
+
+    @require_admin_context
+    def create_bill(self, context, order_id, action_time=None,
+                    remarks=None, end_time=None,
                     external_balance=None):
-        """There are three type of results:
-        0, Create bill successfully, including account is owed and order is owed,
-           or account is not owed and balance is greater than 0
-        1, Suspend to create bill, but set order to owed, that is account is owed
-           and order is not owed
-        2, Create bill successfully, but set account to owed, that is account is not
-           owed and balance is less than 0
+        """Create a bill
+
+        There are three type of results:
+        0, Create bill successfully, including account is owed and order is
+           owed, or account is not owed and balance is greater than 0
+        1, Suspend to create bill, but set order to owed, that is account is
+           owed and order is not owed
+        2, Create bill successfully, but set account to owed, that is account
+           is not owed and balance is less than 0
         """
         session = db_session.get_session()
         result = {'type': -1, 'resource_owed': False}
@@ -1339,41 +1543,45 @@ class Connection(base.Connection):
                 action_time = order.cron_time
 
             now = timeutils.utcnow() + datetime.timedelta(
-                    seconds=cfg.CONF.master.allow_delay_seconds)
+                seconds=cfg.CONF.master.allow_delay_seconds)
 
             if action_time > now:
-                LOG.warn('The action_time(%s) of the order(%s) if greater than utc now(%s)' %
-                         (action_time, order_id, now))
+                LOG.warn('The action_time(%s) of the order(%s) if greater '
+                         'than utc now(%s)',
+                         action_time, order_id, now)
                 return result
 
             # get project
             try:
-                project = model_query(context, sa_models.Project, session=session).\
+                project = model_query(
+                    context, sa_models.Project, session=session).\
                     filter_by(project_id=order.project_id).\
                     with_lockmode('update').one()
             except NoResultFound:
-                LOG.error('Could not find the project: %s' % order.project_id)
+                LOG.error('Could not find the project: %s', order.project_id)
                 raise exception.ProjectNotFound(project_id=order.project_id)
 
-            bill = sa_models.Bill(bill_id=uuidutils.generate_uuid(),
-                                  start_time=action_time,
-                                  end_time=end_time or action_time + datetime.timedelta(hours=1),
-                                  type=order.type,
-                                  status=const.BILL_PAYED,
-                                  unit_price=order.unit_price,
-                                  unit=order.unit,
-                                  total_price=order.unit_price,
-                                  order_id=order.order_id,
-                                  resource_id=order.resource_id,
-                                  remarks=remarks,
-                                  user_id=project.user_id,
-                                  project_id=order.project_id,
-                                  region_id=order.region_id,
-                                  domain_id=order.domain_id)
+            bill = sa_models.Bill(
+                bill_id=uuidutils.generate_uuid(),
+                start_time=action_time,
+                end_time=end_time or action_time + datetime.timedelta(hours=1),
+                type=order.type,
+                status=const.BILL_PAYED,
+                unit_price=order.unit_price,
+                unit=order.unit,
+                total_price=order.unit_price,
+                order_id=order.order_id,
+                resource_id=order.resource_id,
+                remarks=remarks,
+                user_id=project.user_id,
+                project_id=order.project_id,
+                region_id=order.region_id,
+                domain_id=order.domain_id)
             session.add(bill)
 
-            # if end_time is specified, it means the action is stopping the instance,
-            # so there is no need to update account, creating a new bill is enough.
+            # if end_time is specified, it means the action is stopping
+            # the instance, so there is no need to update account, creating
+            # a new bill is enough.
             if end_time:
                 return result
 
@@ -1385,15 +1593,18 @@ class Connection(base.Connection):
 
             # Update project and user_project
             try:
-                user_project = model_query(context, sa_models.UserProject, session=session).\
+                user_project = model_query(
+                    context, sa_models.UserProject, session=session).\
                     filter_by(project_id=order.project_id).\
                     filter_by(user_id=project.user_id).\
                     with_lockmode('update').one()
             except NoResultFound:
-                LOG.error('Could not find the relationship between user(%s) and project(%s)' % \
-                          (project.user_id, order.project_id))
-                raise exception.UserProjectNotFound(user_id=project.user_id,
-                                                    project_id=order.project_id)
+                LOG.error('Could not find the relationship between user(%s) '
+                          'and project(%s)',
+                          project.user_id, order.project_id)
+                raise exception.UserProjectNotFound(
+                    user_id=project.user_id,
+                    project_id=order.project_id)
             project.consumption += order.unit_price
             project.updated_at = datetime.datetime.utcnow()
             user_project.consumption += order.unit_price
@@ -1401,16 +1612,17 @@ class Connection(base.Connection):
 
             # Update account
             try:
-                account = model_query(context, sa_models.Account, session=session).\
+                account = model_query(
+                    context, sa_models.Account, session=session).\
                     filter_by(user_id=project.user_id).\
                     with_lockmode('update').one()
             except NoResultFound:
-                LOG.error('Could not find the account: %s' % project.user_id)
+                LOG.error('Could not find the account: %s', project.user_id)
                 raise exception.AccountNotFound(user_id=project.user_id)
 
             # override account balance before deducting
             if external_balance is not None:
-                external_balance = gringutils._quantize_decimal(external_balance)
+                external_balance = quantize(external_balance)
                 account.balance = external_balance
 
             account.balance -= order.unit_price
@@ -1424,7 +1636,7 @@ class Connection(base.Connection):
             result['resource_id'] = order.resource_id
             result['region_id'] = order.region_id
             result['deduct_value'] = order.unit_price
-            result['type'] = 0 # 0 means deduct account normally
+            result['type'] = const.BILL_NORMAL
 
             if not cfg.CONF.enable_owe:
                 return result
@@ -1432,18 +1644,19 @@ class Connection(base.Connection):
             # Account is owed
             if self._check_if_account_first_owed(account):
                 account.owed = True
-                result['type'] = 1
+                result['type'] = const.BILL_ACCOUNT_OWED
             # Order is owed
             elif self._check_if_order_first_owed(account, order):
                 reserved_days = gringutils.cal_reserved_days(account.level)
-                date_time = datetime.datetime.utcnow() + datetime.timedelta(days=reserved_days)
+                date_time = (datetime.datetime.utcnow() +
+                             datetime.timedelta(days=reserved_days))
                 order.date_time = date_time
                 order.owed = True
-                result['type'] = 2
+                result['type'] = const.BILL_ORDER_OWED
                 result['date_time'] = date_time
             # Account is charged but order is still owed
             elif self._check_if_account_charged(account, order):
-                result['type'] = 3
+                result['type'] = const.BILL_OWED_ACCOUNT_CHARGED
                 order.owed = False
                 order.date_time = None
                 order.charged = False
@@ -1472,7 +1685,8 @@ class Connection(base.Connection):
             return False
 
     @require_admin_context
-    def close_bill(self, context, order_id, action_time, external_balance=None):
+    def close_bill(self, context, order_id, action_time,
+                   external_balance=None):
         session = db_session.get_session()
         result = {'type': -1, 'resource_owed': False}
         with session.begin():
@@ -1487,16 +1701,18 @@ class Connection(base.Connection):
                     filter_by(order_id=order_id).\
                     order_by(desc(sa_models.Bill.id)).all()[0]
             except IndexError:
-                LOG.warning('There is no latest bill for the order: %s' % order_id)
+                LOG.warning('There is no latest bill for the order: %s',
+                            order_id)
                 return result
 
             if action_time >= bill.end_time:
                 return result
 
-            delta = timeutils.delta_seconds(action_time, bill.end_time) / 3600.0
-            delta = gringutils._quantize_decimal(delta)
+            delta = quantize(
+                timeutils.delta_seconds(action_time, bill.end_time) / 3600.0
+            )
 
-            more_fee = gringutils._quantize_decimal(delta * order.unit_price)
+            more_fee = quantize(delta * order.unit_price)
             bill.end_time = action_time
             bill.total_price -= more_fee
             bill.updated_at = datetime.datetime.utcnow()
@@ -1509,11 +1725,12 @@ class Connection(base.Connection):
 
             # Update project
             try:
-                project = model_query(context, sa_models.Project, session=session).\
+                project = model_query(
+                    context, sa_models.Project, session=session).\
                     filter_by(project_id=order.project_id).\
                     with_lockmode('update').one()
             except NoResultFound:
-                LOG.error('Could not find the project: %s' % order.project_id)
+                LOG.error('Could not find the project: %s', order.project_id)
                 raise exception.ProjectNotFound(project_id=order.project_id)
 
             project.consumption -= more_fee
@@ -1521,21 +1738,25 @@ class Connection(base.Connection):
 
             # Update user_project
             try:
-                user_project = model_query(context, sa_models.UserProject, session=session).\
+                user_project = model_query(
+                    context, sa_models.UserProject, session=session).\
                     filter_by(project_id=order.project_id).\
                     filter_by(user_id=project.user_id).\
                     with_lockmode('update').one()
             except NoResultFound:
-                LOG.error('Could not find the relationship between user(%s) and project(%s)' % \
-                          (project.user_id, order.project_id))
-                raise exception.UserProjectNotFound(user_id=project.user_id,
-                                                    project_id=order.project_id)
+                LOG.error('Could not find the relationship between user(%s) '
+                          'and project(%s)',
+                          project.user_id, order.project_id)
+                raise exception.UserProjectNotFound(
+                    user_id=project.user_id,
+                    project_id=order.project_id)
             user_project.consumption -= more_fee
             user_project.updated_at = datetime.datetime.utcnow()
 
             # Update the account
             try:
-                account = model_query(context, sa_models.Account, session=session).\
+                account = model_query(
+                    context, sa_models.Account, session=session).\
                     filter_by(user_id=project.user_id).\
                     with_lockmode('update').\
                     one()
@@ -1545,7 +1766,7 @@ class Connection(base.Connection):
 
             # override account balance before deducting
             if external_balance is not None:
-                external_balance = gringutils._quantize_decimal(external_balance)
+                external_balance = quantize(external_balance)
                 account.balance = external_balance
 
             account.balance += more_fee
@@ -1559,13 +1780,13 @@ class Connection(base.Connection):
             result['resource_id'] = order.resource_id
             result['region_id'] = order.region_id
             result['deduct_value'] = -more_fee
-            result['type'] = 0 # 0 means deduct account normally
+            result['type'] = const.BILL_NORMAL
 
             if not cfg.CONF.enable_owe:
                 return result
 
             if account.owed and account.balance > 0:
-                result['type'] = 1
+                result['type'] = const.BILL_ACCOUNT_NOT_OWED
                 account.owed = False
 
             # deleted by people
@@ -1573,7 +1794,6 @@ class Connection(base.Connection):
                 result['resource_owed'] = True
 
             return result
-
 
     @require_admin_context
     def fix_order(self, context, order_id):
@@ -1584,7 +1804,8 @@ class Connection(base.Connection):
                 with_lockmode('update').one()
             bills = model_query(context, sa_models.Bill, session=session).\
                 filter_by(order_id=order_id).all()
-            account = model_query(context, sa_models.Account, session=session).\
+            account = model_query(
+                context, sa_models.Account, session=session).\
                 filter_by(project_id=order.project_id).\
                 with_lockmode('update').one()
 
@@ -1606,7 +1827,6 @@ class Connection(base.Connection):
             account.balance += more_fee
             account.consumption -= more_fee
 
-
     @require_admin_context
     def create_precharge(self, context, **kwargs):
         session = db_session.get_session()
@@ -1614,9 +1834,12 @@ class Connection(base.Connection):
             for i in xrange(kwargs['number']):
                 while True:
                     try:
-                        session.add(sa_models.PreCharge(code=gringutils.random_str(),
-                                                        price=kwargs['price'],
-                                                        expired_at=kwargs['expired_at']))
+                        session.add(
+                            sa_models.PreCharge(
+                                code=gringutils.random_str(),
+                                price=kwargs['price'],
+                                expired_at=kwargs['expired_at'])
+                        )
                     except db_exception.DBDuplicateEntry:
                         continue
                     else:
@@ -1626,7 +1849,7 @@ class Connection(base.Connection):
     def get_precharges(self, context, user_id=None, project_id=None,
                        limit=None, offset=None, sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.PreCharge).\
-                filter_by(deleted=False)
+            filter_by(deleted=False)
 
         if user_id:
             query = query.filter_by(user_id=user_id)
@@ -1645,11 +1868,11 @@ class Connection(base.Connection):
     def get_precharge_by_code(self, context, code):
         try:
             precharge = model_query(context, sa_models.PreCharge).\
-                    filter_by(deleted=False).\
-                    filter_by(code=code).one()
+                filter_by(deleted=False).\
+                filter_by(code=code).one()
         except NoResultFound:
-            LOG.warning('The precharge %s not found' % kwargs['code'])
-            raise exception.PreChargeNotFound(precharge_code=kwargs['code'])
+            LOG.warning('The precharge %s not found', code)
+            raise exception.PreChargeNotFound(precharge_code=code)
         return self._row_to_db_precharge_model(precharge)
 
     @require_admin_context
@@ -1657,9 +1880,10 @@ class Connection(base.Connection):
         session = db_session.get_session()
         with session.begin():
             try:
-                precharge = model_query(context, sa_models.PreCharge, session=session).\
-                        filter_by(deleted=False).\
-                        filter_by(code=code).one()
+                precharge = model_query(
+                    context, sa_models.PreCharge, session=session).\
+                    filter_by(deleted=False).\
+                    filter_by(code=code).one()
             except NoResultFound:
                 raise exception.PreChargeNotFound(precharge_code=code)
             precharge.dispatched = True
@@ -1673,8 +1897,8 @@ class Connection(base.Connection):
         with session.begin():
             try:
                 precharge = session.query(sa_models.PreCharge).\
-                        filter_by(deleted=False).\
-                        filter_by(code=code).one()
+                    filter_by(deleted=False).\
+                    filter_by(code=code).one()
             except NoResultFound:
                 raise exception.PreChargeNotFound(precharge_code=code)
 
@@ -1688,14 +1912,17 @@ class Connection(base.Connection):
             # Update account
             if project_id:
                 try:
-                    account = model_query(context, sa_models.Account, session=session).\
+                    account = model_query(
+                        context, sa_models.Account, session=session).\
                         filter_by(project_id=project_id).\
                         with_lockmode('update').one()
                 except NoResultFound:
-                    raise exception.AccountByProjectNotFound(project_id=project_id)
+                    raise exception.AccountByProjectNotFound(
+                        project_id=project_id)
             else:
                 try:
-                    account = model_query(context, sa_models.Account, session=session).\
+                    account = model_query(
+                        context, sa_models.Account, session=session).\
                         filter_by(user_id=user_id).\
                         with_lockmode('update').one()
                 except NoResultFound:
@@ -1754,7 +1981,8 @@ class Connection(base.Connection):
                 account.balance += new_order.total_price
                 account.consumption -= new_order.total_price
 
-            bills = session.query(sa_models.Bill).filter_by(order_id=new_order.order_id)
+            bills = session.query(sa_models.Bill).\
+                filter_by(order_id=new_order.order_id)
             for bill in bills:
                 session.delete(bill)
 
@@ -1764,27 +1992,30 @@ class Connection(base.Connection):
     def fix_stopped_order(self, context, order_id):
         session = db_session.get_session()
         with session.begin():
-            order = session.query(sa_models.Order).filter_by(order_id=order_id).one()
-            bills = session.query(sa_models.Bill).filter_by(order_id=order_id).\
-                    order_by(desc(sa_models.Bill.id)).all()
-            account = session.query(sa_models.Account).filter_by(project_id=order.project_id).one()
+            order = session.query(sa_models.Order).\
+                filter_by(order_id=order_id).one()
+            bills = session.query(sa_models.Bill).\
+                filter_by(order_id=order_id).\
+                order_by(desc(sa_models.Bill.id)).all()
+            account = session.query(sa_models.Account).\
+                filter_by(project_id=order.project_id).one()
 
-            more_fee = gringutils._quantize_decimal('0')
+            more_fee = quantize('0')
             add_new_bill = True
             cron_time = None
 
             for bill in bills:
-                if bill.total_price == gringutils._quantize_decimal('0.0020') or \
-                        bill.total_price == gringutils._quantize_decimal('0.0400') or \
-                        bill.total_price == gringutils._quantize_decimal('0.0800'):
+                if bill.total_price == quantize('0.0020') or \
+                        bill.total_price == quantize('0.0400') or \
+                        bill.total_price == quantize('0.0800'):
                     more_fee += bill.total_price
-                if bill.total_price == gringutils._quantize_decimal('0.0000'):
+                if bill.total_price == quantize('0.0000'):
                     add_new_bill = False
                     cron_time = bill.end_time
                     break
-                if (bill.total_price != gringutils._quantize_decimal('0.0020') and \
-                        bill.total_price != gringutils._quantize_decimal('0.0400') and \
-                        bill.total_price != gringutils._quantize_decimal('0.0800')) or \
+                if (bill.total_price != quantize('0.0020') and
+                        bill.total_price != quantize('0.0400') and
+                        bill.total_price != quantize('0.0800')) or \
                         bill.remarks == 'Sytstem Adjust':
                     start_time = bill.end_time
                     cron_time = bill.end_time + datetime.timedelta(days=30)
@@ -1792,23 +2023,24 @@ class Connection(base.Connection):
                 session.delete(bill)
 
             if add_new_bill:
-                bill = sa_models.Bill(bill_id=uuidutils.generate_uuid(),
-                                      start_time=start_time,
-                                      end_time=start_time + datetime.timedelta(days=30),
-                                      type=order.type,
-                                      status=const.BILL_PAYED,
-                                      unit_price=gringutils._quantize_decimal('0.0000'),
-                                      unit=order.unit,
-                                      total_price=gringutils._quantize_decimal('0.0000'),
-                                      order_id=order.order_id,
-                                      resource_id=order.resource_id,
-                                      remarks='Instance Has Been Stopped',
-                                      user_id=order.user_id,
-                                      project_id=order.project_id,
-                                      region_id=order.region_id)
+                bill = sa_models.Bill(
+                    bill_id=uuidutils.generate_uuid(),
+                    start_time=start_time,
+                    end_time=start_time + datetime.timedelta(days=30),
+                    type=order.type,
+                    status=const.BILL_PAYED,
+                    unit_price=quantize('0.0000'),
+                    unit=order.unit,
+                    total_price=quantize('0.0000'),
+                    order_id=order.order_id,
+                    resource_id=order.resource_id,
+                    remarks='Instance Has Been Stopped',
+                    user_id=order.user_id,
+                    project_id=order.project_id,
+                    region_id=order.region_id)
                 session.add(bill)
 
-            order.unit_price = gringutils._quantize_decimal('0.0000')
+            order.unit_price = quantize('0.0000')
             order.cron_time = cron_time
 
             order.total_price -= more_fee
@@ -1819,9 +2051,11 @@ class Connection(base.Connection):
         session = db_session.get_session()
         with session.begin():
             account_to = session.query(sa_models.Account).\
-                    filter_by(user_id=data.user_id_to).with_lockmode('update').one()
+                filter_by(user_id=data.user_id_to).\
+                with_lockmode('update').one()
             account_from = session.query(sa_models.Account).\
-                    filter_by(user_id=data.user_id_from).with_lockmode('update').one()
+                filter_by(user_id=data.user_id_from).\
+                with_lockmode('update').one()
 
             if cxt.domain_id != account_to.domain_id or \
                     cxt.domain_id != account_from.domain_id or \

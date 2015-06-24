@@ -65,6 +65,7 @@ class BillTestCase(rest.RestfulTestCase):
                          datetime.timedelta(hours=1))
 
     def test_close_bill(self):
+        self.bill_path = '/v2/bills/close'
         product = self.product_fixture.instance_products[0]
         resource_volume = 1
         resource_type = gring_const.RESOURCE_INSTANCE
@@ -122,6 +123,64 @@ class BillTestCase(rest.RestfulTestCase):
         self.assertEqual(end_time, bill.end_time)
         self.assertEqual(gring_const.BILL_PAYED, bill.status)
         self.assertPriceEqual(total_price, bill.total_price)
+
+    def test_update_bill(self):
+        self.bill_path = '/v2/bills/update'
+        product = self.product_fixture.instance_products[0]
+        resource_volume = 1
+        resource_type = gring_const.RESOURCE_INSTANCE
+        order_id = self.new_order_id()
+        user_id = self.admin_account.user_id
+        project_id = self.admin_account.project_id
+
+        subs = self.create_subs_in_db(
+            product, resource_volume, gring_const.STATE_RUNNING,
+            order_id, project_id, user_id,
+        )
+        order = self.create_order_in_db(
+            float(self.quantize(subs.unit_price)), subs.unit, user_id,
+            project_id, resource_type, subs.type, order_id=order_id
+        )
+
+        start_time = self.utcnow()
+        self.dbconn.create_bill(self.admin_req_context, order.order_id,
+                                action_time=start_time)
+
+        bill = self.dbconn.get_latest_bill(self.admin_req_context,
+                                           order.order_id)
+        self.assertBillMatchOrder(bill.as_dict(), order.as_dict())
+
+        timedelta = datetime.timedelta(hours=1)
+        end_time = start_time + timedelta
+        bill_ref = self.new_bill_ref(order.order_id)
+        resp = self.put(self.bill_path, headers=self.headers,
+                        body=bill_ref, expected_status=200)
+        bill_result = resp.json_body
+        bill_ref.update({
+            'user_id': user_id,
+            'project_id': project_id,
+            'region_id': order.region_id,
+            'resource_id': order.resource_id,
+        })
+        self.assertNotEqual('-1', bill_result['type'])
+        self.assertBillResultEqual(bill_ref, bill_result)
+
+        order = self.dbconn.get_order(self.admin_req_context, order_id)
+
+        # calculate consumption
+        total_price = self.quantize(
+            float(order.unit_price) * (
+                timeutils.delta_seconds(start_time, end_time) / 3600.0
+            )
+        )
+
+        bill = self.dbconn.get_latest_bill(self.admin_req_context,
+                                           order.order_id)
+        self.assertBillMatchOrder(bill.as_dict(), order.as_dict())
+        self.assertEqual(end_time, bill.end_time)
+        self.assertEqual(gring_const.BILL_PAYED, bill.status)
+        self.assertPriceEqual(total_price, bill.total_price)
+
 
     def test_get_bills(self):
         pass

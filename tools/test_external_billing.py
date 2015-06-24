@@ -114,10 +114,10 @@ def check_deduct_result(req_id, endpoint):
     response = requests.get(endpoint, headers=headers, params=params, verify=False)
     return response.content
 
-#print get_user_balance("a6d0ffb0c56f420ebc4711365dfda00f", endpoint)
+print get_user_balance("e516de421ba144eda2647551cf9678f9", endpoint)
 #print deduct_user_balance("a6d0ffb0c56f420ebc4711365dfda00f", endpoint, '0.005')
 #print check_deduct_result("test_req_id", endpoint)
 
 #print get_user_balance("28e16f9781694b608ffdeb52c58702d3", endpoint)
 #print deduct_user_balance("28e16f9781694b608ffdeb52c58702d3", endpoint, '0.0008')
-print check_deduct_result("fake_req_id_15", endpoint)
+#print check_deduct_result("fake_req_id_15", endpoint)

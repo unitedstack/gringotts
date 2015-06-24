@@ -1,26 +1,25 @@
 import datetime
 import time
-from oslo.config import cfg
 
-from apscheduler.scheduler import Scheduler as APScheduler
+from apscheduler.schedulers import background  # noqa
+from oslo.config import cfg  # noqa
+import pytz
 
-from gringotts import master
-from gringotts import worker
-from gringotts import exception
-from gringotts import context
-from gringotts import utils
-from gringotts import constants as const
 from gringotts.checker import notifier
-from gringotts.service import prepare_service
-from gringotts.services import alert
-from gringotts.services.keystone import User,Project
-
+from gringotts import constants as const
+from gringotts import context
+from gringotts import coordination
+from gringotts import master
 from gringotts.openstack.common import log
-from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import service as os_service
-
+from gringotts.openstack.common import timeutils
+from gringotts.openstack.common import uuidutils
+from gringotts import service
 from gringotts import services
+from gringotts.services import alert
 from gringotts.services import keystone
+from gringotts import utils
+from gringotts import worker
 
 
 LOG = log.getLogger(__name__)
@@ -34,8 +33,8 @@ OPTS = [
                 help='If found some exceptio, we try to fix it or not'),
     cfg.IntOpt('notifier_level',
                default=0,
-               help='The level of the notifier will perform on, there are 3 levels:'
-                    '0.log  1.log&email  2.log&email&sms'),
+               help='The level of the notifier will perform on, there are'
+                    '3 levels: 0.log  1.log&email  2.log&email&sms'),
     cfg.IntOpt('days_to_owe',
                default=7,
                help='Days before user will owe'),
@@ -44,7 +43,8 @@ OPTS = [
                 help='Enable the interval jobs that run in center regions'),
     cfg.BoolOpt('enable_non_center_jobs',
                 default=True,
-                help='Enable the interval jobs that run in non center regions'),
+                help='Enable the interval jobs that run in non center '
+                     'regions'),
     cfg.StrOpt('support_email',
                help="The cloud manager email"),
     cfg.BoolOpt('send_email_to_sales',
@@ -56,7 +56,8 @@ cfg.CONF.register_opts(OPTS, group="checker")
 
 
 class Situation2Item(object):
-    def __init__(self, order_id, resource_type, action_time, change_to, project_id):
+    def __init__(self, order_id, resource_type, action_time, change_to,
+                 project_id):
         self.order_id = order_id
         self.resource_type = resource_type
         self.action_time = action_time
@@ -64,7 +65,8 @@ class Situation2Item(object):
         self.project_id = project_id
 
     def __eq__(self, other):
-        return self.order_id == other.order_id and self.change_to == other.change_to
+        return (self.order_id == other.order_id and
+                self.change_to == other.change_to)
 
     def __repr__(self):
         return "%s:%s" % (self.other_id, self.change_to)
@@ -104,7 +106,8 @@ class Situation5Item(object):
         self.project_id = project_id
 
     def __eq__(self, other):
-        return self.order_id == other.order_id and self.resource == other.resource
+        return (self.order_id == other.order_id and
+                self.resource == other.resource)
 
     def __repr__(self):
         return self.order_id
@@ -125,17 +128,24 @@ class Situation6Item(object):
 
 class CheckerService(os_service.Service):
 
+    PARTITIONING_GROUP_NAME = 'gringotts_checker'
+
     def __init__(self, *args, **kwargs):
         self.region_name = cfg.CONF.region_name
         self.worker_api = worker.API()
         self.master_api = master.API()
-        self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
-        config = {
-            'apscheduler.threadpool.max_threads': 10,
-            'apscheduler.threadpool.core_threads': 10,
-        }
-        self.apsched = APScheduler(config)
         self.ctxt = context.get_admin_context()
+        self.notifier = notifier.NotifierService(
+            cfg.CONF.checker.notifier_level)
+
+        job_defaults = {
+            'misfire_grace_time': 604800,
+            'coalesce': False,
+            'max_instances': 24,
+        }
+        self.apsched = background.BackgroundScheduler(
+            job_defaults=job_defaults,
+            timezone=pytz.utc)
 
         self.RESOURCE_LIST_METHOD = services.RESOURCE_LIST_METHOD
         self.DELETE_METHOD_MAP = services.DELETE_METHOD_MAP
@@ -146,7 +156,7 @@ class CheckerService(os_service.Service):
         # NOTE(suo): Import waiter plugins to invoke register_class methods.
         # Don't import this in module level, because it need to read
         # config file, so it should be imported after service initialization
-        from gringotts.waiter import plugins
+        from gringotts.waiter import plugins  # noqa
 
         self.RESOURCE_CREATE_MAP = services.RESOURCE_CREATE_MAP
 
@@ -154,45 +164,70 @@ class CheckerService(os_service.Service):
 
     def start(self):
         super(CheckerService, self).start()
+        # NOTE(suo): We should create coordinator and member_id in start(),
+        # because child process will execute start() privately, thus every
+        # child process will have its own coordination connection.
+        self.member_id = uuidutils.generate_uuid()
+        self.partition_coordinator = coordination.PartitionCoordinator(
+            self.member_id)
+        self.partition_coordinator.start()
+        self.partition_coordinator.join_group(self.PARTITIONING_GROUP_NAME)
+
+        if self.partition_coordinator.is_active():
+            # NOTE(suo): Don't use loopingcall to do heartbeat, it will hang
+            # if tooz driver restarts
+            self.apsched.add_job(self.partition_coordinator.heartbeat,
+                                 'interval',
+                                 seconds=cfg.CONF.coordination.heartbeat)
+
+        # NOTE(suo): apscheduler must be started in child process
         self.apsched.start()
         self.load_jobs()
         self.tg.add_timer(604800, lambda: None)
 
     def load_jobs(self):
-        """Every check point is an apscheduler job that scheduled to different time
-        with different period
+        """Load cron jobs
+
+        Every check point is an apscheduler job that scheduled to different
+        time with different period
         """
+        # One minutes delay to start jobs
+        start_date = (datetime.datetime.utcnow() +
+                      datetime.timedelta(seconds=60))
         non_center_jobs = [
-            (self.check_if_resources_match_orders, 2, True),
-            (self.check_if_owed_resources_match_owed_orders, 2, True),
-            (self.check_if_cronjobs_match_orders, 1, True),
+            (self.check_if_resources_match_orders, 1, start_date),
+            (self.check_if_owed_resources_match_owed_orders, 1, start_date),
+            (self.check_if_cronjobs_match_orders, 1, start_date),
         ]
 
+        nine_clock = self._absolute_9_clock()
         center_jobs = [
-            (self.check_owed_accounts_and_notify, 24, False),
-            #(self.check_user_to_account, 2, True),
-            #(self.check_project_to_project, 2, True),
+            (self.check_owed_accounts_and_notify, 24, nine_clock),
+            # (self.check_user_to_account, 2, start_date),
+            # (self.check_project_to_project, 2, start_date),
         ]
 
         if cfg.CONF.checker.enable_non_center_jobs:
-            for job, period, right_now in non_center_jobs:
-                if right_now:
-                    job()
-                self.apsched.add_interval_job(job, hours=period)
+            for job, period, start_date in non_center_jobs:
+                self.apsched.add_job(job,
+                                     'interval',
+                                     hours=period,
+                                     start_date=start_date)
 
         if cfg.CONF.checker.enable_center_jobs:
-            for job, period, right_now in center_jobs:
-                if right_now:
-                    job()
-                start_date = utils.utc_to_local(self._absolute_9_clock())
-                self.apsched.add_interval_job(job,
-                                              hours=period,
-                                              start_date=start_date)
+            for job, period, start_date in center_jobs:
+                self.apsched.add_job(job,
+                                     'interval',
+                                     hours=period,
+                                     start_date=start_date)
 
-            if cfg.CONF.checker.send_email_to_sales:
-                self.apsched.add_cron_job(self.send_account_info, month='1-12',
-                                          day='last', hour = '23', minute= '59',
-                                          second = '59')
+        if cfg.CONF.checker.send_email_to_sales:
+            self.apsched.add_job(self.send_accounts_to_sales,
+                                 'cron',
+                                 month='1-12', day='last',
+                                 hour='23', minute='59', second='59')
+        LOG.warn("[%s] Load jobs successfully, waiting for other checkers "
+                 "to join the group...", self.member_id)
 
     def _absolute_9_clock(self):
         nowutc = datetime.datetime.utcnow()
@@ -203,17 +238,19 @@ class CheckerService(os_service.Service):
             nowutc_date = nowutc_date + datetime.timedelta(hours=24)
         return datetime.datetime.combine(nowutc_date, clock)
 
-    def get_period(self):
+    def send_accounts_to_sales(self):
         period_end_time = datetime.datetime.utcnow()
-        period_start_time = datetime.datetime(period_end_time.year, period_end_time.month, 1, 00, 00, 00)
-        return period_start_time, period_end_time
-
-    def get_accounts_info(self, period_start_time, period_end_time):
+        period_start_time = datetime.datetime(period_end_time.year,
+                                              period_end_time.month,
+                                              1, 0, 0, 0)
         try:
-            accounts = list(self.worker_api.get_accounts(self.ctxt))
+            accounts = self._assigned_accounts()
         except Exception:
-            LOG.exception('Failed to get all accounts')
+            LOG.exception('Failed to get assigned accounts')
             return
+
+        LOG.warn("[%s] Sending accounts to sales, assigned accounts "
+                 "number: %s", self.member_id, len(accounts))
 
         email_bodies = {}
         sales_email_name = {}
@@ -241,7 +278,8 @@ class CheckerService(os_service.Service):
             company = uos_user.get('company') or 'unknown'
 
             # get the type of the user, eg: Main account
-            users = keystone.get_account_type(value=account['user_id'])['users']
+            users = keystone.get_account_type(
+                value=account['user_id'])['users']
             if users:
                 if not users[0]['enabled']:
                     user_type = u'Inactivated User'
@@ -256,13 +294,15 @@ class CheckerService(os_service.Service):
             status = u'Enabled' if uos_user['enabled'] else u"Nonactivated"
 
             # get the register time of the account
-            created_at = utils.format_datetime(uos_user.get('created_at') or account['created_at'])
+            created_at = utils.format_datetime(
+                uos_user.get('created_at') or account['created_at'])
 
             # get the charge, coupon, bonus of the account
-            charge =  0
+            charge = 0
             coupon = 0
             bonus = 0
-            charges = self.worker_api.get_charges(self.ctxt, account['user_id'])
+            charges = self.worker_api.get_charges(self.ctxt,
+                                                  account['user_id'])
             for one in charges:
                 if one['type'] == 'bonus':
                     bonus += float(one['value'])
@@ -276,17 +316,21 @@ class CheckerService(os_service.Service):
             # get the balance of the account
             balance = round(float(account['balance']), 4)
 
-            # get the consumption in a period, the period is a month for the moment
-            period_consumption = self.worker_api.get_orders_summary(self.ctxt,
-                                                                   account['user_id'],
-                                                                   period_start_time,
-                                                                   period_end_time)
-            period_consumption = round(float(period_consumption['total_price']), 4)
+            # get consumption in a period, the period is a month for the moment
+            period_consumption = self.worker_api.get_orders_summary(
+                self.ctxt,
+                account['user_id'],
+                period_start_time,
+                period_end_time)
+            period_consumption = round(
+                float(period_consumption['total_price']), 4)
 
             # predict the consumption per day
-            predict_day_consumption = self.worker_api.get_consumption_per_day(self.ctxt,
-                                                                          account['user_id'])
-            predict_day_consumption = round(float(predict_day_consumption['price_per_day']), 4)
+            predict_day_consumption = self.worker_api.get_consumption_per_day(
+                self.ctxt,
+                account['user_id'])
+            predict_day_consumption = round(
+                float(predict_day_consumption['price_per_day']), 4)
 
             # get the days that the balance can support
             remain_consumption_day = 0
@@ -297,26 +341,25 @@ class CheckerService(os_service.Service):
             total_charge = charge + coupon + bonus
             capital_consumption = 0
             if total_charge:
-                capital_consumption = round((charge/total_charge)*period_consumption, 4)
+                capital_consumption = round(
+                    (charge / total_charge) * period_consumption, 4)
 
-            if not email_bodies.has_key(sales_email):
+            if sales_email not in email_bodies:
                 email_bodies[sales_email] = []
 
-            email_bodies[sales_email].append((name, email, mobile, company, user_type, status,
-                                              created_at, charge, bonus, coupon, balance,
-                                              predict_day_consumption, remain_consumption_day,
-                                              period_consumption, capital_consumption))
+            email_bodies[sales_email].append((name, email, mobile, company,
+                                              user_type, status, created_at,
+                                              charge, bonus, coupon, balance,
+                                              predict_day_consumption,
+                                              remain_consumption_day,
+                                              period_consumption,
+                                              capital_consumption))
 
-        return email_bodies, sales_email_name
+        self.notifier.send_account_info(self.ctxt, email_bodies,
+                                        sales_email_name)
 
-    def send_account_info(self):
-        period_start_time, period_end_time = self.get_period()
-        account_infos, email_addr_name = self.get_accounts_info(period_start_time, period_end_time)
-        self.notifier.send_account_info(self.ctxt, account_infos, email_addr_name)
-
-    def _check_resource_to_order(self, resource, resource_to_order, bad_resources, try_to_fix):
-        LOG.debug('Checking resource: %s' % resource.as_dict())
-
+    def _check_resource_to_order(self, resource, resource_to_order,
+                                 bad_resources, try_to_fix):
         try:
             order = resource_to_order[resource.id]
         except KeyError:
@@ -328,39 +371,45 @@ class CheckerService(os_service.Service):
                 return
             try_to_fix['1'].append(resource)
         else:
-            # Situation 2: There may exist resource whose status doesn't match with its order's
+            # Situation 2: There may exist resource whose status doesn't match
+            # with its order's
             if resource.status == const.STATE_ERROR:
                 bad_resources.append(resource)
-            elif resource.resource_type == const.RESOURCE_LISTENER and \
-                    resource.admin_state != order['status']:
-                ## for loadbalancer listener
+            elif (resource.resource_type == const.RESOURCE_LISTENER and
+                  resource.admin_state != order['status']):
+                # for loadbalancer listener
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
                                                       resource.resource_type,
                                                       action_time,
                                                       resource.admin_state,
                                                       resource.project_id))
-            elif resource.resource_type != const.RESOURCE_LISTENER and \
-                    resource.status != order['status']:
+            elif (resource.resource_type != const.RESOURCE_LISTENER and
+                  resource.status != order['status']):
                 action_time = utils.format_datetime(timeutils.strtime())
                 try_to_fix['2'].append(Situation2Item(order['order_id'],
                                                       resource.resource_type,
                                                       action_time,
                                                       resource.status,
                                                       resource.project_id))
-            # Situation 3: Resource's order has been created, but its bill not be
-            # created by master
-            elif not order['cron_time'] and order['status'] != const.STATE_STOPPED:
+            # Situation 3: Resource's order has been created, but its bill not
+            # be created by master
+            elif (not order['cron_time'] and
+                  order['status'] != const.STATE_STOPPED):
                 try_to_fix['3'].append(Situation3Item(order['order_id'],
                                                       resource.created_at,
                                                       resource.project_id))
             # Situation 5: The order's unit_price is different from the
             # resource's actual price
             else:
-                unit_price = self.RESOURCE_CREATE_MAP[resource.resource_type].\
-                        get_unit_price(resource.to_message(),
-                                       resource.admin_state if hasattr(resource, 'admin_state') else resource.status,
-                                       cron_time=order['cron_time'])
+                resource_status = (resource.admin_state
+                                   if hasattr(resource, 'admin_state')
+                                   else resource.status)
+                unit_price = (
+                    self.RESOURCE_CREATE_MAP[resource.resource_type].
+                    get_unit_price(resource.to_message(),
+                                   resource_status,
+                                   cron_time=order['cron_time']))
                 order_unit_price = utils._quantize_decimal(order['unit_price'])
                 if unit_price is not None and unit_price != order_unit_price:
                     try_to_fix['5'].append(Situation5Item(order['order_id'],
@@ -377,18 +426,20 @@ class CheckerService(os_service.Service):
                                               deleted_at,
                                               order['project_id']))
 
-    def _check_if_resources_match_orders(self, bad_resources, try_to_fix):
-        """Check one time to collect orders/resources that may need to fix and notify
+    def _check_if_resources_match_orders(self, bad_resources, try_to_fix,
+                                         projects):
+        """Check one time to collect orders/resources that may need to fix and
+        notify
         """
-        projects = keystone.get_project_list()
         for project in projects:
             if project.id in cfg.CONF.ignore_tenants:
                 continue
             # Get all active orders
             resource_to_order = {}
-            orders = self.worker_api.get_active_orders(self.ctxt,
-                                                       region_id=self.region_name,
-                                                       project_id=project.id)
+            orders = self.worker_api.get_active_orders(
+                self.ctxt,
+                region_id=self.region_name,
+                project_id=project.id)
             for order in orders:
                 if not isinstance(order, dict):
                     order = order.as_dict()
@@ -397,7 +448,8 @@ class CheckerService(os_service.Service):
 
             # Check resource to order
             for method in self.RESOURCE_LIST_METHOD:
-                resources = method(project.id, region_name=self.region_name, project_name=project.name)
+                resources = method(project.id, region_name=self.region_name,
+                                   project_name=project.name)
                 for resource in resources:
                     self._check_resource_to_order(resource,
                                                   resource_to_order,
@@ -409,32 +461,51 @@ class CheckerService(os_service.Service):
                     continue
                 self._check_order_to_resource(resource_id, order, try_to_fix)
 
-    def check_if_resources_match_orders(self):
-        """There are 5 situations in every check:
+    def _assigned_projects(self):
+        projects = keystone.get_project_list()
+        return self.partition_coordinator.extract_my_subset(
+            self.PARTITIONING_GROUP_NAME, projects)
 
+    def check_if_resources_match_orders(self):
+        """Check if resources match with orders
+
+        There are 5 situations in every check:
         * There exist resources that are not billed
-        * There exist resources whose status don't match with its order's status
-        * There exist resource's order has been created, but its bill not be created by master
+        * There exist resources whose status don't match with its order's
+          status
+        * There exist resource's order has been created, but its bill not be
+          created by master
         * There exist active orders that their resource has been deleted
-        * There exist order's unit_price is different from the resource's actual price
+        * There exist order's unit_price is different from the resource's
+          actual price
 
         We do this check every one hour.
 
-        For auto-recovery, we only do this if we can ensure all services are ok,
-        or it will skip this circle, do the check and auto-recovery in the next circle.
+        For auto-recovery, we only do this if we can ensure all services are
+        ok, or it will skip this circle, do the check and auto-recovery in the
+        next circle.
         """
-        LOG.warn('Checking if resources match with orders')
         bad_resources_1 = []
         bad_resources_2 = []
         try_to_fix_1 = {'1': [], '2': [], '3': [], '4': [], '5': []}
         try_to_fix_2 = {'1': [], '2': [], '3': [], '4': [], '5': []}
+
+        projects = self._assigned_projects()
+        LOG.warn("[%s] Checking if resources match with orders, assigned "
+                 "projects number: %s", self.member_id, len(projects))
+
         try:
-            self._check_if_resources_match_orders(bad_resources_1, try_to_fix_1)
+            self._check_if_resources_match_orders(bad_resources_1,
+                                                  try_to_fix_1,
+                                                  projects)
             time.sleep(30)
-            self._check_if_resources_match_orders(bad_resources_2, try_to_fix_2)
+            self._check_if_resources_match_orders(bad_resources_2,
+                                                  try_to_fix_2,
+                                                  projects)
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether resources'
-                          ' match with orders, skip this checking circle.')
+            LOG.exception("Some exceptions occurred when checking whether "
+                          "resources match with orders, skip this checking "
+                          "circle.")
             return
 
         # NOTE(suo): We only do the auto-fix when there is not any exceptions
@@ -445,27 +516,34 @@ class CheckerService(os_service.Service):
             alert.alert_bad_resources(bad_resources)
 
         # Fix bad resources and orders
-        try_to_fix_situ_1 = [x for x in try_to_fix_2['1'] if x in try_to_fix_1['1']]
-        try_to_fix_situ_2 = [x for x in try_to_fix_2['2'] if x in try_to_fix_1['2']]
-        try_to_fix_situ_3 = [x for x in try_to_fix_2['3'] if x in try_to_fix_1['3']]
-        try_to_fix_situ_4 = [x for x in try_to_fix_2['4'] if x in try_to_fix_1['4']]
-        try_to_fix_situ_5 = [x for x in try_to_fix_2['5'] if x in try_to_fix_1['5']]
+        try_to_fix_situ_1 = [x for x in try_to_fix_2['1']
+                             if x in try_to_fix_1['1']]
+        try_to_fix_situ_2 = [x for x in try_to_fix_2['2']
+                             if x in try_to_fix_1['2']]
+        try_to_fix_situ_3 = [x for x in try_to_fix_2['3']
+                             if x in try_to_fix_1['3']]
+        try_to_fix_situ_4 = [x for x in try_to_fix_2['4']
+                             if x in try_to_fix_1['4']]
+        try_to_fix_situ_5 = [x for x in try_to_fix_2['5']
+                             if x in try_to_fix_1['5']]
 
-        ## Situation 1
+        # Situation 1
         for resource in try_to_fix_situ_1:
-            LOG.warn('Situation 1: In project(%s), the resource(%s) has no order' % \
-                    (resource.project_id, resource.id))
+            LOG.warn("[%s] Situation 1: In project(%s), the resource(%s) "
+                     "has no order",
+                     self.member_id, resource.project_id, resource.id)
             if cfg.CONF.try_to_fix:
                 create_cls = self.RESOURCE_CREATE_MAP[resource.resource_type]
                 create_cls.process_notification(resource.to_message(),
                                                 resource.status)
-        ## Situation 2
+        # Situation 2
         for item in try_to_fix_situ_2:
-            LOG.warn('Situation 2: In project(%s), the order(%s) and its resource\'s status doesn\'t match' % \
-                    (item.project_id, item.order_id))
+            LOG.warn("[%s] Situation 2: In project(%s), the order(%s) and "
+                     "its resource's status doesn't match",
+                     self.member_id, item.project_id, item.order_id)
             if cfg.CONF.try_to_fix:
-                if item.resource_type == const.RESOURCE_INSTANCE and \
-                        item.change_to == const.STATE_STOPPED:
+                if (item.resource_type == const.RESOURCE_INSTANCE and
+                        item.change_to == const.STATE_STOPPED):
                     self.master_api.instance_stopped(self.ctxt,
                                                      item.order_id,
                                                      item.action_time)
@@ -475,156 +553,192 @@ class CheckerService(os_service.Service):
                                                      item.action_time,
                                                      change_to=item.change_to,
                                                      remarks="System Adjust")
-        ## Situation 3
+        # Situation 3
         for item in try_to_fix_situ_3:
-            LOG.warn('Situation 3: In project(%s), the order(%s) has no bills' % \
-                    (item.project_id, item.order_id))
+            LOG.warn("[%s] Situation 3: In project(%s), the order(%s) "
+                     "has no bills",
+                     self.member_id, item.project_id, item.order_id)
             if cfg.CONF.try_to_fix:
-                self.master_api.resource_created_again(self.ctxt,
-                                                       item.order_id,
-                                                       item.resource_created_at,
-                                                       "Sytstem Adjust")
-        ## Situation 4
+                self.master_api.resource_created_again(
+                    self.ctxt,
+                    item.order_id,
+                    item.resource_created_at,
+                    "Sytstem Adjust")
+        # Situation 4
         for item in try_to_fix_situ_4:
-            LOG.warn('Situation 4: In project(%s), the order(%s)\'s resource has been deleted.' % \
-                    (item.project_id, item.order_id))
+            LOG.warn("[%s] Situation 4: In project(%s), the order(%s)'s "
+                     "resource has been deleted.",
+                     self.member_id, item.project_id, item.order_id)
             if cfg.CONF.try_to_fix:
                 self.master_api.resource_deleted(self.ctxt,
                                                  item.order_id,
                                                  item.deleted_at,
                                                  "Resource Has Been Deleted")
-        ## Situation 5
+        # Situation 5
         for item in try_to_fix_situ_5:
-            LOG.warn('Situation 5: In project(%s), the order(%s)\'s unit_price is wrong, should be %s' % \
-                    (item.project_id, item.order_id, item.unit_price))
+            LOG.warn("[%s] Situation 5: In project(%s), the order(%s)'s "
+                     "unit_price is wrong, should be %s",
+                     self.member_id, item.project_id,
+                     item.order_id, item.unit_price)
             if cfg.CONF.try_to_fix:
-                create_cls = self.RESOURCE_CREATE_MAP[item.resource.resource_type]
+                resource_type = item.resource.resource_type
+                create_cls = self.RESOURCE_CREATE_MAP[resource_type]
                 create_cls.change_unit_price(item.resource.to_message(),
                                              item.resource.status,
                                              item.order_id)
 
     def _check_if_owed_resources_match_owed_orders(self,
                                                    should_stop_resources,
-                                                   should_delete_resources):
-        projects = keystone.get_project_list()
+                                                   should_delete_resources,
+                                                   projects):
         for project in projects:
-            orders = list(self.worker_api.get_active_orders(self.ctxt,
-                                                            region_id=self.region_name,
-                                                            project_id=project.id,
-                                                            owed=True))
+            orders = list(self.worker_api.get_active_orders(
+                self.ctxt,
+                region_id=self.region_name,
+                project_id=project.id,
+                owed=True))
             if not orders:
                 continue
             for order in orders:
                 if isinstance(order['date_time'], basestring):
                     order['date_time'] = timeutils.parse_strtime(
-                            order['date_time'],
-                            fmt=ISO8601_UTC_TIME_FORMAT)
+                        order['date_time'],
+                        fmt=ISO8601_UTC_TIME_FORMAT)
                 if isinstance(order['cron_time'], basestring):
                     order['cron_time'] = timeutils.parse_strtime(
-                            order['cron_time'],
-                            fmt=ISO8601_UTC_TIME_FORMAT)
+                        order['cron_time'],
+                        fmt=ISO8601_UTC_TIME_FORMAT)
 
-                resource = self.RESOURCE_GET_MAP[order['type']](order['resource_id'],
-                                                                region_name=self.region_name)
+                resource = self.RESOURCE_GET_MAP[order['type']](
+                    order['resource_id'],
+                    region_name=self.region_name)
                 now = datetime.datetime.utcnow()
                 if order['date_time'] < now:
                     if resource:
                         should_delete_resources.append(resource)
                 else:
                     if not resource:
-                        LOG.warn('The resource of the order(%s) not exists' % order)
+                        LOG.warn('The resource of the order(%s) not exists',
+                                 order)
                         continue
-                    if order['type'] == const.RESOURCE_FLOATINGIP and not resource.is_reserved and order['owed']:
+                    if (order['type'] == const.RESOURCE_FLOATINGIP and
+                            not resource.is_reserved and order['owed']):
                         should_delete_resources.append(resource)
-                    elif resource.resource_type == const.RESOURCE_LISTENER and \
-                            not resource.is_last_up and \
-                            resource.admin_state != self.RESOURCE_STOPPED_STATE[order['type']]:
+                    elif (resource.resource_type == const.RESOURCE_LISTENER and
+                            not resource.is_last_up and
+                            resource.admin_state !=
+                            self.RESOURCE_STOPPED_STATE[order['type']]):
                         should_stop_resources.append(resource)
-                    elif resource.resource_type != const.RESOURCE_LISTENER and \
-                            resource.status != self.RESOURCE_STOPPED_STATE[order['type']]:
+                    elif (resource.resource_type != const.RESOURCE_LISTENER and
+                            resource.status !=
+                            self.RESOURCE_STOPPED_STATE[order['type']]):
                         should_stop_resources.append(resource)
 
     def check_if_owed_resources_match_owed_orders(self):
-        LOG.warn('Checking if owed resources match with owed orders')
         should_stop_resources_1 = []
         should_stop_resources_2 = []
         should_delete_resources_1 = []
         should_delete_resources_2 = []
+
+        projects = self._assigned_projects()
+        LOG.warn("[%s] Checking if owed resources match with owed orders, "
+                 "assigned project number: %s",
+                 self.member_id, len(projects))
+
         try:
-            self._check_if_owed_resources_match_owed_orders(should_stop_resources_1,
-                                                            should_delete_resources_1)
+            self._check_if_owed_resources_match_owed_orders(
+                should_stop_resources_1,
+                should_delete_resources_1,
+                projects)
             time.sleep(30)
-            self._check_if_owed_resources_match_owed_orders(should_stop_resources_2,
-                                                            should_delete_resources_2)
+            self._check_if_owed_resources_match_owed_orders(
+                should_stop_resources_2,
+                should_delete_resources_2,
+                projects)
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether owed resources '
-                          'match with owed orders, skip this checking circle.')
+            LOG.exception("Some exceptions occurred when checking whether "
+                          "owed resources match with owed orders, skip this "
+                          "checking circle.")
             return
 
         # NOTE(suo): We only do the auto-fix when there is not any exceptions
 
-        should_stop_resources = [x for x in should_stop_resources_2 if x in should_stop_resources_1]
-        should_delete_resources = [x for x in should_delete_resources_2 if x in should_delete_resources_1]
+        should_stop_resources = [x for x in should_stop_resources_2
+                                 if x in should_stop_resources_1]
+        should_delete_resources = [x for x in should_delete_resources_2
+                                   if x in should_delete_resources_1]
 
         for resource in should_stop_resources:
-            LOG.warn("The resource(%s) is owed, should be stopped" % resource)
+            LOG.warn("[%s] The resource(%s) is owed, should be stopped",
+                     self.member_id, resource)
             if cfg.CONF.try_to_fix:
                 try:
-                    self.STOP_METHOD_MAP[resource.resource_type](resource.id, self.region_name)
+                    self.STOP_METHOD_MAP[resource.resource_type](
+                        resource.id, self.region_name)
                 except Exception:
                     LOG.warn("Fail to stop the owed resource(%s)" % resource)
 
         for resource in should_delete_resources:
-            LOG.warn("The resource(%s) is reserved for its full days, should be deleted" % resource)
+            LOG.warn("[%s] The resource(%s) is reserved for its full days, "
+                     "should be deleted", self.member_id, resource)
             if cfg.CONF.try_to_fix:
                 try:
-                    self.DELETE_METHOD_MAP[resource.resource_type](resource.id, self.region_name)
+                    self.DELETE_METHOD_MAP[resource.resource_type](
+                        resource.id, self.region_name)
                 except Exception:
                     LOG.warn("Fail to delete the owed resource(%s)" % resource)
 
     def check_if_cronjobs_match_orders(self):
-        """Check if number of cron jobs match number of orders in running and
+        """Check if cron jobs match with orders
+
+        Check if number of cron jobs match number of orders in running and
         stopped state, we do this check every one hour.
         """
-        LOG.warn('Checking if cronjobs match with orders')
+        LOG.warn('[%s] Checking if cronjobs match with orders', self.member_id)
         try:
-            order_count = self.worker_api.get_active_order_count(self.ctxt, self.region_name)
-            cronjob_count = self.master_api.get_cronjob_count(self.ctxt)
-            if cronjob_count != order_count:
-                LOG.warn('There are %s cron jobs, but there are %s active orders' %
-                         (cronjob_count, order_count))
-            else:
-                LOG.warn('Checked, There are %s cron jobs, and %s active orders' %
-                          (cronjob_count, order_count))
-
-            # Checking owed orders
-            datejob_count = self.master_api.get_datejob_count(self.ctxt)
+            active_order_count = self.worker_api.get_active_order_count(
+                self.ctxt,
+                self.region_name)
             owed_order_count = self.worker_api.get_active_order_count(
                 self.ctxt, self.region_name, owed=True)
-            if datejob_count != owed_order_count:
-                LOG.warn('There are %s date jobs, but there are %s owed active orders' %
-                         (datejob_count, owed_order_count))
-            else:
-                LOG.warn('Checked, There are %s date jobs, and %s owed active orders' %
-                         (datejob_count, owed_order_count))
-
-            # checking 30 days orders
-            datejob_30_days_count = self.master_api.get_datejob_count_30_days(self.ctxt)
             stopped_order_count = self.worker_api.get_stopped_order_count(
                 self.ctxt, self.region_name, type=const.RESOURCE_INSTANCE)
-            LOG.warn('Checked, There are %s 30-days date jobs, and %s stopped orders' %
-                     (datejob_30_days_count, stopped_order_count))
-        except Exception:
-            LOG.exception('Some exceptions occurred when checking whether '
-                          'cron jobs match with orders or not')
 
-    def check_owed_accounts_and_notify(self):
-        LOG.warn('Notifying owed accounts')
-        try:
-            accounts = list(self.worker_api.get_accounts(self.ctxt))
+            job_count = self.master_api.get_apsched_jobs_count(self.ctxt)
+            order_count = (active_order_count + owed_order_count +
+                           stopped_order_count)
+
+            if job_count != order_count:
+                LOG.warn("[%s] There are %s apsched jobs, but there are %s "
+                         "active orders",
+                         self.member_id, job_count, order_count)
+            else:
+                LOG.warn("[%s] Checked, There are %s apsched jobs, and %s "
+                         "active orders",
+                         self.member_id, job_count, order_count)
+
         except Exception:
-            LOG.exception("Fail to get all accounts")
+            LOG.exception("Some exceptions occurred when checking whether "
+                          "cron jobs match with orders or not")
+
+    def _assigned_accounts(self):
+        accounts = list(self.worker_api.get_accounts(self.ctxt))
+        return self.partition_coordinator.extract_my_subset(
+            self.PARTITIONING_GROUP_NAME, accounts)
+
+    def check_owed_accounts_and_notify(self):  # noqa
+        """Check owed accounts and notify them
+
+        Get owed accounts, send them sms/email notifications.
+        """
+        try:
+            accounts = self._assigned_accounts()
+        except Exception:
+            LOG.exception("Fail to get assigned accounts")
             accounts = []
+        LOG.warn("[%s] Notifying owed accounts, assigned accounts number: %s",
+                 self.member_id, len(accounts))
+
         for account in accounts:
             try:
                 if account['level'] == 9:
@@ -635,15 +749,19 @@ class CheckerService(os_service.Service):
 
                 if account['owed']:
                     orders = list(
-                        self.worker_api.get_active_orders(self.ctxt,
-                                                          user_id=account['user_id'],
-                                                          owed=True)
+                        self.worker_api.get_active_orders(
+                            self.ctxt,
+                            user_id=account['user_id'],
+                            owed=True)
                     )
                     if not orders:
                         continue
 
                     contact = keystone.get_uos_user(account['user_id'])
-                    _projects = self.worker_api.get_projects(self.ctxt, user_id=account['user_id'], type='simple')
+                    _projects = self.worker_api.get_projects(
+                        self.ctxt,
+                        user_id=account['user_id'],
+                        type='simple')
 
                     orders_dict = {}
                     for project in _projects:
@@ -651,13 +769,17 @@ class CheckerService(os_service.Service):
 
                     for order in orders:
                         # check if the resource exists
-                        resource = self.RESOURCE_GET_MAP[order['type']](order['resource_id'],
-                                                                        region_name=order['region_id'])
+                        resource = self.RESOURCE_GET_MAP[order['type']](
+                            order['resource_id'],
+                            region_name=order['region_id'])
                         if not resource:
                             # alert that the resource not exists
-                            LOG.warn("The resource(%s|%s) has been deleted" % \
-                                     (order['type'], order['resource_id']))
-                            alert.wrong_billing_order(order, 'resource_deleted')
+                            LOG.warn("[%s] The resource(%s|%s) has been "
+                                     "deleted",
+                                     self.member_id,
+                                     order['type'], order['resource_id'])
+                            alert.wrong_billing_order(order,
+                                                      'resource_deleted')
                             continue
 
                         order_d = {}
@@ -669,19 +791,21 @@ class CheckerService(os_service.Service):
 
                         if isinstance(order['date_time'], basestring):
                             order['date_time'] = timeutils.parse_strtime(
-                                    order['date_time'],
-                                    fmt=ISO8601_UTC_TIME_FORMAT)
+                                order['date_time'],
+                                fmt=ISO8601_UTC_TIME_FORMAT)
 
                         now = datetime.datetime.utcnow()
                         reserved_days = (order['date_time'] - now).days
                         if reserved_days < 0:
-                            LOG.warn('The order %s reserved_days is less than 0' % order['order_id'])
+                            LOG.warn("[%s] The order %s reserved_days is "
+                                     "less than 0",
+                                     self.member_id, order['order_id'])
                             reserved_days = 0
                         order_d['reserved_days'] = reserved_days
 
                         order_d['date_time'] = timeutils.strtime(
-                                order['date_time'],
-                                fmt=ISO8601_UTC_TIME_FORMAT)
+                            order['date_time'],
+                            fmt=ISO8601_UTC_TIME_FORMAT)
 
                         orders_dict[order['project_id']].append(order_d)
 
@@ -691,7 +815,8 @@ class CheckerService(os_service.Service):
                             adict = {}
                             adict['project_id'] = project['project_id']
                             adict['project_name'] = project['project_name']
-                            adict['orders'] = orders_dict[project['project_id']]
+                            adict['orders'] = (orders_dict[
+                                               project['project_id']])
                             projects.append(adict)
 
                     if not projects:
@@ -701,14 +826,17 @@ class CheckerService(os_service.Service):
                     account['reserved_days'] = reserved_days
                     country_code = contact.get("country_code") or "86"
                     language = "en_US" if country_code != '86' else "zh_CN"
-                    self.notifier.notify_has_owed(self.ctxt, account, contact, projects, language=language)
+                    self.notifier.notify_has_owed(self.ctxt, account, contact,
+                                                  projects, language=language)
                 else:
-                    orders = self.worker_api.get_active_orders(self.ctxt,
-                                                               user_id=account['user_id'])
+                    orders = self.worker_api.get_active_orders(
+                        self.ctxt,
+                        user_id=account['user_id'])
                     if not orders:
                         continue
 
-                    _projects = self.worker_api.get_projects(self.ctxt, user_id=account['user_id'], type='simple')
+                    _projects = self.worker_api.get_projects(
+                        self.ctxt, user_id=account['user_id'], type='simple')
 
                     estimation = {}
                     for project in _projects:
@@ -717,20 +845,27 @@ class CheckerService(os_service.Service):
                     price_per_hour = 0
                     for order in orders:
                         # check if the resource exists
-                        resource = self.RESOURCE_GET_MAP[order['type']](order['resource_id'],
-                                                                        region_name=order['region_id'])
+                        resource = self.RESOURCE_GET_MAP[order['type']](
+                            order['resource_id'],
+                            region_name=order['region_id'])
                         if not resource:
                             # alert that the resource not exists
-                            LOG.warn("The resource(%s|%s) may has been deleted" % \
-                                     (order['type'], order['resource_id']))
-                            alert.wrong_billing_order(order, 'resource_deleted')
+                            LOG.warn("[%s] The resource(%s|%s) may has been "
+                                     "deleted",
+                                     self.member_id, order['type'],
+                                     order['resource_id'])
+                            alert.wrong_billing_order(order,
+                                                      'resource_deleted')
                             continue
 
-                        price_per_hour += utils._quantize_decimal(order['unit_price'])
-                        estimation[order['project_id']] += utils._quantize_decimal(order['unit_price'])
+                        price_per_hour += utils._quantize_decimal(
+                            order['unit_price'])
+                        estimation[order['project_id']] += \
+                            utils._quantize_decimal(order['unit_price'])
 
                     price_per_day = price_per_hour * 24
-                    account_balance = utils._quantize_decimal(account['balance'])
+                    account_balance = utils._quantize_decimal(
+                        account['balance'])
 
                     if price_per_day == 0:
                         continue
@@ -747,7 +882,8 @@ class CheckerService(os_service.Service):
                         adict = {}
                         adict['project_id'] = project['project_id']
                         adict['project_name'] = project['project_name']
-                        adict['estimation'] = str(estimation[project['project_id']] * 24)
+                        adict['estimation'] = str(
+                            estimation[project['project_id']] * 24)
                         projects.append(adict)
 
                     if not projects:
@@ -756,11 +892,14 @@ class CheckerService(os_service.Service):
                     contact = keystone.get_uos_user(account['user_id'])
                     country_code = contact.get("country_code") or "86"
                     language = "en_US" if country_code != '86' else "zh_CN"
-                    self.notifier.notify_before_owed(self.ctxt, account, contact, projects,
-                                                     str(price_per_day), days_to_owe,
+                    self.notifier.notify_before_owed(self.ctxt, account,
+                                                     contact, projects,
+                                                     str(price_per_day),
+                                                     days_to_owe,
                                                      language=language)
             except Exception:
-                LOG.exception('Some exceptions occurred when checking owed account: %s' % account['user_id'])
+                LOG.exception("Some exceptions occurred when checking owed "
+                              "account: %s", account['user_id'])
 
     def _figure_out_difference(self, alist, akey, blist, bkey):
         ab = []
@@ -772,45 +911,49 @@ class CheckerService(os_service.Service):
                 if getattr(a, akey) == b.get(bkey):
                     s = i
                     break
-                if getattr(a, akey) < b.get(bkey) or i == l-1:
+                if getattr(a, akey) < b.get(bkey) or i == (l - 1):
                     s = i
                     ab.append(a)
                     break
         return ab
 
     def _check_user_to_account(self):
-        LOG.warn("Checking if users in keystone match accounts in gringotts")
-        accounts = sorted(self.worker_api.get_accounts(self.ctxt), key=lambda account: account['user_id'])
+        accounts = sorted(self.worker_api.get_accounts(self.ctxt),
+                          key=lambda account: account['user_id'])
         users = sorted(keystone.get_user_list(), key=lambda user: user.id)
 
         _users = self._figure_out_difference(users, 'id', accounts, 'user_id')
         result = []
         for u in _users:
-            result.append(User(u.id, u.domain_id,
-                               project_id=getattr(u, 'default_project_id', None)))
+            result.append(keystone.User(
+                u.id, u.domain_id,
+                project_id=getattr(u, 'default_project_id', None)))
         return result
 
     def check_user_to_account(self):
+        LOG.warn("[%s] Checking if users in keystone match accounts "
+                 "in gringotts", self.member_id)
         try:
             users_1 = self._check_user_to_account()
             time.sleep(30)
             users_2 = self._check_user_to_account()
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether '
-                          'users match with account, skip this checking circle.')
+            LOG.exception("Some exceptions occurred when checking whether "
+                          "users match with account, skip this checking "
+                          "circle.")
             return
 
         # NOTE(suo): We only do the auto-fix when there is not any exceptions
 
         users = [u for u in users_1 if u in users_2]
         for user in users:
-            LOG.warn('Situation 6: The user(%s) has not been created in gringotts' % user.user_id)
+            LOG.warn("[%s] Situation 6: The user(%s) has not been created "
+                     "in gringotts", self.member_id, user.user_id)
             if cfg.CONF.try_to_fix:
                 create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_USER]
                 create_cls.process_notification(user.to_message())
 
     def _check_project_to_project(self):
-        LOG.warn("Checking if projects in keystone match projects in gringotts")
         _k_projects = keystone.get_projects_by_project_ids()
         _g_projects = self.worker_api.get_projects(self.ctxt, type='simple')
 
@@ -818,13 +961,16 @@ class CheckerService(os_service.Service):
         g_projects = []
         for kp in _k_projects:
             billing_owner = kp['users']['billing_owner']
-            k_projects.append(Project(kp['id'],
-                                      billing_owner.get('id') if billing_owner else None,
-                                      kp['domain_id']))
+            k_projects.append(
+                keystone.Project(
+                    kp['id'],
+                    billing_owner.get('id') if billing_owner else None,
+                    kp['domain_id']))
         for gp in _g_projects:
-            g_projects.append(Project(gp['project_id'],
-                                      gp['billing_owner'],
-                                      gp['domain_id']))
+            g_projects.append(
+                keystone.Project(gp['project_id'],
+                                 gp['billing_owner'],
+                                 gp['domain_id']))
 
         # projects in keystone but not in gringotts
         creating_projects = list(set(k_projects) - set(g_projects))
@@ -837,9 +983,11 @@ class CheckerService(os_service.Service):
                 deleting_projects.append(p)
 
         # projects whose billing owner is not equal to each other
-        billing_projects = [] # changing billing owner
-        projects_k = sorted(set(g_projects) & set(k_projects), key=lambda p: p.project_id)
-        projects_g = sorted(set(k_projects) & set(g_projects), key=lambda p: p.project_id)
+        billing_projects = []  # changing billing owner
+        projects_k = sorted(set(g_projects) & set(k_projects),
+                            key=lambda p: p.project_id)
+        projects_g = sorted(set(k_projects) & set(g_projects),
+                            key=lambda p: p.project_id)
 
         for k, g in zip(projects_k, projects_g):
             if k.billing_owner_id != g.billing_owner_id:
@@ -849,19 +997,25 @@ class CheckerService(os_service.Service):
 
     def check_project_to_project(self):
         """Check two situations:
-        1. Projects in keystone but not in gringotts, means gringotts didn't receive the create
-           project message.
-        2. Projects in gringotts but not in keystone still has resources, means projects in keystone
-           has been deleted, but its resources didn't be deleted
-        3. Check the project's billing owner in gringotts matches billing owner in keystone
+
+        1. Projects in keystone but not in gringotts, means gringotts didn't
+           receive the create project message.
+        2. Projects in gringotts but not in keystone still has resources,
+           means projects in keystone has been deleted, but its resources
+           didn't be deleted
+        3. Check the project's billing owner in gringotts matches
+           billing_projects owner in keystone
         """
+        LOG.warn("[%s] Checking if projects in keystone match projects "
+                 "in gringotts", self.member_id)
         try:
             cp_1, dp_1, bp_1 = self._check_project_to_project()
             time.sleep(30)
             cp_2, dp_2, bp_2 = self._check_project_to_project()
         except Exception:
-            LOG.exception('Some exceptions occurred when checking whether '
-                          'projects match with projects, skip this checking circle.')
+            LOG.exception("Some exceptions occurred when checking whether "
+                          "projects match with projects, skip this checking "
+                          "circle.")
             return
 
         # NOTE(suo): We only do the auto-fix when there is not any exceptions
@@ -871,34 +1025,42 @@ class CheckerService(os_service.Service):
         billing_projects = [p for p in bp_1 if p in bp_2]
 
         for p in creating_projects:
-            LOG.warn("Situation 7: The project(%s) exists in keystone but not in gringotts, its billing owner is %s" % \
-                    (p.project_id, p.billing_owner_id))
+            LOG.warn("[%s] Situation 7: The project(%s) exists in keystone "
+                     "but not in gringotts, its billing owner is %s",
+                     self.member_id, p.project_id, p.billing_owner_id)
             if cfg.CONF.try_to_fix and p.billing_owner_id:
                 create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_PROJECT]
                 create_cls.process_notification(p.to_message())
 
         for p in deleting_projects:
-            LOG.warn("Situation 8: The project(%s) has been deleted, but its resources has not been cleared" % p.project_id)
+            LOG.warn("[%s] Situation 8: The project(%s) has been deleted, "
+                     "but its resources has not been cleared",
+                     self.member_id, p.project_id)
             if cfg.CONF.try_to_fix:
                 try:
                     self.worker_api.delete_resources(self.ctxt, p.project_id)
                 except Exception:
-                    LOG.exception('Fail to delete all resources of project %s' % p.project_id)
+                    LOG.exception("Fail to delete all resources of project %s",
+                                  p.project_id)
                     return
-                LOG.info('Delete all resources of project %s successfully' % p.project_id)
 
         for p in billing_projects:
-            LOG.warn("Situation 9: The project(%s)\'s billing owner in gringotts is not equal to keystone\'s, should be: %s" % \
-                    (p.project_id, p.billing_owner_id))
+            LOG.warn("[%s] Situation 9: The project(%s)'s billing owner in "
+                     "gringotts is not equal to keystone's, should be: %s",
+                     self.member_id, p.project_id, p.billing_owner_id)
             if cfg.CONF.try_to_fix and p.billing_owner_id:
                 try:
-                    self.worker_api.change_billing_owner(self.ctxt, p.project_id, p.billing_owner_id)
+                    self.worker_api.change_billing_owner(self.ctxt,
+                                                         p.project_id,
+                                                         p.billing_owner_id)
                 except Exception:
-                    LOG.exception('Fail to change billing owner of project %s to user %s' % (p.project_id, p.billing_owner_id))
+                    LOG.exception("Fail to change billing owner of project "
+                                  "%s to user %s",
+                                  p.project_id, p.billing_owner_id)
                     return
-                LOG.info('Change billing owner of project %s to user %s successfully' % (p.project_id, p.billing_owner_id))
 
 
 def checker():
-    prepare_service()
-    os_service.launch(CheckerService()).wait()
+    service.prepare_service()
+    os_service.launch(CheckerService(),
+                      workers=cfg.CONF.checker_workers).wait()

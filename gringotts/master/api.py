@@ -31,14 +31,8 @@ class LocalAPI(object):
     def __init__(self):
         self._service = service.MasterService()
 
-    def get_cronjob_count(self, ctxt):
-        return self._service.get_cronjob_count(ctxt)
-
-    def get_datejob_count(self, ctxt):
-        return self._service.get_datejob_count(ctxt)
-
-    def get_datejob_count_30_days(self, ctxt):
-        return self._service.get_datejob_count_30_days(ctxt)
+    def get_apsched_jobs_count(self, ctxt):
+        return self._service.get_apsched_jobs_count(ctxt)
 
     def resource_created(self, ctxt, order_id, action_time, remarks):
         self._service.resource_created(ctxt, order_id, action_time, remarks)

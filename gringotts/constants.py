@@ -47,5 +47,13 @@ BILL_PAYED = 'payed'
 BILL_OWED = 'owed'
 
 
+# Bill result
+BILL_NORMAL = 0
+BILL_ACCOUNT_OWED = 1
+BILL_ACCOUNT_NOT_OWED = 1
+BILL_ORDER_OWED = 2
+BILL_OWED_ACCOUNT_CHARGED = 3
+
+
 ORDER_TYPE = ['instance', 'image', 'snapshot', 'volume', 'router',
               'listener', 'floatingip', 'alarm', 'share']

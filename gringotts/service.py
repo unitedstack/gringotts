@@ -21,6 +21,14 @@ cfg.CONF.register_opts([
                'However, the node name must be valid within '
                'an AMQP key, and if using ZeroMQ, a valid '
                'hostname, FQDN, or IP address'),
+    cfg.IntOpt('checker_workers',
+               default=1,
+               help='Number of workers for checker service. A single worker is '
+               'enabled by default'),
+    cfg.IntOpt('master_workers',
+               default=1,
+               help='Number of workers for master service. A single worker is '
+               'enabled by default')
 ])
 
 

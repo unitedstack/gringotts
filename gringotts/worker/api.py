@@ -23,6 +23,9 @@ class LocalAPI(object):
         return self._service.create_bill(ctxt, order_id, action_time=action_time,
                                          remarks=remarks, end_time=end_time)
 
+    def update_bill(self, ctxt, order_id):
+        return self._service.update_bill(ctxt, order_id)
+
     def close_bill(self, ctxt, order_id, action_time):
         return self._service.close_bill(ctxt, order_id, action_time)
 

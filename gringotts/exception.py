@@ -307,6 +307,10 @@ class BillCreateFailed(GringottsException):
     message = _("Fail to create bill for the order: %(order_id)s")
 
 
+class BillUpdateFailed(GringottsException):
+    message = _("Fail to update bill for the order: %(order_id)s")
+
+
 class BillCloseFailed(GringottsException):
     message = _("Fail to close bill for the order: %(order_id)s")
 

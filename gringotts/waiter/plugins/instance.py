@@ -250,6 +250,7 @@ services.register_class(ks_client,
                         const.RESOURCE_INSTANCE,
                         InstanceCreateEnd)
 
+
 class InstanceStopEnd(ComputeNotificationBase):
     """Handle the events that instances be stopped, for now,
     it will only handle one product: volume.size.
