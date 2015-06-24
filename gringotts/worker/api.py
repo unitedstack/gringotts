@@ -143,6 +143,15 @@ class LocalAPI(object):
     def get_external_balance(self, ctxt, user_id):
         return self._service.get_external_balance(ctxt, user_id)
 
+    def get_orders_summary(self, ctxt, user_id, start_time, end_time):
+        return self._service.get_orders_summary(ctxt, user_id, start_time, end_time)
+
+    def get_charges(self, ctxt, user_id):
+        return self._service.get_charges(ctxt, user_id)
+
+    def get_consumption_per_day(self, ctxt, user_id):
+        return self._service.get_consumption_per_day(ctxt, user_id)
+
 
 class RPCAPI(LocalAPI):
     """A rpc version of the worker API that handles all requests.

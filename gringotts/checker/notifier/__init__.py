@@ -38,6 +38,10 @@ class NotifierService(object):
         for notifier in self.notifiers:
             notifier.notify_account_charged(context, account, contact, type, value, bonus=bonus, **kwargs)
 
+    def send_account_info(self, context, account_infos, email_addr_name):
+        for notifier in self.notifiers:
+            notifier.send_account_info(context, account_infos, email_addr_name)
+
 
 class Notifier(object):
     """Base class for notifier"""

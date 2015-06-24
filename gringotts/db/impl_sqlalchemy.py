@@ -275,6 +275,7 @@ class Connection(base.Connection):
                                  inviter=row.inviter,
                                  charged=row.charged,
                                  reward_value=row.reward_value,
+                                 sales_id = row.sales_id,
                                  created_at=row.created_at,
                                  updated_at=row.updated_at)
 
@@ -1006,6 +1007,24 @@ class Connection(base.Connection):
                                 query=query)
 
         return (self._row_to_db_account_model(r) for r in result), total_count
+
+    @require_context
+    def get_accounts_by_sales(self, context, sales_id, limit=None, offset=None):
+        query = get_session().query(sa_models.Account).\
+                filter_by(sales_id=sales_id)
+
+        result = paginate_query(context, sa_models.Account, limit=limit,
+                                offset=offset, query=query)
+
+        return (self._row_to_db_account_model(r) for r in result)
+
+    @require_context
+    def get_accounts_by_sales_count(self, context, sales_id):
+        query = model_query(context, sa_models.Account,
+                            func.count(sa_models.Account.id).label('count'))
+        query = query.filter_by(sales_id=sales_id)
+
+        return query.one().count or 0
 
     @require_domain_context
     def get_accounts(self, context, owed=None, limit=None, offset=None,
@@ -1885,3 +1904,47 @@ class Connection(base.Connection):
                                        operator=cxt.user_id,
                                        remarks=remarks)
             session.add(charge_from)
+
+    def add_account_sales(self, account_id, sales_id):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                account = session.query(sa_models.Account).\
+                    filter_by(user_id=account_id).with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.AccountNotFound(user_id=account_id)
+            account.sales_id = sales_id
+
+    def add_accounts_sales(self, data):
+        accounts = data.accounts
+        sales_id = data.sales_id
+
+        session = db_session.get_session()
+        with session.begin():
+            for account_id in accounts:
+                try:
+                    account = session.query(sa_models.Account).\
+                        filter_by(user_id=account_id).with_lockmode('update').one()
+                except:
+                    LOG.warning('The account whose user_id is %s did not exist'
+                             % account_id)
+                    continue
+                account.sales_id = sales_id
+
+    def update_account_sales(self, account_id, new_sales_id):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                account = session.query(sa_models.Account).\
+                    filter_by(user_id=account_id).with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.AccountNotFound(user_id=account_id)
+            account.sales_id = new_sales_id
+
+    def update_accounts_sales(self, old_sales_id, new_sales_id):
+        session = db_session.get_session()
+        with session.begin():
+            accounts = session.query(sa_models.Account).\
+                filter_by(sales_id=old_sales_id).with_lockmode('update').all()
+            for account in accounts:
+                account.sales_id = new_sales_id

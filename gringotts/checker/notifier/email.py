@@ -184,3 +184,21 @@ class EmailNotifier(notifier.Notifier):
             }
             notify = gring_notifier.get_notifier(service='checker')
             notify.info(context, 'uos.account.charged', payload)
+
+    @staticmethod
+    def send_account_info(context, account_infos, email_addr_name):
+        for key, value in email_addr_name.items():
+            payload = {
+                'actions': {
+                    'email': {
+                        'email_template': 'to_sales/accounts_consumption_info',
+                        'context': {
+                            'content': value[1],
+                        },
+                        'file_data': account_infos[value[0]],
+                        'to': value[0],
+                    }
+                }
+            }
+            notify = gring_notifier.get_notifier(service='lotus-collector')
+            notify.info(context, 'uos.notification.email_attachment', payload)
