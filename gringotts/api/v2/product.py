@@ -1,6 +1,9 @@
+# -*- coding: utf-8 -*-
+
 import pecan
-import wsme
 import datetime
+import collections
+import json
 
 from pecan import rest
 from pecan import request
@@ -21,6 +24,96 @@ from gringotts.openstack.common import uuidutils
 LOG = log.getLogger(__name__)
 
 
+class ProductExtraData(object):
+
+    def __init__(self, extra_json_string):
+        try:
+            self.extra = json.loads(extra_json_string)
+        except (Exception) as e:
+            err = 'Extra data is not a valid JSON string, %s' % (e)
+            LOG.warning(err)
+            raise exception.InvalidParameterValue(err=err)
+
+        self.new_extra = {}
+
+    def validate(self):
+        try:
+            if 'price' in self.extra:
+                self._validate_price()
+        except (exception.GringottsException) as e:
+            LOG.warning(e.format_message())
+            raise e
+
+        return json.dumps(self.new_extra)
+
+    def _validate_price(self):
+        price_data = self.extra['price']
+        if 'type' not in price_data:
+            raise exception.InvalidParameterValue(
+                err='Invalid price type')
+
+        new_price_data = {'type': price_data['type']}
+        if price_data['type'] == 'segmented':
+            new_price_data['segmented'] = \
+                self._validate_segmented_price(price_data)
+
+        # Validate value of 'base_price'
+        if 'base_price' not in price_data:
+            new_price_data['base_price'] = 0
+        else:
+            base_price = price_data['base_price']
+            if not isinstance(base_price, (int, float)):
+                raise exception.InvalidParameterValue(
+                    err='Invalid base price type')
+            if base_price < 0:
+                raise exception.InvalidParameterValue(
+                    err='Base price should not be negative')
+            new_price_data['base_price'] = base_price
+
+        self.new_extra['price'] = new_price_data
+
+    def _validate_segmented_price(self, price_data):
+        if ('segmented' not in price_data) \
+                or (not isinstance(price_data['segmented'], list)):
+            raise exception.InvalidParameterValue(
+                err='No segmented price list in price data')
+
+        price_list = price_data['segmented']
+
+        # check if item in price_list is valid
+        # valid price item is of the form:
+        #     [(quantity_level)int, (unit_price)int/float]
+        item_is_valid = all(
+            (len(p) == 2
+             and isinstance(p[0], int)
+             and isinstance(p[1], (int, float))
+             and p[1] >= 0
+             )
+            for p in price_list
+        )
+        if not item_is_valid:
+            raise exception.InvalidParameterValue(
+                err='Segmented price list has invalid price item')
+
+        # check if price list has duplicate items
+        c = collections.Counter([p[0] for p in price_list])
+        has_duplicate_items = any([v[1] != 1 for v in c.items()])
+        if has_duplicate_items:
+            raise exception.InvalidParameterValue(
+                err='Segmented price list has duplicate items')
+
+        # sort price list
+        sorted_price_list = sorted(
+            price_list, key=lambda p: p[0], reverse=True)
+
+        # check the price list start from 0
+        if sorted_price_list[-1][0] != 0:
+            raise exception.InvalidParameterValue(
+                err='Number of resource should start from 0')
+
+        return sorted_price_list
+
+
 class ProductController(rest.RestController):
     """Manages operations on a single product
     """
@@ -33,7 +126,7 @@ class ProductController(rest.RestController):
         try:
             product = self.conn.get_product(request.context,
                                             product_id=self._id)
-        except Exception as e:
+        except Exception:
             LOG.error('Product %s not found' % self._id)
             raise exception.ProductIdNotFound(product_id=self._id)
         return product
@@ -50,7 +143,7 @@ class ProductController(rest.RestController):
         product = self._product()
         try:
             self.conn.delete_product(request.context, product.product_id)
-        except Exception as e:
+        except Exception:
             error = 'Error while deleting product: %s' % product.product_id
             LOG.exception(error)
             raise exception.DBError(reason=error)
@@ -68,12 +161,18 @@ class ProductController(rest.RestController):
         p = data.as_dict()
 
         # Default to reset subscription and order
-        reset = p.pop("reset") if p.has_key("reset") else True
+        reset = p.pop("reset") if 'reset' in p else True
 
         for k, v in p.items():
             product_in[k] = v
 
         product_in.updated_at = datetime.datetime.utcnow()
+
+        # Check and process extra data
+        if product_in.extra is not None:
+            extra_data = ProductExtraData(product_in.extra)
+            new_extra_data = extra_data.validate()
+            product_in.extra = new_extra_data
 
         # Check if there are other same names in the same region
         # except itself
@@ -136,11 +235,11 @@ class PriceController(rest.RestController):
                     hourly_price += product.unit_price * p.quantity
                     unit_price += product.unit_price
                     unit = product.unit
-                except Exception as e:
+                except Exception:
                     LOG.error('Product %s not found' % p.product_name)
                     # NOTE(suo): Even through fail to find the product, we should't
                     # raise Exception, emit the price to zero.
-                    #raise exception.ProductNameNotFound(product_name=p.product_name)
+                    # raise exception.ProductNameNotFound(product_name=p.product_name)
             else:
                 raise exception.MissingRequiredParams()
 
@@ -214,10 +313,16 @@ class ProductsController(rest.RestController):
             product_in = db_models.Product(quantity=0,
                                            deleted=False,
                                            **data.as_dict())
-        except Exception as e:
+        except Exception:
             error = 'Error while turning product: %s' % data.as_dict()
             LOG.exception(error)
             raise exception.MissingRequiredParams(reason=error)
+
+        # Check and process extra data
+        if product_in.extra is not None:
+            extra_data = ProductExtraData(product_in.extra)
+            new_extra_data = extra_data.validate()
+            product_in.extra = new_extra_data
 
         # Check if there are duplicated name in the same region
         filters = {'name': data.name,
@@ -236,7 +341,7 @@ class ProductsController(rest.RestController):
         # Write product model to DB
         try:
             product = conn.create_product(request.context, product_in)
-        except Exception as e:
+        except Exception:
             error = 'Error while creating product: %s' % data.as_dict()
             LOG.exception(error)
             raise exception.DBError(reason=error)
@@ -273,5 +378,6 @@ class ProductsController(rest.RestController):
                                                service=p.service,
                                                unit_price=p.unit_price,
                                                currency='CNY',
-                                               unit=p.unit)
+                                               unit=p.unit,
+                                               extra=p.extra)
                 for p in result]

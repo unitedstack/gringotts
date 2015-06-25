@@ -93,6 +93,8 @@ class Product(Base):
     updated_at = Column(DateTime)
     deleted_at = Column(DateTime)
 
+    extra = Column(Text)
+
 
 class Order(Base):
     """Order DB Model of SQLAlchemy"""
@@ -161,6 +163,8 @@ class Subscription(Base):
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
 
+    extra = Column(Text)
+
 
 class Bill(Base):
 
@@ -200,7 +204,7 @@ class Bill(Base):
 
 
 class Charge(Base):
-    
+
     __tablename__ = 'charge'
 
     id = Column(Integer, primary_key=True)

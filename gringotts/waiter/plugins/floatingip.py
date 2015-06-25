@@ -12,6 +12,7 @@ from stevedore import extension
 
 from gringotts import constants as const
 from gringotts import utils as gringutils
+from gringotts import context
 from gringotts import plugin
 from gringotts.waiter import plugin as waiter_plugin
 from gringotts.waiter.plugin import Collection
@@ -22,6 +23,7 @@ from gringotts.services import keystone as ks_client
 
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import jsonutils
 
 
 LOG = log.getLogger(__name__)
@@ -61,6 +63,53 @@ class RateLimitItem(waiter_plugin.ProductItem):
                           resource_volume=resource_volume,
                           user_id=user_id,
                           project_id=project_id)
+
+    @staticmethod
+    def calculate_price(quantity, unit_price, price_data=None):
+        if price_data and 'type' in price_data:
+            if 'base_price' in price_data:
+                base_price = gringutils._quantize_decimal(
+                    price_data['base_price'])
+            else:
+                base_price = gringutils._quantize_decimal(0)
+
+            if price_data['type'] == 'segmented' \
+                    and 'segmented' in price_data:
+                # using segmented price
+                # price list is a descendent list has elements of the form:
+                #     [(quantity_level)int, (unit_price)int/float]
+                q = int(quantity)
+                total_price = gringutils._quantize_decimal(0)
+                for p in price_data['segmented']:
+                    if q > p[0]:
+                        total_price += \
+                            (q - p[0]) * gringutils._quantize_decimal(p[1])
+                        q = p[0]
+
+                return total_price + base_price
+
+        unit_price = gringutils._quantize_decimal(unit_price)
+        return unit_price * int(quantity)
+
+    def get_unit_price(self, message):
+        c = self.get_collection(message)
+        product = self.worker_api.get_product(
+            context.get_admin_context(),
+            c.product_name, c.service, c.region_id)
+
+        if product:
+            price_data = None
+            if 'extra' in product and product['extra']:
+                try:
+                    extra_data = jsonutils.loads(product['extra'])
+                    price_data = extra_data.get('price', None)
+                except (Exception):
+                    LOG.warning('Decode product["extra"] failed')
+
+            return self.calculate_price(
+                c.resource_volume, product['unit_price'], price_data)
+        else:
+            return 0
 
 
 class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
@@ -185,15 +234,32 @@ class FloatingIpCreateEnd(FloatingIpNotificationBase):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_SUSPEND)
                 if sub and state == const.STATE_SUSPEND:
-                    p = gringutils._quantize_decimal(sub['unit_price'])
-                    unit_price += p * sub['quantity']
+                    price_data = None
+                    if 'extra' in sub and sub['extra']:
+                        try:
+                            extra_data = jsonutils.loads(sub['extra'])
+                            price_data = extra_data.get('price', None)
+                        except (Exception):
+                            LOG.warning('Decode subscription["extra"] failed')
+
+                    unit_price += RateLimitItem.calculate_price(
+                        sub['quantity'], sub['unit_price'], price_data)
                     unit = sub['unit']
             elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
                 if sub and (not state or state == const.STATE_RUNNING):
-                    p = gringutils._quantize_decimal(sub['unit_price'])
-                    unit_price += p * sub['quantity']
+                    price_data = None
+                    LOG.warning(sub)
+                    if 'extra' in sub and sub['extra']:
+                        try:
+                            extra_data = jsonutils.loads(sub['extra'])
+                            price_data = extra_data.get('price', None)
+                        except (Exception):
+                            LOG.warning('Decode subscription["extra"] failed')
+
+                    unit_price += RateLimitItem.calculate_price(
+                        sub['quantity'], sub['unit_price'], price_data)
                     unit = sub['unit']
 
         # Create an order for this instance
