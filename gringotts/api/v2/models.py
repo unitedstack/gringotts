@@ -108,6 +108,8 @@ class Product(APIBase):
     created_at = wtypes.text
     updated_at = wtypes.text
 
+    extra = wsme.wsattr(wtypes.text, mandatory=False)
+
     @classmethod
     def sample(cls):
         return cls(product_id='product-xxx',
@@ -136,6 +138,7 @@ class SimpleProduct(APIBase):
     unit_price = decimal.Decimal
     currency = wtypes.text
     unit = wtypes.text
+    extra = wtypes.text
 
 
 class Purchase(APIBase):
@@ -195,8 +198,9 @@ class Subscription(APIBase):
     total_price = decimal.Decimal
     user_id = wtypes.text
     project_id = wtypes.text
-    created_at =  wtypes.text
+    created_at = wtypes.text
     type = wtypes.text
+    extra = wtypes.text
 
 
 class SubscriptionPostBody(APIBase):

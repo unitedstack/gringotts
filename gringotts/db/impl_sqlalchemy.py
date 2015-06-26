@@ -31,6 +31,7 @@ from gringotts.openstack.common.db.sqlalchemy import utils as db_utils
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
+from gringotts.openstack.common import jsonutils
 
 
 LOG = log.getLogger(__name__)
@@ -201,7 +202,8 @@ class Connection(base.Connection):
                                  quantity=row.quantity,
                                  created_at=row.created_at,
                                  updated_at=row.updated_at,
-                                 deleted_at=row.deleted_at)
+                                 deleted_at=row.deleted_at,
+                                 extra=row.extra)
 
     @staticmethod
     def _row_to_db_order_model(row):
@@ -238,7 +240,8 @@ class Connection(base.Connection):
                                       region_id=row.region_id,
                                       domain_id=row.domain_id,
                                       created_at=row.created_at,
-                                      updated_at=row.updated_at)
+                                      updated_at=row.updated_at,
+                                      extra=row.extra)
 
     @staticmethod
     def _row_to_db_bill_model(row):
@@ -330,6 +333,33 @@ class Connection(base.Connection):
                                    expired_at=row.expired_at,
                                    remarks=row.remarks)
 
+    @staticmethod
+    def calculate_price(quantity, unit_price, price_data=None):
+        if price_data and 'type' in price_data:
+            if 'base_price' in price_data:
+                base_price = gringutils._quantize_decimal(
+                    price_data['base_price'])
+            else:
+                base_price = gringutils._quantize_decimal(0)
+
+            if price_data['type'] == 'segmented' \
+                    and 'segmented' in price_data:
+                # using segmented price
+                # price list is a descendent list has elements of the form:
+                #     [(quantity_level)int, (unit_price)int/float]
+                q = int(quantity)
+                total_price = gringutils._quantize_decimal(0)
+                for p in price_data['segmented']:
+                    if q > p[0]:
+                        total_price += \
+                            (q - p[0]) * gringutils._quantize_decimal(p[1])
+                        q = p[0]
+
+                return total_price + base_price
+
+        unit_price = gringutils._quantize_decimal(unit_price)
+        return unit_price * int(quantity)
+
     def create_product(self, context, product):
         session = db_session.get_session()
         with session.begin():
@@ -407,32 +437,41 @@ class Connection(base.Connection):
         with session.begin():
             # get all active orders in specified region
             orders = session.query(sa_models.Order).\
-                     filter_by(region_id=product.region_id).\
-                     filter(not_(sa_models.Order.status==const.STATE_DELETED)).\
-                     filter(sa_models.Order.project_id.notin_(excluded_projects)).\
-                     all()
+                filter_by(region_id=product.region_id).\
+                filter(not_(sa_models.Order.status == const.STATE_DELETED)).\
+                filter(sa_models.Order.project_id.notin_(excluded_projects)).\
+                all()
             for order in orders:
                 # get all subscriptions of this order that belongs to this product
                 p_subs = session.query(sa_models.Subscription).\
-                        filter_by(order_id=order.order_id).\
-                        filter_by(product_id=product.product_id).\
-                        all()
+                    filter_by(order_id=order.order_id).\
+                    filter_by(product_id=product.product_id).\
+                    all()
                 # update subscription's unit price
                 for s in p_subs:
                     s.unit_price = product.unit_price
+                    s.extra = product.extra
 
                 # update order's unit price
                 t_subs = session.query(sa_models.Subscription).\
-                        filter_by(order_id=order.order_id).\
-                        filter_by(type=order.status).\
-                        all()
+                    filter_by(order_id=order.order_id).\
+                    filter_by(type=order.status).\
+                    all()
                 unit_price = 0
                 for s in t_subs:
-                    unit_price += s.unit_price * s.quantity
+                    price_data = None
+                    if s.extra:
+                        try:
+                            extra_data = jsonutils.loads(s.extra)
+                            price_data = extra_data.get('price', None)
+                        except (Exception):
+                            pass
+
+                    unit_price += self.calculate_price(
+                        s.quantity, s.unit_price, price_data)
 
                 if order.unit_price != 0:
                     order.unit_price = unit_price
-
 
     def get_product_by_name(self, context, product_name, service, region_id):
         try:
@@ -481,6 +520,7 @@ class Connection(base.Connection):
 
     @require_admin_context
     def update_order(self, context, **kwargs):
+
         session = db_session.get_session()
         with session.begin():
             # Get subs of this order
@@ -494,7 +534,16 @@ class Connection(base.Connection):
             unit = None
 
             for sub in subs:
-                unit_price += sub.unit_price * sub.quantity
+                price_data = None
+                if sub.extra:
+                    try:
+                        extra_data = jsonutils.loads(sub.extra)
+                        price_data = extra_data.get('price', None)
+                    except (Exception):
+                        pass
+
+                unit_price += self.calculate_price(
+                    sub.quantity, sub.unit_price, price_data)
                 unit = sub.unit
 
             # update the order
@@ -683,6 +732,7 @@ class Connection(base.Connection):
                 project_id=subscription['project_id'],
                 region_id=subscription['region_id'],
                 domain_id=project.domain_id,
+                extra=product.extra
             )
 
             session.add(subscription)

@@ -50,11 +50,13 @@ class Product(Model):
                  here should be corresponding to the period field. Fox example,
                  if period is hourly, and the unit here should be hour or GB-hour,
                  not month or GB-month.
+    :param extra: Contains extra information.
     """
     def __init__(self,
                  product_id, name, service, region_id, description,
                  type, deleted, unit_price, unit, quantity,
-                 created_at=None, updated_at=None, deleted_at=None):
+                 created_at=None, updated_at=None, deleted_at=None,
+                 extra=None):
         Model.__init__(
             self,
             product_id=product_id,
@@ -69,7 +71,9 @@ class Product(Model):
             quantity=quantity,
             created_at=created_at,
             updated_at=updated_at,
-            deleted_at=deleted_at)
+            deleted_at=deleted_at,
+            extra=extra
+        )
 
 
 class Order(Model):
@@ -127,11 +131,12 @@ class Subscription(Model):
     :param order_id: The order this subscription belongs to
     :param user_id: The user id this subscription belongs to
     :param project_id: The project id this subscription belongs to
+    :param extra: Contains extra information
     """
     def __init__(self,
                  subscription_id, type, product_id, unit_price, unit,
                  quantity, order_id, user_id, project_id, region_id, domain_id,
-                 created_at=None, updated_at=None):
+                 created_at=None, updated_at=None, extra=None):
         Model.__init__(
             self,
             subscription_id=subscription_id,
@@ -146,7 +151,9 @@ class Subscription(Model):
             domain_id=domain_id,
             region_id=region_id,
             created_at=created_at,
-            updated_at=updated_at)
+            updated_at=updated_at,
+            extra=extra,
+        )
 
 
 class Bill(Model):
