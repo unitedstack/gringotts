@@ -250,7 +250,6 @@ class FloatingIpCreateEnd(FloatingIpNotificationBase):
                                                   type=const.STATE_RUNNING)
                 if sub and (not state or state == const.STATE_RUNNING):
                     price_data = None
-                    LOG.warning(sub)
                     if 'extra' in sub and sub['extra']:
                         try:
                             extra_data = jsonutils.loads(sub['extra'])
