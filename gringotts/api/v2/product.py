@@ -2,7 +2,6 @@
 
 import pecan
 import datetime
-import collections
 import json
 
 from pecan import rest
@@ -96,8 +95,14 @@ class ProductExtraData(object):
                 err='Segmented price list has invalid price item')
 
         # check if price list has duplicate items
-        c = collections.Counter([p[0] for p in price_list])
-        has_duplicate_items = any([v[1] != 1 for v in c.items()])
+        has_duplicate_items = False
+        quantity_items = {}
+        for p in price_list:
+            if p[0] not in quantity_items:
+                quantity_items[p[0]] = 1
+            else:
+                has_duplicate_items = True
+                break
         if has_duplicate_items:
             raise exception.InvalidParameterValue(
                 err='Segmented price list has duplicate items')
