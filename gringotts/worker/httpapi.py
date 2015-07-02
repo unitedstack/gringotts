@@ -239,7 +239,7 @@ class WorkerAPI(object):
 
         try:
             __, body = self.client.put('/pay', body=_body)
-            if body['code'] != "0":
+            if str(body['code']) != "0":
                 failed = True
         except Exception:
             failed = True
@@ -280,7 +280,7 @@ class WorkerAPI(object):
         # deduct first
         try:
             __, body = self.external_client.put('/pay', body=_body)
-            if body['code'] != "0":
+            if str(body['code']) != "0":
                 failed = True
         except Exception:
             failed = True
@@ -291,7 +291,7 @@ class WorkerAPI(object):
             params = dict(reqId=req_id)
             try:
                 __, body = self.external_client.get('/checkReq', params=params)
-                if body['code'] != "0":
+                if str(body['code']) != "0":
                     raise Exception
             except Exception:
                 msg = "Check request account(%s) failed, deduct money(%s), req_id(%s), reason: %s" % \
@@ -300,14 +300,14 @@ class WorkerAPI(object):
                 raise exception.DeductError(user_id=user_id,
                                             money=money,
                                             req_id=req_id)
-            if body['data'][0]['status'] != "0":
+            if str(body['data'][0]['status']) != "0":
                 retry = True
 
         # retry
         if retry:
             try:
                 __, body = self.external_client.put('/pay', body=_body)
-                if body['code'] != "0":
+                if str(body['code']) != "0":
                     raise Exception
             except Exception:
                 msg = "Deduct external account(%s) failed, deduct money(%s), req_id(%s), response: %s" % \
@@ -325,7 +325,7 @@ class WorkerAPI(object):
         try:
             __, body = self.external_client.get('/getBalance',
                                                 params=params)
-            if body['code'] != "0":
+            if str(body['code']) != "0":
                 raise Exception
         except Exception:
             LOG.exception("Fail to get external balance of account: %s" % user_id)
