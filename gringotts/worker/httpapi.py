@@ -331,3 +331,22 @@ class WorkerAPI(object):
             LOG.exception("Fail to get external balance of account: %s" % user_id)
             raise exception.GetBalanceFailed(user_id=user_id)
         return body
+
+    def get_orders_summary(self, ctxt, user_id, start_time, end_time):
+        params = dict(user_id=user_id, start_time=start_time, end_time=end_time)
+        resp, body = self.client.get('/orders/summary', params=params)
+        if body:
+            return body
+        return {}
+
+    def get_charges(self, ctxt, user_id):
+        resp, body = self.client.get('/accounts/%s/charges' % user_id)
+        if body:
+            return body['charges']
+        return []
+
+    def get_consumption_per_day(self, ctxt, user_id):
+        resp, body = self.client.get('/accounts/%s/estimate_per_day' % user_id)
+        if body:
+            return body
+        return {}

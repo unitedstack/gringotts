@@ -275,6 +275,7 @@ class Account(Base):
     inviter = Column(String(64))
     charged = Column(Boolean, default=False)
     reward_value = Column(DECIMAL(20, 4))
+    sales_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime, default=timeutils.utcnow)

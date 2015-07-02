@@ -400,6 +400,7 @@ class AdminAccount(APIBase):
     user_id = wtypes.text
     project_id = wtypes.text
     domain_id = wtypes.text
+    sales_id = wtypes.text
     owed = bool
     inviter = wtypes.text
     created_at = wtypes.text
@@ -688,3 +689,8 @@ class TransferMoneyBody(APIBase):
     user_id_from = wtypes.text
     money = decimal.Decimal
     remarks = wtypes.text
+
+
+class AccountsSales(APIBase):
+    accounts = [wtypes.text]
+    sales_id = wtypes.text

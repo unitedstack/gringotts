@@ -21,3 +21,7 @@ class LogNotifier(notifier.Notifier):
     def notify_account_charged(context, account, contact, type, value, bonus=None, **kwargs):
         LOG.warn('account %s charged %s, system bonus: %s, contact: %s, others: %s' %
                  (account, value, bonus, contact, kwargs))
+
+    @staticmethod
+    def send_account_info(context, account_infos, email_addr_name):
+        LOG.warn('account_infos:%s\nemail_addr_name:%s' % (account_infos, email_addr_name))

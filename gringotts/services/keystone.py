@@ -310,6 +310,15 @@ def get_projects_by_user(user_id):
         return []
     return r.json()['projects']
 
+def get_account_type( type='user', key='id', op='eq', value=None):
+    url = '%s/UOS-EXT/search/?type=%s&key=%s&op=%s&value=%s' % \
+          (cfg.CONF.service_credentials.os_auth_url, type, key, op, value)
+    r = requests.get(url,
+                     headers={'Content-Type': 'application/json',
+                              'X-Auth-Token': get_token()})
+    if r.status_code != 200:
+        return {}
+    return r.json()
 
 def get_role_list(user=None, group=None, domain=None, project=None):
     """Get role list of particular user on particular project by

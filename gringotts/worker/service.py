@@ -218,6 +218,15 @@ class WorkerService(rpc_service.Service):
     def get_external_balance(self, ctxt, user_id):
         raise NotImplementedError()
 
+    def get_orders_summary(self, ctxt, user_id, start_time, end_time):
+        raise NotImplementedError()
+
+    def get_charges(self, ctxt, user_id):
+        raise NotImplementedError()
+
+    def get_consumption_per_day(self, ctxt, user_id):
+        raise NotImplementedError()
+
 
 def worker():
     prepare_service()

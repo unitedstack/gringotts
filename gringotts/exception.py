@@ -327,6 +327,10 @@ class ProductNameNotFound(NotFound):
     message = _("Product %(product_name)s could not be found")
 
 
+class SalesIdNotFound(NotFound):
+    message = _("Sales whose sales_id is %(sales_id)s could not be found")
+
+
 class MarkerNotFound(NotFound):
     message = _("Marker %(marker)s could not be found")
 

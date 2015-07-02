@@ -186,6 +186,9 @@ class CheckerService(os_service.Service):
                                               hours=period,
                                               start_date=start_date)
 
+            self.apsched.add_cron_job(self.send_account_info, month='1-12', day='last',
+                                      hour = '23', minute= '59', second = '59')
+
     def _absolute_9_clock(self):
         nowutc = datetime.datetime.utcnow()
         nowutc_time = nowutc.time()
@@ -194,6 +197,115 @@ class CheckerService(os_service.Service):
         if nowutc_time > clock:
             nowutc_date = nowutc_date + datetime.timedelta(hours=24)
         return datetime.datetime.combine(nowutc_date, clock)
+
+    def get_period(self):
+        period_end_time = datetime.datetime.utcnow()
+        period_start_time = datetime.datetime(period_end_time.year, period_end_time.month, 1, 00, 00, 00)
+        return period_start_time, period_end_time
+
+    def get_accounts_info(self, period_start_time, period_end_time):
+        try:
+            accounts = list(self.worker_api.get_accounts(self.ctxt))
+        except Exception:
+            LOG.exception('Failed to get all accounts')
+            return
+
+        email_bodies = {}
+        sales_email_name = {}
+
+        for account in accounts:
+            sales_id = account['sales_id']
+            if not sales_email_name.get(sales_id):
+                sales = keystone.get_uos_user(sales_id)
+                if not sales:
+                    continue
+
+                sales_email = sales['email']
+                sales_name = sales.get('real_name') or sales['name']
+
+                sales_email_name[sales_id] = (sales_email, sales_name)
+
+            uos_user = keystone.get_uos_user(account['user_id'])
+
+            # get name, email, mobile, company of the account
+            name = uos_user.get('real_name') or uos_user['name']
+            email = uos_user.get('email')
+            mobile = uos_user.get('mobile_number') or 'unknown'
+            company = uos_user.get('company') or 'unknown'
+
+            # get the type of the user, eg: Main account
+            users = keystone.get_account_type(value=account['user_id'])['users']
+            if users:
+                if not users[0]['enabled']:
+                    user_type = u'Inactivated User'
+                elif users[0]['is_domain_owner']:
+                    user_type = u'Main account'
+                else:
+                    user_type = u'Sub account'
+            else:
+                user_type = u'Unknown'
+
+            # get the status of the account
+            status = u'Enabled' if uos_user['enabled'] else u"Nonactivated"
+
+            # get the register time of the account
+            created_at = utils.format_datetime(uos_user.get('created_at') or account['created_at'])
+
+            # get the charge, coupon, bonus of the account
+            charge =  0
+            coupon = 0
+            bonus = 0
+            charges = self.worker_api.get_charges(self.ctxt, account['user_id'])
+            for one in charges:
+                if one['type'] == 'bonus':
+                    bonus += float(one['value'])
+                elif one['type'] == 'money':
+                    charge += float(one['value'])
+                elif one['type'] == 'coupon':
+                    coupon += float(one['value'])
+                else:
+                    LOG.info('%s is unknown charge type!' % one['type'])
+
+            # get the balance of the account
+            balance = round(float(account['balance']), 4)
+
+            # get the consumption in a period, the period is a month for the moment
+            period_consumption = self.worker_api.get_orders_summary(self.ctxt,
+                                                                   account['user_id'],
+                                                                   period_start_time,
+                                                                   period_end_time)
+            period_consumption = round(float(period_consumption['total_price']), 4)
+
+            # predict the consumption per day
+            predict_day_consumption = self.worker_api.get_consumption_per_day(self.ctxt,
+                                                                          account['user_id'])
+            predict_day_consumption = round(float(predict_day_consumption['price_per_day']), 4)
+
+            # get the days that the balance can support
+            remain_consumption_day = 0
+            if predict_day_consumption:
+                remain_consumption_day = int(balance / predict_day_consumption)
+
+            # get the capital consumption
+            total_charge = charge + coupon + bonus
+            capital_consumption = 0
+            if total_charge:
+                capital_consumption = round((charge/total_charge)*period_consumption, 4)
+
+            if not email_bodies.has_key(sales_email):
+                email_bodies[sales_email] = []
+
+            email_bodies[sales_email].append((name, email, mobile, company, user_type, status,
+                                              created_at, charge, bonus, coupon, balance,
+                                              predict_day_consumption, remain_consumption_day,
+                                              period_consumption, capital_consumption))
+
+        return email_bodies, sales_email_name
+
+    def send_account_info(self):
+        period_start_time, period_end_time = self.get_period()
+        account_infos, email_addr_name = self.get_accounts_info(period_start_time, period_end_time)
+        self.notifier.send_account_info(self.ctxt, account_infos, email_addr_name)
 
     def _check_resource_to_order(self, resource, resource_to_order, bad_resources, try_to_fix):
         LOG.debug('Checking resource: %s' % resource.as_dict())
