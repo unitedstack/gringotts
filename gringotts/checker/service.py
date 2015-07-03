@@ -231,6 +231,8 @@ class CheckerService(os_service.Service):
                 sales_email_name[sales_id] = (sales_email, sales_name)
 
             uos_user = keystone.get_uos_user(account['user_id'])
+            if not uos_user:
+                continue
 
             # get name, email, mobile, company of the account
             name = uos_user.get('real_name') or uos_user['name']
