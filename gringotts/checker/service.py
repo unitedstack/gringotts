@@ -46,7 +46,10 @@ OPTS = [
                 default=True,
                 help='Enable the interval jobs that run in non center regions'),
     cfg.StrOpt('support_email',
-               help="The cloud manager email")
+               help="The cloud manager email"),
+    cfg.BoolOpt('send_email_to_sales',
+                default=False,
+                help='disable the function of sending email to sales')
 ]
 
 cfg.CONF.register_opts(OPTS, group="checker")
@@ -186,8 +189,10 @@ class CheckerService(os_service.Service):
                                               hours=period,
                                               start_date=start_date)
 
-            self.apsched.add_cron_job(self.send_account_info, month='1-12', day='last',
-                                      hour = '23', minute= '59', second = '59')
+            if cfg.CONF.checker.send_email_to_sales:
+                self.apsched.add_cron_job(self.send_account_info, month='1-12',
+                                          day='last', hour = '23', minute= '59',
+                                          second = '59')
 
     def _absolute_9_clock(self):
         nowutc = datetime.datetime.utcnow()
