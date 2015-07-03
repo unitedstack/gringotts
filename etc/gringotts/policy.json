@@ -20,7 +20,7 @@
 
     "sales:add_account_sales": "rule:uos_accountant",
     "sales:add_accounts_sales": "rule:uos_accountant",
-    "sales:get_sales_accounts": "rule: uos_accountant",
+    "sales:get_sales_accounts": "rule:uos_accountant",
     "sales:update_account_sales": "rule:uos_accountant",
     "sales:update_accounts_sales": "rule:uos_accountant"
 }
