@@ -1,62 +1,172 @@
+
 import mock
-import datetime
 
-from gringotts.tests import db_fixtures
-from gringotts.tests import fake_data
-from gringotts.tests.api.v2 import FunctionalTest
+from gringotts.openstack.common import log as logging
+from gringotts.services import keystone
+from gringotts.tests import rest
+
+LOG = logging.getLogger(__name__)
 
 
-class TestProjects(FunctionalTest):
-    PATH = '/projects'
+class ProjectTestCase(rest.RestfulTestCase):
 
     def setUp(self):
-        super(TestProjects, self).setUp()
-        self.useFixture(db_fixtures.DatabaseInit(self.conn))
-        self.headers = {'X-Roles': 'admin'}
+        super(ProjectTestCase, self).setUp()
 
-    def test_get_pay_projects(self):
-        with mock.patch('gringotts.services.keystone.get_projects_by_project_ids', return_value=fake_data.USER_PROJECTS):
-            data = self.get_json(self.PATH, headers=self.headers,
-                                 type='pay', user_id=fake_data.ADMIN_USER_ID)
-        self.assertEqual(2, len(data))
-        self.assertEqual(fake_data.ADMIN_USER_ID, data[0]['billing_owner']['user_id'])
-        self.assertEqual(fake_data.ADMIN_USER_ID, data[1]['billing_owner']['user_id'])
+        self.project_path = '/v2/projects'
+        self.headers = self.build_admin_http_headers()
 
-    def test_get_all_projects(self):
-        with mock.patch('gringotts.services.keystone.get_projects_by_user', return_value=fake_data.USER_PROJECTS):
-            data = self.get_json(self.PATH, headers=self.headers,
-                                 type='all', user_id=fake_data.ADMIN_USER_ID)
-        self.assertEqual(2, len(data))
-        self.assertEqual(fake_data.ADMIN_USER_ID, data[0]['billing_owner']['user_id'])
-        self.assertEqual(fake_data.ADMIN_USER_ID, data[1]['billing_owner']['user_id'])
+    def build_user_projects_query_url(self, user_id=None, type=None):
+        path = '/v2/projects'
+        if user_id is None and type is None:
+            return path
+        path += '?'
+        params = []
+        if user_id:
+            params.append('user_id=%s' % user_id)
+        if type:
+            params.append('type=%s' % type)
 
-    def test_get_project(self):
-        path = self.PATH + '/' + fake_data.ADMIN_PROJECT_ID
-        data = self.get_json(path, headers=self.headers)
-        self.assertEqual(fake_data.ADMIN_USER_ID, data['user_id'])
-        self.assertEqual(fake_data.ADMIN_PROJECT_ID, data['project_id'])
+        return path + '&'.join(params)
 
-    def test_post_project(self):
-        body = {
-            "user_id": fake_data.DEMO_USER_ID,
-            "project_id": "fake_project_id",
-            "domain_id": "fake_domain_id",
-            "consumption": "0"
-        }
-        self.post_json(self.PATH, body, headers=self.headers)
+    def build_project_query_url(self, project_id, custom=None):
+        return self.build_query_url(self.project_path, project_id, custom)
 
-        path = self.PATH + '/fake_project_id'
-        data = self.get_json(path, headers=self.headers)
-        self.assertEqual(fake_data.DEMO_USER_ID, data['user_id'])
-        self.assertEqual('fake_project_id', data['project_id'])
+    def test_get_project_by_id(self):
+        project_ref = self.new_project_ref(
+            user_id=self.admin_account.user_id,
+            project_id=self.admin_account.project_id,
+            domain_id=self.admin_account.domain_id
+        )
+        query_url = self.build_project_query_url(project_ref['project_id'])
+        resp = self.get(query_url, headers=self.headers)
+        project = resp.json_body
+        self.assertProjectEqual(project_ref, project)
+
+    def test_create_project(self):
+        project_ref = self.new_project_ref()
+        self.post(self.project_path, headers=self.headers,
+                  body=project_ref, expected_status=204)
+
+        project = self.dbconn.get_project(self.admin_req_context,
+                                          project_ref['project_id'])
+        self.assertProjectEqual(project_ref, project.as_dict())
+
+        user_projects = self.dbconn.get_user_projects(
+            self.admin_req_context, project_ref['user_id'])
+        # TODO(liuchenhong): assert user_projects
+        self.assertEqual(1, len(user_projects))
+
+    def test_demo_user_get_payed_projects(self):
+        user_id = self.demo_account.user_id
+        project_id = self.demo_account.project_id
+        domain_id = self.demo_account.domain_id
+        headers = self.build_http_headers(
+            user_id=user_id, user_name=self.demo_user_name,
+            project_id=project_id, domain_id=domain_id, roles='demo'
+        )
+        ks_project = self.build_project_info_from_keystone(
+            project_id, project_id, self.demo_account.domain_id,
+            user_id, self.demo_user_name,
+            user_id, self.demo_user_name,
+            user_id, self.demo_user_name
+        )
+
+        query_url = self.build_user_projects_query_url(user_id, 'pay')
+        with mock.patch.object(keystone, 'get_projects_by_project_ids',
+                               return_value=[ks_project]):
+            resp = self.get(query_url, headers=headers)
+
+        user_projects = resp.json_body
+        self.assertEqual(1, len(user_projects))
+        self.assertInUserProjectsList(user_id, project_id, user_projects)
+
+    def test_demo_user_get_all_projects(self):
+        user_id = self.demo_account.user_id
+        project_id = self.demo_account.project_id
+        domain_id = self.demo_account.domain_id
+        headers = self.build_http_headers(
+            user_id=user_id, user_name=self.demo_user_name,
+            project_id=project_id, domain_id=domain_id, roles='demo'
+        )
+
+        ks_project1 = self.build_project_info_from_keystone(
+            project_id, project_id, self.demo_account.domain_id,
+            user_id, self.demo_user_name,
+            user_id, self.demo_user_name,
+            user_id, self.demo_user_name
+        )
+
+        user_id2 = self.admin_account.user_id
+        project_id2 = self.admin_account.project_id
+        domain_id2 = self.admin_account.domain_id
+        ks_project2 = self.build_project_info_from_keystone(
+            project_id2, project_id2, domain_id2,
+            user_id2, self.admin_user_name,
+            user_id2, self.admin_user_name,
+            user_id2, self.admin_user_name
+        )
+
+        query_url = self.build_user_projects_query_url(user_id, 'all')
+        with mock.patch.object(keystone, 'get_projects_by_user',
+                               return_value=[ks_project1, ks_project2]):
+            resp = self.get(query_url, headers=headers)
+
+        user_projects = resp.json_body
+        self.assertEqual(2, len(user_projects))
+        self.assertInUserProjectsList(user_id, project_id, user_projects)
+        self.assertInUserProjectsList(user_id, project_id2, user_projects)
+
+    def test_admin_user_get_payed_projects(self):
+        user_id = self.admin_account.user_id
+        project_id = self.admin_account.project_id
+        ks_project = self.build_project_info_from_keystone(
+            project_id, project_id, self.admin_account.domain_id,
+            user_id, self.admin_user_name,
+            user_id, self.admin_user_name,
+            user_id, self.admin_user_name
+        )
+
+        query_url = self.build_user_projects_query_url(user_id, 'pay')
+        with mock.patch.object(keystone, 'get_projects_by_project_ids',
+                               return_value=[ks_project]):
+            resp = self.get(query_url, headers=self.headers)
+
+        user_projects = resp.json_body
+        self.assertEqual(1, len(user_projects))
+        self.assertInUserProjectsList(user_id, project_id, user_projects)
+
+    def test_admin_user_get_all_projects(self):
+        user_id = self.admin_account.user_id
+        project_id = self.admin_account.project_id
+        ks_project1 = self.build_project_info_from_keystone(
+            project_id, project_id, self.admin_account.domain_id,
+            user_id, self.admin_user_name,
+            user_id, self.admin_user_name,
+            user_id, self.admin_user_name
+        )
+
+        user_id2 = self.demo_account.user_id
+        project_id2 = self.demo_account.project_id
+        ks_project2 = self.build_project_info_from_keystone(
+            project_id2, project_id2, self.demo_account.domain_id,
+            user_id2, self.demo_user_name,
+            user_id2, self.demo_user_name,
+            user_id2, self.demo_user_name
+        )
+
+        query_url = self.build_user_projects_query_url(user_id, 'all')
+        with mock.patch.object(keystone, 'get_projects_by_user',
+                               return_value=[ks_project1, ks_project2]):
+            resp = self.get(query_url, headers=self.headers)
+
+        user_projects = resp.json_body
+        self.assertEqual(2, len(user_projects))
+        self.assertInUserProjectsList(user_id, project_id, user_projects)
+        self.assertInUserProjectsList(user_id, project_id2, user_projects)
 
     def test_change_billing_owner(self):
-        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
-        body = {"user_id": fake_data.DEMO_USER_ID}
-        path = self.PATH + '/' + fake_data.DEMO_PROJECT_ID + '/billing_owner'
-        self.put_json(path, body, headers=self.headers)
-
-        path = self.PATH + '/' + fake_data.DEMO_PROJECT_ID
-        data = self.get_json(path, headers=self.headers)
-        self.assertEqual(fake_data.DEMO_USER_ID, data['user_id'])
-        self.assertEqual(fake_data.DEMO_PROJECT_ID, data['project_id'])
+        project_id = self.admin_account.project_id
+        new_owner = {'user_id': self.admin_account.user_id}
+        query_url = self.build_project_query_url(project_id, 'billing_owner')
+        self.put(query_url, headers=self.headers, body=new_owner)

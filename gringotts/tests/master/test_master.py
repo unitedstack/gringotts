@@ -1,202 +1,73 @@
 """Test for resource operations within master"""
 
 import mock
-import datetime
 
-from decimal import Decimal
-from stevedore import extension
+from oslotest import mockpatch
 
-from gringotts import context
-from gringotts import constants as const
-
-from gringotts.openstack.common import timeutils
-
-from gringotts.tests import fake_data
-from gringotts.tests import db_fixtures
-from gringotts.waiter import service as waiter_service
-from gringotts.master import service as master_service
-from gringotts.worker import service as worker_service
-from gringotts.tests import db as db_test_base
-from gringotts.tests import utils as test_utils
+from gringotts import constants as gring_const
+from gringotts.tests import service as test_service
 
 
-class TestMasterService(db_test_base.DBTestBase):
+class MasterServiceBasicTestCase(test_service.MasterServiceTestCase):
 
     def setUp(self):
-        super(TestMasterService, self).setUp()
+        super(MasterServiceBasicTestCase, self).setUp()
 
-        self.useFixture(db_fixtures.DatabaseInit(self.conn))
+        http_headers = self.build_admin_http_headers()
+        mocked_get_auth_headers = mock.MagicMock(return_value=http_headers)
+        self.useFixture(mockpatch.PatchObject(
+            self.client.auth_plugin, 'get_auth_headers',
+            mocked_get_auth_headers
+        ))
 
-        self.waiter_srv = waiter_service.WaiterService('the-host', 'the-topic')
-        self.master_srv = master_service.MasterService()
+    def test_resource_created(self):
+        product = self.product_fixture.instance_products[0]
+        resource_volume = 1
+        resource_type = gring_const.RESOURCE_INSTANCE
+        order_id = self.new_order_id()
+        user_id = self.admin_account.user_id
+        project_id = self.admin_account.project_id
 
-        with mock.patch('gringotts.openstack.common.rpc.create_connection'):
-            self.master_srv.start()
-            self.waiter_srv.start()
+        subs = self.create_subs_in_db(
+            product, resource_volume, gring_const.STATE_RUNNING,
+            order_id, project_id, user_id
+        )
+        order = self.create_order_in_db(
+            float(self.quantize(subs.unit_price)) * resource_volume,
+            subs.unit, user_id, project_id, resource_type,
+            subs.type, order_id=order_id
+        )
 
-        self.ctxt = context.get_admin_context()
+        action_time = self.utcnow()
+        self.service.resource_created(
+            self.admin_req_context, order.order_id,
+            self.datetime_to_str(action_time), 'remarks')
 
-    @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
-    def test_resource_create_end(self):
-        self.waiter_srv.process_notification(fake_data.NOTICE_INSTANCE_1_CREATED)
+        bill = self.dbconn.get_latest_bill(self.admin_req_context,
+                                           order.order_id)
+        self.assertEqual(order.order_id, bill.order_id)
+        self.assertEqual(action_time, bill.start_time)
 
-        order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   fake_data.INSTANCE_ID_1)
+    def test_resource_created_again(self):
+        pass
 
-        action_time = fake_data.INSTANCE_1_CREATED_TIME
-        remarks = 'Instance Has Been Created.'
-        self.master_srv.resource_created(self.ctxt, order.order_id,
-                                         action_time, remarks)
+    def test_resource_deleted(self):
+        pass
 
-        bills = self.conn.get_bills_by_order_id(self.ctxt, order.order_id)
-        bills = list(bills)
-        self.assertEqual(1, len(bills))
+    def test_resource_stopped(self):
+        pass
 
-        action_time = timeutils.parse_strtime(action_time,
-                                              fmt=worker_service.TIMESTAMP_TIME_FORMAT)
-        bill_end_time = action_time + datetime.timedelta(hours=1)
+    def test_resource_started(self):
+        pass
 
-        bill_end_time = test_utils.remove_microsecond(bill_end_time)
-        actual = test_utils.remove_microsecond(bills[0].end_time)
-        self.assertEqual(bill_end_time, actual)
+    def test_resource_changed(self):
+        pass
 
-        cron_jobs = self.master_srv.apsched.get_jobs()
-        self.assertEqual(1, len(cron_jobs))
+    def test_resource_resized(self):
+        pass
 
-    @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
-    def test_resource_change_end(self):
-        # Create an instance
-        self.waiter_srv.process_notification(fake_data.NOTICE_INSTANCE_1_CREATED)
+    def test_instance_stopped(self):
+        pass
 
-        order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   fake_data.INSTANCE_ID_1)
-
-        action_time = fake_data.INSTANCE_1_CREATED_TIME
-        remarks = 'Instance Has Been Created.'
-        self.master_srv.resource_created(self.ctxt, order.order_id,
-                                         action_time, remarks)
-
-        # Stop the instance
-        action_time = fake_data.INSTANCE_1_STOPPED_TIME
-        remarks = 'Instance Has Been Stopped.'
-        change_to = const.STATE_STOPPED
-        self.master_srv.resource_changed(self.ctxt, order.order_id,
-                                         action_time, change_to, remarks)
-
-        # Assertions
-        bills = self.conn.get_bills_by_order_id(self.ctxt, order.order_id)
-
-        # Check bills
-        bills = list(bills)
-        self.assertEqual(2, len(bills))
-        self.assertEqual(Decimal('0.0020'), bills[0].total_price)
-
-        action_time = timeutils.parse_strtime(action_time,
-                                              fmt=worker_service.TIMESTAMP_TIME_FORMAT)
-        bill_end_time = action_time + datetime.timedelta(hours=1)
-
-        bill_end_time = test_utils.remove_microsecond(bill_end_time)
-        actual = test_utils.remove_microsecond(bills[0].end_time)
-        self.assertEqual(bill_end_time, actual)
-
-        # Check apscheduler cron jobs
-        cron_jobs = self.master_srv.apsched.get_jobs()
-        self.assertEqual(1, len(cron_jobs))
-
-        # Check the updated order
-        order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   fake_data.INSTANCE_ID_1)
-        self.assertEqual('stopped', order.status)
-        self.assertEqual(Decimal('0.0020'), order.unit_price)
-        self.assertEqual(Decimal('0.0170'), order.total_price)
-
-    @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
-    def test_resource_delete_end(self):
-        # Create an instance
-        self.waiter_srv.process_notification(fake_data.NOTICE_INSTANCE_1_CREATED)
-
-        order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   fake_data.INSTANCE_ID_1)
-
-        action_time = fake_data.INSTANCE_1_CREATED_TIME
-        remarks = 'Instance Has Been Created.'
-        self.master_srv.resource_created(self.ctxt, order.order_id,
-                                         action_time, remarks)
-
-        # Delete the instance
-        action_time = fake_data.INSTANCE_1_DELETED_TIME
-        remarks = 'Instance Has Been Deleted.'
-        self.master_srv.resource_deleted(self.ctxt, order.order_id, action_time, remarks)
-
-        # Assertions
-        bills = self.conn.get_bills_by_order_id(self.ctxt, order.order_id)
-
-        # Check bills
-        bills = list(bills)
-        self.assertEqual(2, len(bills))
-        self.assertEqual(Decimal('0.0000'), bills[0].total_price)
-        self.assertEqual(Decimal('0.0600'), bills[1].total_price)
-
-        action_time = timeutils.parse_strtime(action_time,
-                                              fmt=worker_service.TIMESTAMP_TIME_FORMAT)
-
-        bill_end_time = test_utils.remove_microsecond(action_time)
-        actual = test_utils.remove_microsecond(bills[0].end_time)
-        self.assertEqual(bill_end_time, actual)
-
-        # Check apscheduler cron jobs
-        cron_jobs = self.master_srv.apsched.get_jobs()
-        self.assertEqual(0, len(cron_jobs))
-
-        # Check the updated order
-        order = self.conn.get_order_by_resource_id(self.ctxt,
-                                                   fake_data.INSTANCE_ID_1)
-        self.assertEqual('deleted', order.status)
-        self.assertEqual(Decimal('0.0000'), order.unit_price)
-        self.assertEqual(Decimal('0.0600'), order.total_price)
-
-    @mock.patch('gringotts.master.api.API.resource_created', mock.MagicMock())
-    def test_resource_resize_end(self):
-        # Create a volume
-        self.waiter_srv.process_notification(fake_data.NOTICE_VOLUME_1_CREATED)
-
-        volume_id = fake_data.VOLUME_ID_1
-        order = self.conn.get_order_by_resource_id(self.ctxt, volume_id)
-
-        action_time = fake_data.VOLUME_1_CREATED_TIME
-        remarks = 'Volume Has Been Created.'
-        self.master_srv.resource_created(self.ctxt, order.order_id,
-                                         action_time, remarks)
-
-        # Resize the instance
-        action_time = fake_data.VOLUME_1_RESIZED_TIME
-        remarks = 'Volume Has Been Resized.'
-        quantity = 4 # resize size
-        self.master_srv.resource_resized(self.ctxt, order.order_id,
-                                         action_time, quantity, remarks)
-
-        # Assertions
-        bills = self.conn.get_bills_by_order_id(self.ctxt, order.order_id)
-
-        # Check bills
-        bills = list(bills)
-        self.assertEqual(2, len(bills))
-        self.assertEqual(Decimal('0.0080'), bills[0].total_price)
-
-        action_time = timeutils.parse_strtime(action_time,
-                                              fmt=worker_service.TIMESTAMP_TIME_FORMAT)
-        bill_end_time = action_time + datetime.timedelta(hours=1)
-
-        bill_end_time = test_utils.remove_microsecond(bill_end_time)
-        actual = test_utils.remove_microsecond(bills[0].end_time)
-        self.assertEqual(bill_end_time, actual)
-
-        # Check apscheduler cron jobs
-        cron_jobs = self.master_srv.apsched.get_jobs()
-        self.assertEqual(1, len(cron_jobs))
-
-        # Check the updated order
-        order = self.conn.get_order_by_resource_id(self.ctxt, volume_id)
-        self.assertEqual('running', order.status)
-        self.assertEqual(Decimal('0.0080'), order.unit_price)
-        self.assertEqual(Decimal('0.0100'), order.total_price)
+    def test_instance_resized(self):
+        pass

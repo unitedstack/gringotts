@@ -1,88 +1,55 @@
-from gringotts.tests import fake_data
-from gringotts.tests import db_fixtures
-from gringotts.tests.api.v2 import FunctionalTest
+
+from gringotts.tests import rest
 
 
-class TestAccounts(FunctionalTest):
-    PATH = '/accounts'
+class AccountTestCase(rest.RestfulTestCase):
 
     def setUp(self):
-        super(TestAccounts, self).setUp()
-        self.useFixture(db_fixtures.DatabaseInit(self.conn))
-        self.headers = {'X-Roles': 'admin'}
+        super(AccountTestCase, self).setUp()
 
-    def test_get_accounts(self):
-        accounts = self.get_json(self.PATH, headers=self.headers)
-        self.assertEqual(2, accounts['total_count'])
+        self.account_path = '/v2/accounts'
+        self.headers = self.build_admin_http_headers()
 
-        # Default is desc
-        self.assertEqual('100.0000',accounts['accounts'][1]['balance'])
-        self.assertEqual('8975.0000',accounts['accounts'][0]['balance'])
+    def build_account_query_url(self, user_id):
+        return self.build_query_url(self.account_path, user_id)
 
-    def test_get_single_account(self):
-        path = self.PATH + '/' + fake_data.DEMO_USER_ID
-        account = self.get_json(path, headers=self.headers)
-        self.assertEqual('100.0000', account['balance'])
+    def test_get_all_accounts(self):
+        resp = self.get(self.account_path, headers=self.headers)
+        self.assertEqual(2, resp.json_body['total_count'])
+        self.assertEqual(2, len(resp.json_body['accounts']))
 
-    def test_charge_account(self):
-        path = self.PATH + '/' + fake_data.DEMO_USER_ID
-        data = {'value': 100}
+    def test_get_account_by_user_id(self):
+        admin_account = self.admin_account
+        account_ref = self.new_account_ref(
+            user_id=admin_account.user_id, project_id=admin_account.project_id,
+            domain_id=admin_account.domain_id, level=admin_account.level,
+            owed=admin_account.owed, balance=admin_account.balance,
+            consumption=admin_account.balance)
 
-        self.put_json(path, data, headers=self.headers)
+        query_url = self.build_account_query_url(account_ref['user_id'])
+        resp = self.get(query_url, headers=self.headers)
+        account = resp.json_body
+        self.assertAccountEqual(account_ref, account)
 
-        account = self.get_json(path, headers=self.headers)
-        self.assertEqual('200.0000', account['balance'])
+    def test_create_account(self):
+        new_user_id = self.new_uuid()
+        account_ref = self.new_account_ref(
+            new_user_id, self.demo_project_id, self.demo_domain_id,
+            level=3, owed=False)
+        self.post(self.account_path, headers=self.headers,
+                  body=account_ref, expected_status=204)
 
-    def test_charge_negative_account(self):
-        path = self.PATH + '/' + fake_data.DEMO_USER_ID
-        data = {'value': -100}
-
-        resp = self.put_json(path, data, expect_errors=True,
-                             headers=self.headers)
-        self.assertEqual(400, resp.status_int)
-
-    def test_get_account_charges(self):
-        charge_path = self.PATH + '/' + fake_data.DEMO_USER_ID
-        data = {'value': 100}
-
-        self.put_json(charge_path, data, headers=self.headers)
-        self.put_json(charge_path, data, headers=self.headers)
-        self.put_json(charge_path, data, headers=self.headers)
-
-        path = self.PATH + '/' + fake_data.DEMO_USER_ID + '/charges'
-        charges = self.get_json(path, headers=self.headers)
-
-        self.assertEqual(3, len(charges['charges']))
-        self.assertEqual('300.0000', charges['total_price'])
-        self.assertEqual(3, charges['total_count'])
+        account = self.dbconn.get_account(self.admin_req_context, new_user_id)
+        self.assertAccountEqual(account.as_dict(), account_ref)
 
     def test_get_account_estimate(self):
-        self.CONF.set_override('enable_owe', True)
-        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
-
-        path = self.PATH + '/' + fake_data.ADMIN_USER_ID + '/estimate'
-        result = self.get_json(path, headers=self.headers)
-
-        self.assertEqual(-1, result)
+        pass
 
     def test_get_account_estimate_per_day(self):
-        self.useFixture(db_fixtures.GenerateFakeData(self.conn))
+        pass
 
-        path = self.PATH + '/' + fake_data.ADMIN_USER_ID + '/estimate_per_day'
-        result = self.get_json(path, headers=self.headers)
+    def test_account_charge(self):
+        pass
 
-        self.assertEqual(9.096, result)
-
-    def test_post_account(self):
-        new_account = {
-            "user_id": "fake_user_id",
-            "domain_id": "fake_domain_id",
-            "balance": 25,
-            "consumption": 58,
-            "level": 3
-        }
-        self.post_json(self.PATH, new_account, headers=self.headers)
-        data = self.get_json(self.PATH, headers=self.headers)
-
-        self.assertEqual(3, data['total_count'])
-        self.assertEqual('fake_user_id', data['accounts'][0]['user_id'])
+    def test_account_charge_with_negative_value_failed(self):
+        pass
