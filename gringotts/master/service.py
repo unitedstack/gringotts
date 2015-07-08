@@ -83,10 +83,10 @@ class MasterService(rpc_service.Service):
         }
         self.apsched = APScheduler(config)
 
+        self.locks = {}
         self.cron_jobs = {}
         self.date_jobs = {}
         self.date_jobs_after_30_days = {}
-        self.lock = Lock()
         self.ctxt = context.get_admin_context()
 
         self.DELETE_METHOD_MAP = services.DELETE_METHOD_MAP
@@ -206,6 +206,7 @@ class MasterService(rpc_service.Service):
                                       order['order_id'],
                                       action_time,
                                       "Hourly Billing")
+                self.locks[order['order_id']] = Lock()
 
     def _stop_owed_resource(self, resource_type, resource_id, region_id):
         LOG.warn('stop owed resource(resource_type: %s, resource_id: %s)' % \
@@ -248,6 +249,10 @@ class MasterService(rpc_service.Service):
     def _create_cron_job(self, order_id, action_time=None, start_date=None):
         """For now, we only support hourly cron job
         """
+        if self.cron_jobs.get(order_id):
+            LOG.warn('Cron job for order: %s already exists' % order_id)
+            return
+
         if action_time:
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
@@ -285,6 +290,10 @@ class MasterService(rpc_service.Service):
 
     def _create_date_job(self, resource_type, resource_id, region_id,
                          action_time):
+        if self.date_jobs.get(resource_id):
+            LOG.warn('Date job for resource: %s already exists' % resource_id)
+            return
+
         if isinstance(action_time, basestring):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=ISO8601_UTC_TIME_FORMAT)
@@ -303,6 +312,10 @@ class MasterService(rpc_service.Service):
         self.worker_api.change_order(self.ctxt, order_id, const.STATE_STOPPED)
 
     def _create_date_job_after_30_days(self, order_id, action_time):
+        if self.date_jobs_after_30_days.get(order_id):
+            LOG.warn('30-days date job for order: %s already exists' % order_id)
+            return
+
         action_time = utils.utc_to_local(action_time)
         job = self.apsched.add_date_job(self._change_order_unit_price,
                                         action_time,
@@ -346,79 +359,70 @@ class MasterService(rpc_service.Service):
 
         LOG.warn('delete date job for resource: %s' % resource_id)
 
+    def _get_lock(self, order_id):
+        if order_id not in self.locks:
+            self.locks[order_id] = Lock()
+
+        return self.locks.get(order_id)
+
+    def _delete_lock(self, order_id):
+        if order_id in self.locks:
+            del self.locks[order_id]
+
     def _pre_deduct(self, order_id):
         try:
-            # check resource and order before deduct
-            order = self.worker_api.get_order(self.ctxt, order_id)
+            with self._get_lock(order_id):
+                # check resource and order before deduct
+                order = self.worker_api.get_order(self.ctxt, order_id)
 
-            # do not deduct doctor project for now
-            if order['project_id'] in cfg.CONF.ignore_tenants:
-                return
+                # do not deduct doctor project for now
+                if order['project_id'] in cfg.CONF.ignore_tenants:
+                    return
 
-            method = self.RESOURCE_GET_MAP[order['type']]
-            resource = method(order['resource_id'], order['region_id'])
-            if not resource:
-                # alert that the resource not exists
-                LOG.warn("The resource(%s|%s) has been deleted" % \
-                         (order['type'], order['resource_id']))
-                alert.wrong_billing_order(order, 'resource_deleted')
+                method = self.RESOURCE_GET_MAP[order['type']]
+                resource = method(order['resource_id'], order['region_id'])
+                if not resource:
+                    # alert that the resource not exists
+                    LOG.warn("The resource(%s|%s) has been deleted" % \
+                             (order['type'], order['resource_id']))
+                    alert.wrong_billing_order(order, 'resource_deleted')
 
-                # try to fix
-                if cfg.CONF.try_to_fix:
-                    deleted_at = utils.format_datetime(timeutils.strtime())
-                    self.resource_deleted(self.ctxt, order['order_id'],
-                                          deleted_at,
-                                          "Resource Has Been Deleted")
-                return
+                    # try to fix
+                    if cfg.CONF.try_to_fix:
+                        deleted_at = utils.format_datetime(timeutils.strtime())
+                        self.resource_deleted(self.ctxt, order['order_id'],
+                                              deleted_at,
+                                              "Resource Has Been Deleted")
+                    return
 
-            # TODO(suo): Too ugly, maybe should have another order_status attribute in resource,
-            # status is just for judging resource status, and order_status is for determining
-            # order status
-            if (resource.resource_type == const.RESOURCE_LISTENER and resource.admin_state != order['status']) or \
-                    (resource.resource_type != const.RESOURCE_LISTENER and resource.status != order['status']):
-                # alert that the status of resource and order don't match
-                LOG.warn("The status of the resource(%s|%s|%s) doesn't match with the order(%s|%s|%s)." % \
-                          (resource.resource_type, resource.id, resource.original_status,
-                           order['type'], order['order_id'], order['status']))
-                alert.wrong_billing_order(order, 'miss_match', resource)
+                if isinstance(order['cron_time'], basestring):
+                    cron_time = timeutils.parse_strtime(order['cron_time'],
+                                                        fmt=ISO8601_UTC_TIME_FORMAT)
+                else:
+                    cron_time = order['cron_time']
 
-                # try to fix
-                if cfg.CONF.try_to_fix:
-                    action_time = utils.format_datetime(timeutils.strtime())
-                    change_to = resource.admin_state if hasattr(resource, 'admin_state') \
-                            else resource.status
-                    self.resource_changed(self.ctxt, order['order_id'], action_time,
-                                          change_to, "System Adjust")
-                return
+                remarks = 'Hourly Billing'
+                now = timeutils.utcnow()
+                if now - cron_time >= timedelta(hours=1):
+                    result = self.worker_api.create_bill(self.ctxt,
+                                                         order_id,
+                                                         action_time=now,
+                                                         remarks=remarks)
+                else:
+                    result = self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
 
-            if isinstance(order['cron_time'], basestring):
-                cron_time = timeutils.parse_strtime(order['cron_time'],
-                                                    fmt=ISO8601_UTC_TIME_FORMAT)
-            else:
-                cron_time = order['cron_time']
-
-            remarks = 'Hourly Billing'
-            now = timeutils.utcnow()
-            if now - cron_time >= timedelta(hours=1):
-                result = self.worker_api.create_bill(self.ctxt,
-                                                     order_id,
-                                                     action_time=now,
-                                                     remarks=remarks)
-            else:
-                result = self.worker_api.create_bill(self.ctxt, order_id, remarks=remarks)
-
-            # Order is owed
-            if result['type'] == 2:
-                self._stop_owed_resource(result['resource_type'],
-                                         result['resource_id'],
-                                         result['region_id'])
-                self._create_date_job(result['resource_type'],
-                                      result['resource_id'],
-                                      result['region_id'],
-                                      result['date_time'])
-            # Account is charged but order is still owed
-            elif result['type'] == 3:
-                self._delete_date_job(result['resource_id'])
+                # Order is owed
+                if result['type'] == 2:
+                    self._stop_owed_resource(result['resource_type'],
+                                             result['resource_id'],
+                                             result['region_id'])
+                    self._create_date_job(result['resource_type'],
+                                          result['resource_id'],
+                                          result['region_id'],
+                                          result['date_time'])
+                # Account is charged but order is still owed
+                elif result['type'] == 3:
+                    self._delete_date_job(result['resource_id'])
         except Exception as e:
             LOG.warn("Some exceptions happen when deducting order: %s, for reason: %s" \
                      % (order_id, e))
@@ -448,124 +452,135 @@ class MasterService(rpc_service.Service):
         return len(self.date_jobs_after_30_days)
 
     def resource_created(self, ctxt, order_id, action_time, remarks):
-        LOG.debug('Resource created, its order_id: %s, action_time: %s',
-                  order_id, action_time)
-        self._create_bill(ctxt, order_id, action_time, remarks)
+        with self._get_lock(order_id):
+            LOG.debug('Resource created, its order_id: %s, action_time: %s',
+                      order_id, action_time)
+            self._create_bill(ctxt, order_id, action_time, remarks)
 
     def resource_created_again(self, ctxt, order_id, action_time, remarks):
-        LOG.debug('Resource created again, its order_id: %s, action_time: %s',
-                  order_id, action_time)
-        self._create_bill(ctxt, order_id, action_time, remarks)
+        with self._get_lock(order_id):
+            LOG.debug('Resource created again, its order_id: %s, action_time: %s',
+                      order_id, action_time)
+            self._create_bill(ctxt, order_id, action_time, remarks)
 
     def resource_deleted(self, ctxt, order_id, action_time, remarks):
-        LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
-                  (order_id, action_time))
+        with self._get_lock(order_id):
+            LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
+                      (order_id, action_time))
 
-        result = self._close_bill(ctxt, order_id, action_time)
-        # Delete date job of owed resource
-        if result['resource_owed']:
-            self._delete_date_job(result['resource_id'])
-        self.worker_api.change_order(ctxt, order_id, const.STATE_DELETED)
+            result = self._close_bill(ctxt, order_id, action_time)
+            # Delete date job of owed resource
+            if result['resource_owed']:
+                self._delete_date_job(result['resource_id'])
+            self.worker_api.change_order(ctxt, order_id, const.STATE_DELETED)
 
-        # create a bill that tell people the resource has been deleted
-        self.worker_api.create_bill(ctxt, order_id,
-                                    action_time=action_time,
-                                    remarks=remarks,
-                                    end_time=action_time)
+            # create a bill that tell people the resource has been deleted
+            self.worker_api.create_bill(ctxt, order_id,
+                                        action_time=action_time,
+                                        remarks=remarks,
+                                        end_time=action_time)
 
-        # delete the date job if the order has a 30-days date job
-        if self.date_jobs_after_30_days.get(order_id):
-            self._delete_date_job_after_30_days(order_id)
+            # delete the date job if the order has a 30-days date job
+            if self.date_jobs_after_30_days.get(order_id):
+                self._delete_date_job_after_30_days(order_id)
+
+            # delete order lock
+            self._delete_lock(order_id)
 
     def resource_stopped(self, ctxt, order_id, action_time, remarks):
-        LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
-                  (order_id, action_time))
+        with self._get_lock(order_id):
+            LOG.debug('Resource deleted, its order_id: %s, action_time: %s' %
+                      (order_id, action_time))
 
-        result = self._close_bill(ctxt, order_id, action_time)
-        # Delete date job of owed resource
-        if result['resource_owed']:
-            self._delete_date_job(result['resource_id'])
-        self.worker_api.change_order(ctxt, order_id, const.STATE_STOPPED)
+            result = self._close_bill(ctxt, order_id, action_time)
+            # Delete date job of owed resource
+            if result['resource_owed']:
+                self._delete_date_job(result['resource_id'])
+            self.worker_api.change_order(ctxt, order_id, const.STATE_STOPPED)
 
-        # create a bill that tell people the resource has been stopped
-        self.worker_api.create_bill(ctxt, order_id,
-                                    action_time=action_time,
-                                    remarks=remarks,
-                                    end_time=action_time)
+            # create a bill that tell people the resource has been stopped
+            self.worker_api.create_bill(ctxt, order_id,
+                                        action_time=action_time,
+                                        remarks=remarks,
+                                        end_time=action_time)
 
     def resource_started(self, ctxt, order_id, action_time, remarks):
-        LOG.debug('Resource created, its order_id: %s, action_time: %s',
-                  order_id, action_time)
-        result = self.worker_api.close_bill(ctxt, order_id, action_time)
-        self.worker_api.change_order(ctxt, order_id, const.STATE_RUNNING)
-        self._create_bill(ctxt, order_id, action_time, remarks)
+        with self._get_lock(order_id):
+            LOG.debug('Resource created, its order_id: %s, action_time: %s',
+                      order_id, action_time)
+            result = self.worker_api.close_bill(ctxt, order_id, action_time)
+            self.worker_api.change_order(ctxt, order_id, const.STATE_RUNNING)
+            self._create_bill(ctxt, order_id, action_time, remarks)
 
     def resource_changed(self, ctxt, order_id, action_time, change_to, remarks):
-        LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to: %s'
-                  % (order_id, action_time, change_to))
-        # close the old bill
-        self._close_bill(ctxt, order_id, action_time)
+        with self._get_lock(order_id):
+            LOG.debug('Resource changed, its order_id: %s, action_time: %s, will change to: %s'
+                      % (order_id, action_time, change_to))
+            # close the old bill
+            self._close_bill(ctxt, order_id, action_time)
 
-        # change the order's unit price and its active subscriptions
-        self.worker_api.change_order(ctxt, order_id, change_to)
+            # change the order's unit price and its active subscriptions
+            self.worker_api.change_order(ctxt, order_id, change_to)
 
-        # create a new bill for the updated order
-        self._create_bill(ctxt, order_id, action_time, remarks)
+            # create a new bill for the updated order
+            self._create_bill(ctxt, order_id, action_time, remarks)
 
-        # delete the date job if the order has a 30-days date job
-        if self.date_jobs_after_30_days.get(order_id):
-            self._delete_date_job_after_30_days(order_id)
+            # delete the date job if the order has a 30-days date job
+            if self.date_jobs_after_30_days.get(order_id):
+                self._delete_date_job_after_30_days(order_id)
 
     def resource_resized(self, ctxt, order_id, action_time, quantity, remarks):
-        LOG.debug('Resource resized, its order_id: %s, action_time: %s, will resize to: %s'
-                  % (order_id, action_time, quantity))
-        # close the old bill
-        self._close_bill(ctxt, order_id, action_time)
+        with self._get_lock(order_id):
+            LOG.debug('Resource resized, its order_id: %s, action_time: %s, will resize to: %s'
+                      % (order_id, action_time, quantity))
+            # close the old bill
+            self._close_bill(ctxt, order_id, action_time)
 
-        # change subscirption's quantity
-        self.worker_api.change_subscription(self.ctxt, order_id,
-                                            quantity, const.STATE_RUNNING)
+            # change subscirption's quantity
+            self.worker_api.change_subscription(self.ctxt, order_id,
+                                                quantity, const.STATE_RUNNING)
 
-        # change the order's unit price and its active subscriptions
-        self.worker_api.change_order(self.ctxt, order_id, const.STATE_RUNNING)
+            # change the order's unit price and its active subscriptions
+            self.worker_api.change_order(self.ctxt, order_id, const.STATE_RUNNING)
 
-        # create a new bill for the updated order
-        self._create_bill(ctxt, order_id, action_time, remarks)
+            # create a new bill for the updated order
+            self._create_bill(ctxt, order_id, action_time, remarks)
 
     def instance_stopped(self, ctxt, order_id, action_time):
         """Instance stopped for a month continuously will not be charged
         """
-        LOG.debug("Instance stopped, its order_id: %s, action_time: %s"
-                  % (order_id, action_time))
+        with self._get_lock(order_id):
+            LOG.debug("Instance stopped, its order_id: %s, action_time: %s"
+                      % (order_id, action_time))
 
-        # close the old bill
-        self._close_bill(ctxt, order_id, action_time)
+            # close the old bill
+            self._close_bill(ctxt, order_id, action_time)
 
-        # Caculate cron_time after 30 days from now
-        action_time = timeutils.parse_strtime(action_time,
-                                              fmt=TIMESTAMP_TIME_FORMAT)
-        cron_time = action_time + datetime.timedelta(days=30)
+            # Caculate cron_time after 30 days from now
+            action_time = timeutils.parse_strtime(action_time,
+                                                  fmt=TIMESTAMP_TIME_FORMAT)
+            cron_time = action_time + datetime.timedelta(days=30)
 
-        # change the order's unit price and its active subscriptions
-        self.worker_api.change_order(ctxt, order_id,
-                                     const.STATE_STOPPED_IN_30_DAYS,
-                                     cron_time=cron_time,
-                                     first_change_to=const.STATE_STOPPED)
+            # change the order's unit price and its active subscriptions
+            self.worker_api.change_order(ctxt, order_id,
+                                         const.STATE_STOPPED_IN_30_DAYS,
+                                         cron_time=cron_time,
+                                         first_change_to=const.STATE_STOPPED)
 
-        # create a bill cross 30 days
-        self.worker_api.create_bill(ctxt, order_id,
-                                    action_time=action_time,
-                                    remarks="Instance Has Been Stopped",
-                                    end_time=cron_time)
+            # create a bill cross 30 days
+            self.worker_api.create_bill(ctxt, order_id,
+                                        action_time=action_time,
+                                        remarks="Instance Has Been Stopped",
+                                        end_time=cron_time)
 
-        # create a date job to change order unit price after 30 days
-        # let this action execute 1 hour earlier to ensure unit price be changed
-        # before pre deduct
-        self._create_date_job_after_30_days(order_id,
-                                            cron_time-datetime.timedelta(hours=1))
+            # create a date job to change order unit price after 30 days
+            # let this action execute 1 hour earlier to ensure unit price be changed
+            # before pre deduct
+            self._create_date_job_after_30_days(order_id,
+                                                cron_time-datetime.timedelta(hours=1))
 
-        # create a cron job that will execute after 30 days
-        self._create_cron_job(order_id, start_date=cron_time)
+            # create a cron job that will execute after 30 days
+            self._create_cron_job(order_id, start_date=cron_time)
 
     def instance_resized(self, ctxt, order_id, action_time,
                          new_flavor, old_flavor,
@@ -578,23 +593,24 @@ class MasterService(rpc_service.Service):
                    order in waiter is enough, should not close/create bill for the
                    resource in master
         """
-        LOG.debug("Instance resized, its order_id: %s, action_time: %s"
-                  % (order_id, action_time))
+        with self._get_lock(order_id):
+            LOG.debug("Instance resized, its order_id: %s, action_time: %s"
+                      % (order_id, action_time))
 
-        # close the old bill
-        self._close_bill(ctxt, order_id, action_time)
+            # close the old bill
+            self._close_bill(ctxt, order_id, action_time)
 
-        # change subscirption's quantity
-        self.worker_api.change_flavor_subscription(self.ctxt, order_id,
-                                                   new_flavor, old_flavor,
-                                                   service, region_id,
-                                                   const.STATE_RUNNING)
+            # change subscirption's quantity
+            self.worker_api.change_flavor_subscription(self.ctxt, order_id,
+                                                       new_flavor, old_flavor,
+                                                       service, region_id,
+                                                       const.STATE_RUNNING)
 
-        # change the order's unit price and its active subscriptions
-        self.worker_api.change_order(self.ctxt, order_id, const.STATE_RUNNING)
+            # change the order's unit price and its active subscriptions
+            self.worker_api.change_order(self.ctxt, order_id, const.STATE_RUNNING)
 
-        # create a new bill for the updated order
-        self._create_bill(ctxt, order_id, action_time, remarks)
+            # create a new bill for the updated order
+            self._create_bill(ctxt, order_id, action_time, remarks)
 
     def clean_date_jobs(self):
         LOG.warn('Doing clean date jobs')
