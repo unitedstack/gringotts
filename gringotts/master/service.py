@@ -370,6 +370,7 @@ class MasterService(rpc_service.Service):
             del self.locks[order_id]
 
     def _pre_deduct(self, order_id):
+        LOG.warn("Prededucting order: %s" % order_id)
         try:
             with self._get_lock(order_id):
                 # check resource and order before deduct
@@ -386,13 +387,6 @@ class MasterService(rpc_service.Service):
                     LOG.warn("The resource(%s|%s) has been deleted" % \
                              (order['type'], order['resource_id']))
                     alert.wrong_billing_order(order, 'resource_deleted')
-
-                    # try to fix
-                    if cfg.CONF.try_to_fix:
-                        deleted_at = utils.format_datetime(timeutils.strtime())
-                        self.resource_deleted(self.ctxt, order['order_id'],
-                                              deleted_at,
-                                              "Resource Has Been Deleted")
                     return
 
                 if isinstance(order['cron_time'], basestring):
