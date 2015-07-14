@@ -6,8 +6,6 @@ import datetime
 import six
 import testtools
 
-from gringotts import context as gring_context
-
 
 def remove_microsecond(adatetime):
     adatetime = datetime.datetime(year=adatetime.year,
@@ -58,19 +56,3 @@ def wip(message, run=True):
         return run_test
 
     return _wip
-
-
-def build_request_context(auth_token=None, user_id=None, user_name=None,
-                          project_id=None, domain_id=None,
-                          is_admin=False, is_domain_owner=False,
-                          request_id=None, roles=None):
-    if not roles:
-        # TODO(liuchenhong): default value of argument 'role' of
-        # RequestContext.__init__ function is [] which is not recommended.
-        roles = []
-
-    context = gring_context.RequestContext(
-        auth_token, user_id, user_name, project_id, domain_id,
-        is_admin, is_domain_owner, request_id, roles)
-
-    return context

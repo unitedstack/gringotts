@@ -1,154 +1,104 @@
+
 import datetime
 
-from gringotts.tests import db_fixtures
-from gringotts.tests import fake_data
-from gringotts.tests.api.v2 import FunctionalTest
+from gringotts.tests import rest
 
 
-class TestPrecharge(FunctionalTest):
-    PATH = '/precharge'
+class PrechargeTestCase(rest.RestfulTestCase):
 
     def setUp(self):
-        super(TestPrecharge, self).setUp()
-        self.useFixture(db_fixtures.DatabaseInit(self.conn))
-        self.headers = {'X-Roles': 'admin'}
+        super(PrechargeTestCase, self).setUp()
 
-    def test_get_precharge_none(self):
-        data = self.get_json(self.PATH, headers=self.headers)
-        self.assertEqual(0, len(data))
+        self.precharge_path = '/v2/precharge'
+        self.headers = self.build_admin_http_headers()
 
-    def test_get_precharge(self):
-        self.useFixture(db_fixtures.PrechargeInit(self.conn))
-        data = self.get_json(self.PATH, headers=self.headers)
-        self.assertEqual(10, len(data))
+    def build_precharge_query_url(self, code, custom=None):
+        return self.build_query_url(self.precharge_path, code, custom)
+
+    def test_create_one_precharge(self):
+        charge_value = 100
+        number = 1
+        precharge_ref = self.new_precharge_ref(number, charge_value)
+        self.post(self.precharge_path, headers=self.headers,
+                  body=precharge_ref, expected_status=204)
+
+        precharges = list(self.dbconn.get_precharges(self.admin_req_context))
+        self.assertEqual(number, len(precharges))
+        precharge = precharges[0]
+        self.assertPriceEqual(precharge_ref['price'], precharge.price)
+
+        expired_at = self.utcnow() + datetime.timedelta(days=365)
+        self.assertEqual(self.date_to_str(expired_at),
+                         self.date_to_str(precharge.expired_at))
+
+    def test_create_many_precharges(self):
+        charge_value = 100
+        number = 2
+        precharge_ref = self.new_precharge_ref(number, charge_value)
+        self.post(self.precharge_path, headers=self.headers,
+                  body=precharge_ref, expected_status=204)
+
+        precharges = list(self.dbconn.get_precharges(self.admin_req_context))
+        self.assertEqual(number, len(precharges))
+
+        expired_at = self.utcnow() + datetime.timedelta(days=365)
+        for p in precharges:
+            self.assertPriceEqual(precharge_ref['price'], p.price)
+            self.assertEqual(self.date_to_str(expired_at),
+                             self.date_to_str(p.expired_at))
 
     def test_get_precharge_by_code(self):
-        self.useFixture(db_fixtures.PrechargeInit(self.conn))
-        data = self.get_json(self.PATH, headers=self.headers)
-        path = self.PATH + '/' + data[0]['code']
-        precharge = self.get_json(path, headers=self.headers)
-        self.assertEqual(data[0]['code'], precharge['code'])
-
-    def test_post_precharge(self):
-        body = {
-            "number": 5,
-            "price": "100"
-        }
-        self.post_json(self.PATH, body, headers=self.headers)
-
-        data = self.get_json(self.PATH, headers=self.headers)
-        self.assertEqual(5, len(data))
+        charge_value = 100
+        number = 1
+        expired_at = self.utcnow() + datetime.timedelta(days=365)
+        self.dbconn.create_precharge(
+            self.admin_req_context, number=number,
+            price=charge_value, expired_at=expired_at)
+        precharges = list(self.dbconn.get_precharges(self.admin_req_context))
+        precharge = precharges[0]
+        query_url = self.build_precharge_query_url(precharge.code)
+        resp = self.get(query_url, headers=self.headers)
+        precharge_result = resp.json_body
+        self.assertPrechargeEqual(precharge.as_dict(), precharge_result)
+        self.assertEqual(
+            self.date_to_str(precharge.expired_at),
+            self.date_to_str(self.datetime_from_isotime_str(
+                precharge_result['expired_at']
+            ))
+        )
 
     def test_dispatch_precharge(self):
-        self.useFixture(db_fixtures.PrechargeInit(self.conn))
-        data = self.get_json(self.PATH, headers=self.headers)
+        charge_value = 100
+        number = 1
+        expired_at = self.utcnow() + datetime.timedelta(days=365)
+        self.dbconn.create_precharge(
+            self.admin_req_context, number=number,
+            price=charge_value, expired_at=expired_at)
+        precharges = list(self.dbconn.get_precharges(self.admin_req_context))
+        precharge = precharges[0]
+        precharge_code = precharge.code
 
-        path = self.PATH + '/' + data[0]['code'] + '/dispatched'
-        body = {"remarks": "guangyu@unitedstack.com"}
-
-        self.put_json(path, body, headers=self.headers)
-
-        path = self.PATH + '/' + data[0]['code']
-        precharge = self.get_json(path, headers=self.headers)
-        self.assertEqual(data[0]['code'], precharge['code'])
-        self.assertEqual(True, precharge['dispatched'])
-        self.assertEqual('guangyu@unitedstack.com', precharge['remarks'])
+        query_url = self.build_precharge_query_url(precharge_code,
+                                                   'dispatched')
+        remarks = 'Why this precharge card being dispatched?'
+        body = {'remarks': remarks}
+        resp = self.put(query_url, headers=self.headers,
+                        body=body, expected_status=200)
+        precharge_result = resp.json_body
+        self.assertIs(precharge_result['dispatched'], True)
+        self.assertEqual(remarks, precharge_result['remarks'])
 
     def test_use_precharge(self):
-        self.useFixture(db_fixtures.PrechargeInit(self.conn))
-        data = self.get_json(self.PATH, headers=self.headers)
-
-        # use precharge
-        self.headers['X-User-Id'] = fake_data.ADMIN_USER_ID
-        path = self.PATH + '/' + data[0]['code'] + '/used'
-        result = self.put_json(path, {}, headers=self.headers)
-        self.assertEqual(0, result.json['ret_code'])
-        self.assertEqual(5, result.json['left_count'])
-
-        # check precharge
-        path = self.PATH + '/' + data[0]['code']
-        precharge = self.get_json(path, headers=self.headers)
-
-        self.assertEqual(data[0]['code'], precharge['code'])
-        self.assertEqual(True, precharge['used'])
-
-        # check account
-        path = '/accounts/' + fake_data.ADMIN_USER_ID
-        account = self.get_json(path, headers=self.headers)
-        self.assertEqual('9100.0000', account['balance'])
-
-        # reset left_count
-        self.put_json(self.PATH, {}, headers=self.headers)
+        pass
 
     def test_use_precharge_not_exist(self):
-        self.headers['X-User-Id'] = fake_data.ADMIN_USER_ID
-        path = self.PATH + '/fake_precharge/used'
-        result = self.put_json(path, {}, headers=self.headers)
-        self.assertEqual(1, result.json['ret_code'])
-        self.assertEqual(4, result.json['left_count'])
-
-        # reset left_count
-        self.put_json(self.PATH, {}, headers=self.headers)
+        pass
 
     def test_use_precharge_has_used(self):
-        self.useFixture(db_fixtures.PrechargeInit(self.conn))
-        data = self.get_json(self.PATH, headers=self.headers)
-
-        # use precharge
-        self.headers['X-User-Id'] = fake_data.ADMIN_USER_ID
-        path = self.PATH + '/' + data[0]['code'] + '/used'
-        result = self.put_json(path, {}, headers=self.headers)
-
-        # use it again
-        result = self.put_json(path, {}, headers=self.headers)
-        self.assertEqual(2, result.json['ret_code'])
-        self.assertEqual(4, result.json['left_count'])
-
-        # reset left_count
-        self.put_json(self.PATH, {}, headers=self.headers)
+        pass
 
     def test_use_precharge_has_expired(self):
-        # post a new precharge
-        body = {
-            "number": 1,
-            "price": "100",
-            "expired_at": datetime.datetime.utcnow().isoformat()
-        }
-
-        self.post_json(self.PATH, body, headers=self.headers)
-        data = self.get_json(self.PATH, headers=self.headers)
-
-        self.headers['X-User-Id'] = fake_data.ADMIN_USER_ID
-        path = self.PATH + '/' + data[0]['code'] + '/used'
-        result = self.put_json(path, {}, headers=self.headers)
-        self.assertEqual(3, result.json['ret_code'])
-        self.assertEqual(4, result.json['left_count'])
-
-        # reset left_count
-        self.put_json(self.PATH, {}, headers=self.headers)
+        pass
 
     def test_use_precharge_exceed_count(self):
-        # use precharge
-        self.headers['X-User-Id'] = fake_data.ADMIN_USER_ID
-        path = self.PATH + '/fake_code/used'
-        result = self.put_json(path, {}, headers=self.headers)
-        result = self.put_json(path, {}, headers=self.headers)
-        result = self.put_json(path, {}, headers=self.headers)
-        result = self.put_json(path, {}, headers=self.headers)
-        result = self.put_json(path, {}, headers=self.headers)
-        self.assertEqual(4, result.json['ret_code'])
-        self.assertEqual(0, result.json['left_count'])
-
-        # reset left_count
-        self.put_json(self.PATH, {}, headers=self.headers)
-
-    def test_put_precharge(self):
-        # reset left_count
-        result = self.put_json(self.PATH, {}, headers=self.headers)
-        self.assertEqual(204, result.status_int)
-
-    def test_put_precharge_403(self):
-        # reset left_count
-        del self.headers['X-Roles']
-        result = self.put_json(self.PATH, {}, expect_errors=True, headers=self.headers)
-        self.assertEqual(403, result.status_int)
+        pass

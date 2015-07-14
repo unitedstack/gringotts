@@ -1,87 +1,112 @@
-import datetime
 
-from gringotts import context
-from gringotts.tests import db_fixtures
-from gringotts.tests import fake_data
-from gringotts.tests.api.v2 import FunctionalTest
+from gringotts import constants as gring_const
+from gringotts.tests import rest
 
 
-class TestSubscriptions(FunctionalTest):
-    PATH = '/subs'
+class SubscriptionTestCase(rest.RestfulTestCase):
 
     def setUp(self):
-        super(TestSubscriptions, self).setUp()
-        self.useFixture(db_fixtures.DatabaseInit(self.conn))
-        self.headers = {'X-Roles': 'admin'}
+        super(SubscriptionTestCase, self).setUp()
 
-    def test_post_subscription(self):
-        body = {
-            "product_name": "instance:m1.tiny",
-            "service": "compute",
-            "region_id": "RegionOne",
-            "resource_volume": 1,
-            "order_id": "fake_order_id",
-            "type": "running",
-            "user_id": fake_data.DEMO_USER_ID,
-            "project_id": fake_data.DEMO_PROJECT_ID,
+        self.subs_path = '/v2/subs'
+
+        self.headers = self.build_admin_http_headers()
+
+    def test_create_subs(self):
+        product = self.product_fixture.instance_products[0]
+        resource_volume = 1
+        order_id = self.new_order_id()
+        user_id = self.admin_account.user_id
+        project_id = self.admin_account.project_id
+
+        running_subs_ref = self.new_subs_ref(
+            product.service, product.name, resource_volume,
+            gring_const.STATE_RUNNING, order_id, project_id, user_id
+        )
+        suspend_subs_ref = self.new_subs_ref(
+            product.service, product.name, resource_volume,
+            gring_const.STATE_SUSPEND, order_id, project_id, user_id
+        )
+        stopped_subs_ref = self.new_subs_ref(
+            product.service, product.name, resource_volume,
+            gring_const.STATE_STOPPED, order_id, project_id, user_id
+        )
+        subs_ref_list = [
+            running_subs_ref, suspend_subs_ref, stopped_subs_ref
+        ]
+
+        for subs_ref in subs_ref_list:
+            self.post(self.subs_path, headers=self.headers,
+                      body=subs_ref, expected_status=200)
+            subs_ref['product_id'] = product.product_id
+
+        subs_list = list(self.dbconn.get_subscriptions_by_order_id(
+            self.admin_req_context, order_id)
+        )
+        self.assertInSubsList(running_subs_ref, subs_list)
+        self.assertInSubsList(suspend_subs_ref, subs_list)
+        self.assertInSubsList(stopped_subs_ref, subs_list)
+
+    def test_update_subs_quantity(self):
+        product = self.product_fixture.instance_products[0]
+        resource_volume = 1
+        order_id = self.new_order_id()
+        user_id = self.admin_account.user_id
+        project_id = self.admin_account.project_id
+
+        subs = self.create_subs_in_db(
+            product, resource_volume, gring_const.STATE_RUNNING,
+            order_id, project_id, user_id
+        )
+
+        new_subs_ref = {
+            'order_id': subs.order_id,
+            'quantity': 10,
+            'change_to': subs.type,
+            'service': product.service,
+            'region_id': subs.region_id,
         }
-        self.post_json(self.PATH, body, headers=self.headers)
+        self.put(self.subs_path, headers=self.headers, body=new_subs_ref)
+        new_subs_ref['product_id'] = product.product_id
+        new_subs_ref['user_id'] = user_id
+        new_subs_ref['project_id'] = project_id
 
-        subs = self.conn.get_subscriptions_by_order_id(context.get_admin_context(),
-                                                       'fake_order_id')
-        subs = [sub for sub in subs]
-        self.assertEqual(fake_data.PRODUCT_FLAVOR_TINY['product_id'], subs[0]['product_id'])
+        subs_list = list(self.dbconn.get_subscriptions_by_order_id(
+            self.admin_req_context, order_id))
+        self.assertEqual(1, len(subs_list))
+        subs = subs_list[0]
+        self.assertSubsEqual(new_subs_ref, subs.as_dict())
+        self.assertEqual(new_subs_ref['quantity'], subs.quantity)
 
-    def test_put_subscription(self):
-        new_sub = {
-            "product_name": "volume.size",
-            "service": "block_storage",
-            "region_id": "RegionOne",
-            "resource_volume": 10,
-            "order_id": "fake_order_id",
-            "type": "running",
-            "user_id": fake_data.DEMO_USER_ID,
-            "project_id": fake_data.DEMO_PROJECT_ID,
+    def test_update_subs_flavor(self):
+        product1 = self.product_fixture.instance_products[0]
+        product2 = self.product_fixture.instance_products[1]
+        resource_volume = 1
+        order_id = self.new_order_id()
+        user_id = self.admin_account.user_id
+        project_id = self.admin_account.project_id
+
+        subs = self.create_subs_in_db(
+            product1, resource_volume, gring_const.STATE_RUNNING,
+            order_id, project_id, user_id
+        )
+
+        new_subs_ref = {
+            'order_id': subs.order_id,
+            'change_to': subs.type,
+            'old_flavor': product1.name,
+            'new_flavor': product2.name,
+            'service': product1.service,
+            'region_id': subs.region_id,
         }
-        self.post_json(self.PATH, new_sub, headers=self.headers)
+        self.put(self.subs_path, headers=self.headers, body=new_subs_ref)
+        new_subs_ref['product_id'] = product2.product_id
+        new_subs_ref['user_id'] = user_id
+        new_subs_ref['project_id'] = project_id
 
-        body = {
-            "order_id": "fake_order_id",
-            "change_to": "running",
-            "quantity": 20
-        }
-        self.put_json(self.PATH, body, headers=self.headers)
-
-        subs = self.conn.get_subscriptions_by_order_id(context.get_admin_context(),
-                                                       'fake_order_id')
-        subs = [sub for sub in subs]
-        self.assertEqual(20, subs[0]['quantity'])
-
-    def test_put_flavor_subscription(self):
-        new_sub = {
-            "product_name": "instance:m1.tiny",
-            "service": "compute",
-            "region_id": "RegionOne",
-            "resource_volume": 1,
-            "order_id": "fake_order_id",
-            "type": "running",
-            "user_id": fake_data.DEMO_USER_ID,
-            "project_id": fake_data.DEMO_PROJECT_ID,
-        }
-        self.post_json(self.PATH, new_sub, headers=self.headers)
-
-        body = {
-            "service": "compute",
-            "region_id": "RegionOne",
-            "old_flavor": "instance:m1.tiny",
-            "new_flavor": "instance:m1.small",
-            "order_id": "fake_order_id",
-            "change_to": "running",
-        }
-        self.put_json(self.PATH, body, headers=self.headers)
-
-        subs = self.conn.get_subscriptions_by_order_id(context.get_admin_context(),
-                                                       'fake_order_id')
-        subs = [sub for sub in subs]
-        self.assertEqual('0.1110', str(subs[0]['unit_price']))
-        self.assertEqual(fake_data.PRODUCT_FLAVOR_SMALL['product_id'], subs[0]['product_id'])
+        subs_list = list(self.dbconn.get_subscriptions_by_order_id(
+            self.admin_req_context, order_id))
+        self.assertEqual(1, len(subs_list))
+        subs = subs_list[0]
+        self.assertSubsEqual(new_subs_ref, subs.as_dict())
+        self.assertEqual(product2.unit_price, subs.unit_price)
