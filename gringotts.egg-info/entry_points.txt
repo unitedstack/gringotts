@@ -1,0 +1,86 @@
+[console_scripts]
+gring-api = gringotts.cmd.api:main
+gring-checker = gringotts.checker.service:checker
+gring-dbsync = gringotts.db:dbsync
+gring-master = gringotts.master.service:master
+gring-waiter = gringotts.waiter.service:waiter
+gring-worker = gringotts.worker.service:worker
+
+[gringotts.alarm.product_item]
+running_alarm = gringotts.waiter.plugins.alarm:AlarmItem
+
+[gringotts.client_auth_plugin]
+sign = gringotts.client.auth.sign:SignAuthPlugin
+token = gringotts.client.auth.token:TokenAuthPlugin
+
+[gringotts.floatingip.product_item]
+running_rate_limit = gringotts.waiter.plugins.floatingip:RateLimitItem
+
+[gringotts.image.product_item]
+running_size = gringotts.waiter.plugins.image:SizeItem
+
+[gringotts.instance.product_item]
+running_flavor = gringotts.waiter.plugins.instance:FlavorItem
+running_license = gringotts.waiter.plugins.instance:LicenseItem
+stopped_disk = gringotts.waiter.plugins.instance:DiskItem
+suspend_disk = gringotts.waiter.plugins.instance:DiskItem
+
+[gringotts.listener.product_item]
+running_connection_limit = gringotts.waiter.plugins.listener:ConnectionLimitItem
+
+[gringotts.notification]
+alarm-create = gringotts.waiter.plugins.alarm:AlarmCreateEnd
+alarm-delete = gringotts.waiter.plugins.alarm:AlarmDeleteEnd
+alarm-on-off = gringotts.waiter.plugins.alarm:AlarmOnOffEnd
+change_billing_owner = gringotts.waiter.plugins.user:BillingOwnerChangedEnd
+floatingip-create = gringotts.waiter.plugins.floatingip:FloatingIpCreateEnd
+floatingip-delete = gringotts.waiter.plugins.floatingip:FloatingIpDeleteEnd
+floatingip-resize = gringotts.waiter.plugins.floatingip:FloatingIpResizeEnd
+image-create = gringotts.waiter.plugins.image:ImageCreateEnd
+image-delete = gringotts.waiter.plugins.image:ImageDeleteEnd
+instance-create = gringotts.waiter.plugins.instance:InstanceCreateEnd
+instance-delete = gringotts.waiter.plugins.instance:InstanceDeleteEnd
+instance-resize = gringotts.waiter.plugins.instance:InstanceResizeEnd
+instance-resume = gringotts.waiter.plugins.instance:InstanceResumeEnd
+instance-start = gringotts.waiter.plugins.instance:InstanceStartEnd
+instance-stop = gringotts.waiter.plugins.instance:InstanceStopEnd
+instance-suspend = gringotts.waiter.plugins.instance:InstanceSuspendEnd
+listener-create = gringotts.waiter.plugins.listener:ListenerCreateEnd
+listener-delete = gringotts.waiter.plugins.listener:ListenerDeleteEnd
+listener-update = gringotts.waiter.plugins.listener:ListenerUpdateEnd
+loadbalancer-delete = gringotts.waiter.plugins.listener:LoadBalancerDeleteEnd
+project-create = gringotts.waiter.plugins.user:ProjectCreatedEnd
+project-delete = gringotts.waiter.plugins.user:ProjectDeletedEnd
+router-create = gringotts.waiter.plugins.router:RouterCreateEnd
+router-delete = gringotts.waiter.plugins.router:RouterDeleteEnd
+share-create = gringotts.waiter.plugins.share:ShareCreateEnd
+share-delete = gringotts.waiter.plugins.share:ShareDeleteEnd
+snapshot-create = gringotts.waiter.plugins.snapshot:SnapshotCreateEnd
+snapshot-delete = gringotts.waiter.plugins.snapshot:SnapshotDeleteEnd
+user-create = gringotts.waiter.plugins.user:UserCreatedEnd
+user-register = gringotts.waiter.plugins.user:UserRegisterEnd
+volume-create = gringotts.waiter.plugins.volume:VolumeCreateEnd
+volume-delete = gringotts.waiter.plugins.volume:VolumeDeleteEnd
+volume-resize = gringotts.waiter.plugins.volume:VolumeResizeEnd
+
+[gringotts.notifier]
+email = gringotts.checker.notifier.email:EmailNotifier
+log = gringotts.checker.notifier.log:LogNotifier
+sms = gringotts.checker.notifier.sms:SMSNotifier
+
+[gringotts.router.product_item]
+running_router = gringotts.waiter.plugins.router:RouterItem
+
+[gringotts.share.product_item]
+running_size = gringotts.waiter.plugins.share:SizeItem
+
+[gringotts.snapshot.product_item]
+running_size = gringotts.waiter.plugins.snapshot:SizeItem
+
+[gringotts.storage]
+mysql = gringotts.db.impl_sqlalchemy:SQLAlchemyStorage
+sqlite = gringotts.db.impl_sqlalchemy:SQLAlchemyStorage
+
+[gringotts.volume.product_item]
+running_size = gringotts.waiter.plugins.volume:SizeItem
+

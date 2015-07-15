@@ -1,0 +1,19 @@
+Metadata-Version: 1.1
+Name: gringotts
+Version: 0.4.11.dev3
+Summary: OpenStack/UOS Billing System
+Home-page: http://www.ustack.com/
+Author: Guangyu Suo
+Author-email: guangyu@unitedstack.com
+License: UNKNOWN
+Description: False
+Platform: UNKNOWN
+Classifier: Environment :: OpenStack/UOS
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 2.6
