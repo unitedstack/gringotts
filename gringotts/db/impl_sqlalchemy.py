@@ -27,7 +27,6 @@ from gringotts.db.sqlalchemy.models import Base
 
 from gringotts.openstack.common.db import exception as db_exception
 from gringotts.openstack.common.db.sqlalchemy import session as db_session
-from gringotts.openstack.common.db.sqlalchemy import utils as db_utils
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
@@ -116,7 +115,7 @@ def paginate_query(context, model, limit=None, offset=None,
 
 
 def _paginate_query(query, model, limit, sort_keys, offset=None,
-                     sort_dir=None, sort_dirs=None):
+                    sort_dir=None, sort_dirs=None):
     if 'id' not in sort_keys:
         # TODO(justinsb): If this ever gives a false-positive, check
         # the actual primary key, rather than assuming its id
@@ -147,7 +146,7 @@ def _paginate_query(query, model, limit, sort_keys, offset=None,
         try:
             sort_key_attr = getattr(model, current_sort_key)
         except AttributeError:
-            raise InvalidSortKey()
+            raise exception.Invalid()
         query = query.order_by(sort_dir_func(sort_key_attr))
 
     if offset is not None:
@@ -275,7 +274,7 @@ class Connection(base.Connection):
                                  inviter=row.inviter,
                                  charged=row.charged,
                                  reward_value=row.reward_value,
-                                 sales_id = row.sales_id,
+                                 sales_id=row.sales_id,
                                  created_at=row.created_at,
                                  updated_at=row.updated_at)
 
@@ -477,19 +476,19 @@ class Connection(base.Connection):
     def get_product_by_name(self, context, product_name, service, region_id):
         try:
             product = model_query(context, sa_models.Product).\
-                    filter_by(name=product_name).\
-                    filter_by(service=service).\
-                    filter_by(region_id=region_id).\
-                    filter_by(deleted=False).\
-                    one()
+                filter_by(name=product_name).\
+                filter_by(service=service).\
+                filter_by(region_id=region_id).\
+                filter_by(deleted=False).\
+                one()
         except NoResultFound:
             msg = "Product with name(%s) within service(%s) in region_id(%s) not found" % \
-                   (product_name, service, region_id)
+                (product_name, service, region_id)
             LOG.warning(msg)
             return None
         except MultipleResultsFound:
             msg = "Duplicated products with name(%s) within service(%s) in region_id(%s)" % \
-                   (product_name, service, region_id)
+                (product_name, service, region_id)
             LOG.error(msg)
             raise exception.DuplicatedProduct(reason=msg)
 
@@ -511,7 +510,7 @@ class Connection(base.Connection):
                 cron_time=None,
                 date_time=None,
                 status=order['status'],
-                user_id=project.user_id, # the payer
+                user_id=project.user_id,  # the payer
                 project_id=order['project_id'],
                 domain_id=project.domain_id,
                 region_id=order['region_id'],
@@ -610,11 +609,11 @@ class Connection(base.Connection):
         if owed:
             query = query.filter_by(owed=owed)
         if not read_deleted:
-            query = query.filter(not_(sa_models.Order.status==const.STATE_DELETED))
+            query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
 
         if all([start_time, end_time]):
             query = query.join(sa_models.Bill,
-                               sa_models.Order.order_id==sa_models.Bill.order_id)
+                               sa_models.Order.order_id == sa_models.Bill.order_id)
             query = query.filter(sa_models.Bill.start_time >= start_time,
                                  sa_models.Bill.start_time < end_time)
             query = query.group_by(sa_models.Bill.order_id)
@@ -664,8 +663,8 @@ class Connection(base.Connection):
 
     @require_context
     def get_active_orders(self, context, type=None, limit=None, offset=None, sort_key=None,
-                   sort_dir=None, region_id=None, user_id=None, project_id=None, owed=None,
-                   charged=None, within_one_hour=None):
+                          sort_dir=None, region_id=None, user_id=None, project_id=None, owed=None,
+                          charged=None, within_one_hour=None):
         """Get all active orders
         """
         query = get_session().query(sa_models.Order)
@@ -1007,24 +1006,6 @@ class Connection(base.Connection):
                                 query=query)
 
         return (self._row_to_db_account_model(r) for r in result), total_count
-
-    @require_context
-    def get_accounts_by_sales(self, context, sales_id, limit=None, offset=None):
-        query = get_session().query(sa_models.Account).\
-                filter_by(sales_id=sales_id)
-
-        result = paginate_query(context, sa_models.Account, limit=limit,
-                                offset=offset, query=query)
-
-        return (self._row_to_db_account_model(r) for r in result)
-
-    @require_context
-    def get_accounts_by_sales_count(self, context, sales_id):
-        query = model_query(context, sa_models.Account,
-                            func.count(sa_models.Account.id).label('count'))
-        query = query.filter_by(sales_id=sales_id)
-
-        return query.one().count or 0
 
     @require_domain_context
     def get_accounts(self, context, owed=None, limit=None, offset=None,
@@ -1882,69 +1863,76 @@ class Connection(base.Connection):
             remarks = data.remarks if data.remarks != wsme.Unset else None
             charge_time = datetime.datetime.utcnow()
             charge_to = sa_models.Charge(charge_id=uuidutils.generate_uuid(),
-                                       user_id=account_to.user_id,
-                                       project_id=account_to.project_id,
-                                       domain_id=account_to.domain_id,
-                                       value=data.money,
-                                       type="transfer",
-                                       come_from="transfer",
-                                       charge_time=charge_time,
-                                       operator=cxt.user_id,
-                                       remarks=remarks)
+                                         user_id=account_to.user_id,
+                                         project_id=account_to.project_id,
+                                         domain_id=account_to.domain_id,
+                                         value=data.money,
+                                         type="transfer",
+                                         come_from="transfer",
+                                         charge_time=charge_time,
+                                         operator=cxt.user_id,
+                                         remarks=remarks)
             session.add(charge_to)
 
             charge_from = sa_models.Charge(charge_id=uuidutils.generate_uuid(),
-                                       user_id=account_from.user_id,
-                                       project_id=account_from.project_id,
-                                       domain_id=account_from.domain_id,
-                                       value=-data.money,
-                                       type="transfer",
-                                       come_from="transfer",
-                                       charge_time=charge_time,
-                                       operator=cxt.user_id,
-                                       remarks=remarks)
+                                           user_id=account_from.user_id,
+                                           project_id=account_from.project_id,
+                                           domain_id=account_from.domain_id,
+                                           value=-data.money,
+                                           type="transfer",
+                                           come_from="transfer",
+                                           charge_time=charge_time,
+                                           operator=cxt.user_id,
+                                           remarks=remarks)
             session.add(charge_from)
 
-    def add_account_sales(self, account_id, sales_id):
+    def set_accounts_salesperson(self, context, user_id_list, sales_id):
         session = db_session.get_session()
         with session.begin():
+            # make sure sales_id is a valid account
             try:
-                account = session.query(sa_models.Account).\
-                    filter_by(user_id=account_id).with_lockmode('update').one()
-            except NoResultFound:
-                raise exception.AccountNotFound(user_id=account_id)
-            account.sales_id = sales_id
+                session.query(sa_models.Account).filter_by(
+                    user_id=sales_id).with_lockmode('read').one()
+            except (NoResultFound):
+                LOG.warning(
+                    'Salesperson %s does not have an account', sales_id)
+                raise exception.AccountNotFound(user_id=sales_id)
 
-    def add_accounts_sales(self, data):
-        accounts = data.accounts
-        sales_id = data.sales_id
-
-        session = db_session.get_session()
-        with session.begin():
-            for account_id in accounts:
+            for user_id in user_id_list:
                 try:
-                    account = session.query(sa_models.Account).\
-                        filter_by(user_id=account_id).with_lockmode('update').one()
-                except:
-                    LOG.warning('The account whose user_id is %s did not exist'
-                             % account_id)
-                    continue
-                account.sales_id = sales_id
+                    account = session.query(sa_models.Account).filter_by(
+                        user_id=user_id).with_lockmode('update').one()
+                    account.sales_id = sales_id
+                except (NoResultFound):
+                    LOG.warning('Account %s does not exist', user_id)
+                    raise exception.AccountNotFound(user_id=user_id)
 
-    def update_account_sales(self, account_id, new_sales_id):
-        session = db_session.get_session()
-        with session.begin():
-            try:
-                account = session.query(sa_models.Account).\
-                    filter_by(user_id=account_id).with_lockmode('update').one()
-            except NoResultFound:
-                raise exception.AccountNotFound(user_id=account_id)
-            account.sales_id = new_sales_id
+    def get_salesperson_amount(self, context, sales_id):
+        Account = sa_models.Account
+        query = model_query(
+            context, Account,
+            func.count(Account.id).label('count'),
+            func.sum(Account.consumption).label('sales_amount'))
+        query = query.filter_by(sales_id=sales_id)
+        try:
+            result = query.one()
+        except (NoResultFound):
+            # This salesperson has no customer
+            return 0, 0
 
-    def update_accounts_sales(self, old_sales_id, new_sales_id):
+        return result.count, result.sales_amount
+
+    def get_salesperson_customer_accounts(self, context, sales_id,
+                                          offset=None, limit=None):
         session = db_session.get_session()
-        with session.begin():
-            accounts = session.query(sa_models.Account).\
-                filter_by(sales_id=old_sales_id).with_lockmode('update').all()
-            for account in accounts:
-                account.sales_id = new_sales_id
+        query = session.query(sa_models.Account).filter_by(
+            sales_id=sales_id)
+        try:
+            result = paginate_query(
+                context, sa_models.Account, query=query,
+                offset=offset, limit=limit
+            )
+            return (self._row_to_db_account_model(a) for a in result)
+        except (NoResultFound):
+            # This salesperson has no customer
+            return ()

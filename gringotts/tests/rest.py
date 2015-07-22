@@ -43,6 +43,21 @@ class RestfulTestMixin(object):
 
         return p
 
+    def build_uos_user_info_from_keystone(
+            self, user_id, name, email='email@example.com',
+            real_name='real name', mobile_number='13012345678',
+            company='company'):
+
+        user = {
+            'id': user_id,
+            'name': name,
+            'email': email,
+            'real_name': real_name,
+            'mobile_number': mobile_number,
+            'company': company,
+        }
+        return user
+
 
 class RestfulTestCase(tests.TestCase, RestfulTestMixin):
 
@@ -52,10 +67,20 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin):
     def load_sample_data(self):
         super(RestfulTestCase, self).load_sample_data()
 
-    def build_query_url(self, path_prefix, id, custom=None):
+    def build_query_url(self, path_prefix, id, custom=None,
+                        offset=None, limit=None):
         path = '%s/%s' % (path_prefix, id)
         if custom:
             path += '/%s' % custom
+
+        var = []
+        if offset:
+            var.append('offset=%s' % offset)
+        if limit:
+            var.append('limit=%s' % limit)
+        if var:
+            path += '?%s' % ('&'.join(var))
+
         return path
 
     def assertResponseStatus(self, response, expected_status):
@@ -246,12 +271,11 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin):
         return ref
 
     def new_product_ref(self, service, unit_price, unit):
-        self.assertIsInstance(unit_price, float,
-                              'type %s is not a float' % type(unit_price))
+        self.assertIsInstance(unit_price, float)
         ref = self.new_ref()
         del ref['id']
         ref['service'] = service
-        ref['unit_price'] = unit_price
+        ref['unit_price'] = str(unit_price)
         ref['unit'] = unit
         ref['type'] = 'regular'
         ref['extra'] = None
@@ -289,7 +313,7 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin):
         order_ref = self.new_simple_ref()
         del order_ref['id']
         order_ref['order_id'] = order_id if order_id else self.new_order_id()
-        order_ref['unit_price'] = unit_price
+        order_ref['unit_price'] = str(unit_price)
         order_ref['unit'] = unit
         order_ref['user_id'] = user_id
         order_ref['project_id'] = project_id
@@ -327,7 +351,7 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin):
         self.assertIsInstance(price, (float, int))
         precharge_ref = {
             'number': number,
-            'price': price,
+            'price': str(price),
         }
         if expired_at:
             # let it be wsme.Unset if expired_at is None

@@ -1,15 +1,13 @@
-import pecan
-import wsme
 import datetime
 
+import pecan
 from pecan import rest
 from pecan import request
-from wsmeext.pecan import wsexpose
+import wsme
 from wsme import types as wtypes
-
+from wsmeext.pecan import wsexpose
 from oslo.config import cfg
 
-from gringotts import master
 from gringotts.api import acl
 from gringotts.policy import check_policy
 from gringotts import exception
@@ -19,12 +17,65 @@ from gringotts.db import models as db_models
 from gringotts.services import keystone
 from gringotts.checker import notifier
 from gringotts.openstack.common import log
-from gringotts.openstack.common import uuidutils
-from gringotts.openstack.common import timeutils
+from gringotts.openstack.common.gettextutils import _
 
 
-cfg.CONF.import_opt('notifier_level', 'gringotts.checker.service', group='checker')
+cfg.CONF.import_opt('notifier_level', 'gringotts.checker.service',
+                    group='checker')
 LOG = log.getLogger(__name__)
+
+
+class AccountSalesPersonController(rest.RestController):
+
+    def __init__(self, user_id):
+        self.user_id = user_id
+
+    @wsexpose(models.SalesPerson)
+    def get(self):
+        """Return salesperson of an account
+        """
+        context = pecan.request.context
+
+        user_id = self.user_id
+        conn = pecan.request.db_conn
+        account = conn.get_account(context, user_id)
+        sales_id = account.sales_id
+        if not sales_id:
+            # Only allow sales admin to know that an account
+            # belongs to no salesperson.
+            check_policy(context, 'uos_sales_admin')
+            return models.SalesPerson()
+
+        # Only allow salesperson to get account that
+        # belongs to himself/herself.
+        if not acl.limit_to_sales(context, sales_id):
+            raise exception.NotAuthorized()
+
+        try:
+            sales_user = keystone.get_uos_user(sales_id)
+            return models.SalesPerson(
+                user_id=sales_id, user_name=sales_user['name'],
+                user_email=sales_user.get('email', ''),
+                real_name=sales_user.get('real_name', ''),
+                mobile_number=sales_user.get('mobile_number', ''),
+                company=sales_user.get('company', '')
+            )
+        except (exception.NotFound):
+            msg = _('Could not find salesperson %s of account %s'
+                    ' from keystone' % (sales_id, user_id))
+            LOG.error(msg)
+            raise exception.NotFound(msg)
+
+    @wsexpose(None, body=models.AccountSalesPersonPutBody)
+    def put(self, data):
+        """Update salesperson of an account
+        """
+        context = pecan.request.context
+        check_policy(context, 'uos_sales_admin')
+
+        user_id = self.user_id
+        conn = pecan.request.db_conn
+        conn.set_accounts_salesperson(context, [user_id], data.sales_id)
 
 
 class AccountController(rest.RestController):
@@ -47,16 +98,22 @@ class AccountController(rest.RestController):
         _id = user_id or self._id
         try:
             account = self.conn.get_account(request.context, _id)
-        except Exception as e:
+        except (Exception):
             LOG.error('account %s not found' % _id)
             raise exception.AccountNotFound(user_id=_id)
         return account
+
+    @pecan.expose()
+    def _lookup(self, subpath, *remainder):
+        if subpath == 'salesperson':
+            return AccountSalesPersonController(self._id), remainder
 
     @wsexpose(models.Invitees, int, int)
     def invitees(self, limit=None, offset=None):
         """Get invitees of inviter
         """
-        inviter = acl.get_limited_to_user(request.headers, 'uos_admin') or self._id
+        inviter = acl.get_limited_to_user(
+            request.headers, 'uos_admin') or self._id
 
         self.conn = pecan.request.db_conn
         try:
@@ -72,7 +129,8 @@ class AccountController(rest.RestController):
         for invitee in _invitees:
             user = keystone.get_uos_user(invitee.user_id)
             if user:
-                user_name = user.get('real_name') or user['email'].split('@')[0]
+                user_name = user.get(
+                    'real_name') or user['email'].split('@')[0]
                 user_email = user['email']
             else:
                 user_name = ""
@@ -96,7 +154,8 @@ class AccountController(rest.RestController):
 
         self.conn = pecan.request.db_conn
         try:
-            account = self.conn.change_account_level(request.context, self._id, level)
+            account = self.conn.change_account_level(
+                request.context, self._id, level)
         except Exception as e:
             LOG.exception('Fail to change the account level of: %s' % self._id)
             raise exception.DBError(reason=e)
@@ -106,7 +165,8 @@ class AccountController(rest.RestController):
     @wsexpose(models.UserAccount)
     def get(self):
         """Return this account"""
-        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or self._id
+        user_id = acl.get_limited_to_user(
+            request.headers, 'uos_staff') or self._id
         return models.UserAccount.from_db_model(self._account(user_id=user_id))
 
     @wsexpose(models.Charge, wtypes.text, body=models.Charge)
@@ -120,21 +180,20 @@ class AccountController(rest.RestController):
             lscv = int(cfg.CONF.limited_support_charge_value)
             if data.value < -lscv or data.value > lscv:
                 raise exception.InvalidChargeValue(value=data.value)
-        else:# check accountant charge value
+        else:  # check accountant charge value
             lacv = int(cfg.CONF.limited_accountant_charge_value)
             if data.value < -lacv or data.value > lacv:
                 raise exception.InvalidChargeValue(value=data.value)
 
         remarks = data.remarks if data.remarks != wsme.Unset else None
-        operator=request.context.user_id
+        operator = request.context.user_id
 
         self.conn = pecan.request.db_conn
 
         try:
-            charge, is_first_charge = self.conn.update_account(request.context,
-                                                               self._id,
-                                                               operator=operator,
-                                                               **data.as_dict())
+            charge, is_first_charge = self.conn.update_account(
+                request.context, self._id, operator=operator,
+                **data.as_dict())
             has_bonus = False
             if cfg.CONF.enable_bonus and data['type'] != 'bonus':
                 value = gringutils.calculate_bonus(data['value'])
@@ -150,65 +209,68 @@ class AccountController(rest.RestController):
 
             if cfg.CONF.enable_invitation and is_first_charge:
                 _account = self._account()
-                min_charge_value = gringutils._quantize_decimal(cfg.CONF.min_charge_value)
-                reward_value = gringutils._quantize_decimal(cfg.CONF.reward_value)
+                min_charge_value = gringutils._quantize_decimal(
+                    cfg.CONF.min_charge_value)
+                reward_value = gringutils._quantize_decimal(
+                    cfg.CONF.reward_value)
 
-                if _account.inviter and data.value >= min_charge_value and reward_value > 0:
-                    self.conn.update_account(request.context,
-                                             _account.inviter,
-                                             type='bonus',
-                                             value=reward_value,
-                                             come_from='system',
-                                             operator=operator,
-                                             remarks="reward because of invitation",
-                                             invitee=self._id)
+                if _account.inviter \
+                        and data.value >= min_charge_value \
+                        and reward_value > 0:
+                    self.conn.update_account(
+                        request.context, _account.inviter, type='bonus',
+                        value=reward_value, come_from='system',
+                        operator=operator,
+                        remarks="reward because of invitation",
+                        invitee=self._id)
                     if cfg.CONF.notify_account_charged:
-                        inviter = self.conn.get_account(request.context, _account.inviter).as_dict()
+                        inviter = self.conn.get_account(
+                            request.context, _account.inviter).as_dict()
                         contact = keystone.get_uos_user(inviter['user_id'])
-                        self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
-                        self.notifier.notify_account_charged(request.context,
-                                                             inviter,
-                                                             contact,
-                                                             'bonus',
-                                                             reward_value,
-                                                             bonus=0,
-                                                             operator=operator,
-                                                             operator_name=request.context.user_name,
-                                                             remarks="reward because of invitation")
+                        self.notifier = notifier.NotifierService(
+                            cfg.CONF.checker.notifier_level)
+                        self.notifier.notify_account_charged(
+                            request.context, inviter, contact,
+                            'bonus', reward_value, bonus=0,
+                            operator=operator,
+                            operator_name=request.context.user_name,
+                            remarks="reward because of invitation")
             self.conn.set_charged_orders(request.context, self._id)
         except exception.NotAuthorized as e:
-            LOG.exception('Fail to charge the account:%s due to not authorization' % \
-                          self._id)
+            LOG.exception('Fail to charge the account:%s '
+                          'due to not authorization' % self._id)
             raise exception.NotAuthorized()
         except Exception as e:
-            LOG.exception('Fail to charge the account:%s, charge value: %s' % \
-                          (self._id, data.value))
+            LOG.exception('Fail to charge the account:%s, '
+                          'charge value: %s' % (self._id, data.value))
             raise exception.DBError(reason=e)
         else:
             # Notifier account
             if cfg.CONF.notify_account_charged:
-                account = self.conn.get_account(request.context, self._id).as_dict()
+                account = self.conn.get_account(
+                    request.context, self._id).as_dict()
                 contact = keystone.get_uos_user(account['user_id'])
                 country_code = contact.get("country_code") or "86"
                 language = "en_US" if country_code != '86' else "zh_CN"
-                self.notifier = notifier.NotifierService(cfg.CONF.checker.notifier_level)
-                self.notifier.notify_account_charged(request.context,
-                                                     account,
-                                                     contact,
-                                                     data['type'],
-                                                     charge.value,
-                                                     bonus=bonus.value if has_bonus else 0,
-                                                     operator=operator,
-                                                     operator_name=request.context.user_name,
-                                                     remarks=remarks,
-                                                     language=language)
+                self.notifier = notifier.NotifierService(
+                    cfg.CONF.checker.notifier_level)
+                self.notifier.notify_account_charged(
+                    request.context, account, contact,
+                    data['type'], charge.value,
+                    bonus=bonus.value if has_bonus else 0,
+                    operator=operator,
+                    operator_name=request.context.user_name,
+                    remarks=remarks, language=language)
         return models.Charge.from_db_model(charge)
 
-    @wsexpose(models.Charges, wtypes.text, datetime.datetime, datetime.datetime, int, int)
-    def charges(self, type=None, start_time=None, end_time=None, limit=None, offset=None):
+    @wsexpose(models.Charges, wtypes.text, datetime.datetime,
+              datetime.datetime, int, int)
+    def charges(self, type=None, start_time=None,
+                end_time=None, limit=None, offset=None):
         """Return this account's charge records
         """
-        user_id = acl.get_limited_to_user(request.headers, 'uos_support_staff') or self._id
+        user_id = acl.get_limited_to_user(
+            request.headers, 'uos_support_staff') or self._id
 
         self.conn = pecan.request.db_conn
         charges = self.conn.get_charges(request.context,
@@ -238,7 +300,8 @@ class AccountController(rest.RestController):
         if not cfg.CONF.enable_owe:
             return -1
 
-        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or self._id
+        user_id = acl.get_limited_to_user(
+            request.headers, 'uos_staff') or self._id
 
         account = self._account(user_id=user_id)
         if account.balance < 0:
@@ -269,7 +332,8 @@ class AccountController(rest.RestController):
     @wsexpose(models.Estimate)
     def estimate_per_day(self):
         self.conn = pecan.request.db_conn
-        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or self._id
+        user_id = acl.get_limited_to_user(
+            request.headers, 'uos_staff') or self._id
 
         account = self._account(user_id=user_id)
         orders = self.conn.get_active_orders(request.context,
@@ -298,13 +362,16 @@ class AccountController(rest.RestController):
 
 class ChargeController(rest.RestController):
 
-    @wsexpose(models.Charges, wtypes.text, wtypes.text, datetime.datetime, datetime.datetime, int, int)
-    def get(self, user_id=None, type=None, start_time=None, end_time=None, limit=None, offset=None):
+    @wsexpose(models.Charges, wtypes.text, wtypes.text,
+              datetime.datetime, datetime.datetime, int, int)
+    def get(self, user_id=None, type=None, start_time=None,
+            end_time=None, limit=None, offset=None):
         """Get all charges of all account
         """
         check_policy(request.context, "charges:all")
 
         users = {}
+
         def _get_user(user_id):
             user = users.get(user_id)
             if user:
@@ -391,7 +458,6 @@ class AccountsController(rest.RestController):
 
         return models.AdminAccounts(total_count=count,
                                     accounts=accounts)
-
 
     @wsexpose(None, body=models.AdminAccount)
     def post(self, data):

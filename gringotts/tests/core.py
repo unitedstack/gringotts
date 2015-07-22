@@ -1,6 +1,5 @@
 
 from datetime import datetime
-import decimal
 import os.path
 import uuid
 
@@ -83,17 +82,17 @@ class TestCase(BaseTestCase):
         self.config_fixture.config(policy_file=policy_file_path)
 
     def load_account_info(self):
-        self.admin_user_id = self.new_uuid()
+        self.admin_user_id = self.new_user_id()
         self.admin_user_name = 'admin'
-        self.demo_user_id = self.new_uuid()
+        self.demo_user_id = self.new_user_id()
         self.demo_user_name = 'demo'
         self.clean_attr(['admin_user_id', 'admin_user_name',
                          'demo_user_id', 'demo_user_name'])
 
         self.default_domain_id = 'default'
-        self.demo_domain_id = self.new_uuid()
-        self.default_project_id = self.new_uuid()
-        self.demo_project_id = self.new_uuid()
+        self.demo_domain_id = self.new_domain_id()
+        self.default_project_id = self.new_project_id()
+        self.demo_project_id = self.new_project_id()
         self.clean_attr(['default_domain_id', 'demo_domain_id',
                          'default_project_id', 'demo_project_id'])
 
@@ -153,7 +152,8 @@ class TestCase(BaseTestCase):
             gring_fixtures.AccountAndProjectData(
                 self.dbconn, self.admin_req_context,
                 self.demo_user_id, self.demo_project_id,
-                self.demo_domain_id, 3
+                self.demo_domain_id, 3,
+                inviter=self.admin_account.user_id,
             )
         )
 
@@ -166,6 +166,9 @@ class TestCase(BaseTestCase):
 
     def assertNotEqual(self, value1, value2):
         self.assertThat(value1, matchers.NotEquals(value2))
+
+    def fail(self, message='User caused failure'):
+        self.assertEqual(1, 2, message)
 
     def build_http_headers(self, auth_token=None, user_id=None,
                            user_name=None, project_id=None, domain_id=None,
@@ -190,6 +193,11 @@ class TestCase(BaseTestCase):
         return self.build_http_headers(user_id=self.admin_user_id,
                                        user_name=self.admin_user_name,
                                        roles='admin')
+
+    def build_demo_http_headers(self):
+        return self.build_http_headers(user_id=self.demo_user_id,
+                                       user_name=self.demo_user_name,
+                                       roles='demo')
 
     def build_req_context(auth_token=None, user_id=None, user_name=None,
                           project_id=None, domain_id=None,
@@ -225,6 +233,12 @@ class TestCase(BaseTestCase):
     def new_project_id(self):
         return self.new_uuid()
 
+    def new_user_id(self):
+        return self.new_uuid()
+
+    def new_domain_id(self):
+        return self.new_uuid()
+
     def utcnow(self):
         return datetime.utcnow()
 
@@ -247,7 +261,7 @@ class TestCase(BaseTestCase):
         return gring_utils._quantize_decimal(value)
 
     def create_subs_in_db(self, product, resource_volume, status, order_id,
-                          project_id, user_id, region_id='RegionOne'):
+                          project_id, user_id, region_id=CONF.region_name):
         self.assertIsInstance(product, db_models.Product)
 
         subs_ref = api_models.SubscriptionPostBody(
@@ -264,7 +278,7 @@ class TestCase(BaseTestCase):
     def create_order_in_db(self, order_price, unit, user_id, project_id,
                            resource_type, status, order_id=None,
                            resource_id=None, resource_name=None,
-                           region_id='RegionOne'):
+                           region_id=CONF.region_name):
         self.assertIsInstance(order_price, float)
         if not order_id:
             order_id = self.new_order_id()
@@ -275,7 +289,7 @@ class TestCase(BaseTestCase):
 
         order_ref = api_models.OrderPostBody(
             order_id=order_id, unit=unit,
-            unit_price=decimal.Decimal(order_price),
+            unit_price=self.quantize(order_price),
             user_id=user_id, project_id=project_id, region_id=region_id,
             status=status, type=resource_type, resource_id=resource_id,
             resource_name=resource_name)

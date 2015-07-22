@@ -13,7 +13,7 @@ from gringotts.api.v2 import project
 from gringotts.api.v2 import download
 from gringotts.api.v2 import quotas
 from gringotts.api.v2 import deduct
-from gringotts.api.v2 import sales_accounts
+from gringotts.api.v2 import salespersons
 
 from gringotts.api.v2 import models
 
@@ -35,7 +35,7 @@ class V2Controller(rest.RestController):
     pay = deduct.PayController()
     checkReq = deduct.CheckReqController()
     getBalance = deduct.GetBalanceController()
-    sales = sales_accounts.SalesAccountsController()
+    salespersons = salespersons.SalesPersonsController()
 
     @wsexpose(models.Version)
     def get(self):

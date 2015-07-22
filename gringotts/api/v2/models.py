@@ -65,7 +65,7 @@ class Query(APIBase):
     field = wtypes.text
     "The name of the field to test"
 
-    #op = wsme.wsattr(operation_kind, default='eq')
+    # op = wsme.wsattr(operation_kind, default='eq')
     # this ^ doesn't seem to work.
     op = wsme.wsproperty(operation_kind, get_op, set_op)
     "The comparison operator. Defaults to 'eq'."
@@ -371,11 +371,6 @@ class UserAccount(APIBase):
     owed = bool
     level = int
 
-    @classmethod
-    def sample(cls):
-        return cls(balance=decimal.Decimal('1000.56'),
-                   currency='CNY')
-
 
 class Invitee(APIBase):
     user_id = wtypes.text
@@ -405,26 +400,49 @@ class AdminAccount(APIBase):
     inviter = wtypes.text
     created_at = wtypes.text
 
-    @classmethod
-    def sample1(cls):
-        return cls(balance=decimal.Decimal('1000.56'),
-                   consumption=decimal.Decimal('321.5'),
-                   currency='CNY',
-                   user_id='user-id-xxx',
-                   project_id='project-id-xxx')
-
-    @classmethod
-    def sample2(cls):
-        return cls(balance=decimal.Decimal('100.74'),
-                   consumption=decimal.Decimal('432.4'),
-                   currency='CNY',
-                   user_id='user-id-yyy',
-                   project_id='project-id-yyy')
-
 
 class AdminAccounts(APIBase):
     total_count = int
     accounts = [AdminAccount]
+
+
+class AccountSalesPersonPutBody(APIBase):
+    sales_id = wtypes.text
+
+
+class SalesPerson(APIBase):
+    user_id = wtypes.text
+    user_name = wtypes.text
+    user_email = wtypes.text
+    real_name = wtypes.text
+    mobile_number = wtypes.text
+    company = wtypes.text
+
+
+class SalesPersonAmount(APIBase):
+    sales_amount = decimal.Decimal
+    accounts_number = int
+
+
+class SalesPersonAccount(APIBase):
+    user_id = wtypes.text
+    user_name = wtypes.text
+    user_email = wtypes.text
+    real_name = wtypes.text
+    mobile_number = wtypes.text
+    company = wtypes.text
+    balance = decimal.Decimal
+    consumption = decimal.Decimal
+    owed = bool
+
+
+class SalesPersonAccounts(APIBase):
+    total_count = int
+    accounts = [SalesPersonAccount]
+
+
+class SalesPersonAccountsPutBody(APIBase):
+    user_ids = [wtypes.text]
 
 
 class Summary(APIBase):

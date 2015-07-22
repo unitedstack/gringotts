@@ -7,6 +7,8 @@
     "uos_support_staff": "role:uos_support_staff or rule:uos_staff",
     "uos_accountant": "role:uos_accountant or rule:uos_admin",
     "uos_support": "role:uos_support or rule:uos_admin",
+    "uos_sales_admin": "role:uos_sales_admin or rule:uos_admin",
+    "uos_sales": "role:uos_sales or rule:uos_sales_admin",
 
     "account:post": "rule:uos_admin",
     "account:all": "rule:uos_accountant",
@@ -16,11 +18,5 @@
 
     "deduct:account_pay": "rule:context_is_admin",
     "deduct:account_get": "rule:context_is_admin",
-    "deduct:check_req": "rule:context_is_admin",
-
-    "sales:add_account_sales": "rule:uos_accountant",
-    "sales:add_accounts_sales": "rule:uos_accountant",
-    "sales:get_sales_accounts": "rule:uos_accountant",
-    "sales:update_account_sales": "rule:uos_accountant",
-    "sales:update_accounts_sales": "rule:uos_accountant"
+    "deduct:check_req": "rule:context_is_admin"
 }
