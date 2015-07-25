@@ -56,3 +56,15 @@ def wip(message, run=True):
         return run_test
 
     return _wip
+
+
+class PricingTestMixin(object):
+
+    @staticmethod
+    def build_segmented_price_data(base_price, price_list):
+        price = {
+            'base_price': base_price,
+            'type': 'segmented',
+            'segmented': price_list
+        }
+        return price

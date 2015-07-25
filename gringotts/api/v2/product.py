@@ -1,26 +1,28 @@
 # -*- coding: utf-8 -*-
 
-import pecan
 import datetime
 import json
 
+from oslo.config import cfg
+import pecan
 from pecan import rest
 from pecan import request
-from wsmeext.pecan import wsexpose
 from wsme import types as wtypes
-
-from oslo.config import cfg
-
-from gringotts import exception
-from gringotts import utils as gringutils
+from wsmeext.pecan import wsexpose
 
 from gringotts.api.v2 import models
 from gringotts.db import models as db_models
+from gringotts import exception
+from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
-
+from gringotts.price import pricing
+from gringotts import utils as gringutils
 
 LOG = log.getLogger(__name__)
+
+
+quantize_decimal = gringutils._quantize_decimal
 
 
 class ProductExtraData(object):
@@ -38,90 +40,17 @@ class ProductExtraData(object):
     def validate(self):
         try:
             if 'price' in self.extra:
-                self._validate_price()
+                self.new_extra['price'] = pricing.validate_price_data(
+                    self.extra['price'])
         except (exception.GringottsException) as e:
             LOG.warning(e.format_message())
             raise e
 
         return json.dumps(self.new_extra)
 
-    def _validate_price(self):
-        price_data = self.extra['price']
-        if 'type' not in price_data:
-            raise exception.InvalidParameterValue(
-                err='Invalid price type')
-
-        new_price_data = {'type': price_data['type']}
-        if price_data['type'] == 'segmented':
-            new_price_data['segmented'] = \
-                self._validate_segmented_price(price_data)
-
-        # Validate value of 'base_price'
-        if 'base_price' not in price_data:
-            new_price_data['base_price'] = 0
-        else:
-            base_price = price_data['base_price']
-            if not isinstance(base_price, (int, float)):
-                raise exception.InvalidParameterValue(
-                    err='Invalid base price type')
-            if base_price < 0:
-                raise exception.InvalidParameterValue(
-                    err='Base price should not be negative')
-            new_price_data['base_price'] = base_price
-
-        self.new_extra['price'] = new_price_data
-
-    def _validate_segmented_price(self, price_data):
-        if ('segmented' not in price_data) \
-                or (not isinstance(price_data['segmented'], list)):
-            raise exception.InvalidParameterValue(
-                err='No segmented price list in price data')
-
-        price_list = price_data['segmented']
-
-        # check if item in price_list is valid
-        # valid price item is of the form:
-        #     [(quantity_level)int, (unit_price)int/float]
-        item_is_valid = all(
-            (len(p) == 2
-             and isinstance(p[0], int)
-             and isinstance(p[1], (int, float))
-             and p[1] >= 0
-             )
-            for p in price_list
-        )
-        if not item_is_valid:
-            raise exception.InvalidParameterValue(
-                err='Segmented price list has invalid price item')
-
-        # check if price list has duplicate items
-        has_duplicate_items = False
-        quantity_items = {}
-        for p in price_list:
-            if p[0] not in quantity_items:
-                quantity_items[p[0]] = 1
-            else:
-                has_duplicate_items = True
-                break
-        if has_duplicate_items:
-            raise exception.InvalidParameterValue(
-                err='Segmented price list has duplicate items')
-
-        # sort price list
-        sorted_price_list = sorted(
-            price_list, key=lambda p: p[0], reverse=True)
-
-        # check the price list start from 0
-        if sorted_price_list[-1][0] != 0:
-            raise exception.InvalidParameterValue(
-                err='Number of resource should start from 0')
-
-        return sorted_price_list
-
 
 class ProductController(rest.RestController):
-    """Manages operations on a single product
-    """
+    """Manages operations on a single product."""
     def __init__(self, product_id):
         pecan.request.context['product_id'] = product_id
         self._id = product_id
@@ -184,11 +113,13 @@ class ProductController(rest.RestController):
         filters = {'name': product_in.name,
                    'service': product_in.service,
                    'region_id': product_in.region_id}
-        products = list(self.conn.get_products(request.context, filters=filters))
+        products = list(self.conn.get_products(
+            request.context, filters=filters))
 
-        if len(products) > 0 and (product_old.name != product_in.name or
-                                  product_old.service != product_in.service or
-                                  product_old.region_id != product_in.region_id):
+        if len(products) > 0 and (
+                (product_old.name != product_in.name) or (
+                    product_old.service != product_in.service) or (
+                        product_old.region_id != product_in.region_id)):
             error = "Product with name(%s) within service(%s) already "\
                     "exists in region_id(%s)" % \
                     (data.name, data.service, data.region_id)
@@ -206,7 +137,8 @@ class ProductController(rest.RestController):
         # Reset order and subscription's unit price
         if reset:
             try:
-                self.conn.reset_product(request.context, product, cfg.CONF.ignore_tenants)
+                self.conn.reset_product(
+                    request.context, product, cfg.CONF.ignore_tenants)
             except Exception:
                 error = "Fail to reset the product: %s" % data.as_dict()
                 LOG.exception(error)
@@ -217,40 +149,51 @@ class ProductController(rest.RestController):
 
 
 class PriceController(rest.RestController):
-    """Manages operations on the products collection
-    """
+    """Process price of product."""
+
     @wsexpose(models.Price, [models.Purchase])
     def get_all(self, purchases=[]):
-        """Get price of a group of products
-        """
+        """Get price of a group of products."""
         conn = pecan.request.db_conn
 
-        unit_price = 0
-        hourly_price = 0
+        unit_price = quantize_decimal(0)
+        hourly_price = quantize_decimal(0)
         unit = None
 
         for p in purchases:
-            if p.product_name and p.service and p.region_id and p.quantity:
+            if all([p.product_name, p.service, p.region_id, p.quantity]):
                 filters = dict(name=p.product_name,
                                service=p.service,
                                region_id=p.region_id)
+                products = list(conn.get_products(
+                    request.context, filters=filters))
+                if len(products) == 0:
+                    LOG.error('Product %s of region %s not found',
+                              p.product_name, p.region_id)
+                    raise exception.ProductNameNotFound()
+
                 try:
-                    product = list(conn.get_products(request.context,
-                                                     filters=filters))[0]
-                    hourly_price += product.unit_price * p.quantity
-                    unit_price += product.unit_price
+                    product = products[0]
+                    if product.extra:
+                        extra = jsonutils.loads(product.extra)
+                        price_data = extra.get('price', None)
+                    else:
+                        price_data = None
+
+                    hourly_price += pricing.calculate_price(
+                        p.quantity, product.unit_price, price_data)
+                    unit_price += quantize_decimal(product.unit_price)
                     unit = product.unit
-                except Exception:
-                    LOG.error('Product %s not found' % p.product_name)
-                    # NOTE(suo): Even through fail to find the product, we should't
-                    # raise Exception, emit the price to zero.
-                    # raise exception.ProductNameNotFound(product_name=p.product_name)
+                except (Exception) as e:
+                    LOG.error('Calculate price of product %s failed, %s',
+                              p.product_name, e)
+                    raise e
             else:
                 raise exception.MissingRequiredParams()
 
-        unit_price = gringutils._quantize_decimal(unit_price)
-        hourly_price = gringutils._quantize_decimal(hourly_price)
-        monthly_price = gringutils._quantize_decimal(hourly_price * 24 * 30)
+        unit_price = quantize_decimal(unit_price)
+        hourly_price = quantize_decimal(hourly_price)
+        monthly_price = quantize_decimal(hourly_price * 24 * 30)
 
         return models.Price.transform(unit_price=unit_price,
                                       hourly_price=hourly_price,
@@ -259,8 +202,7 @@ class PriceController(rest.RestController):
 
 
 class DetailController(rest.RestController):
-    """Detail of products
-    """
+    """Detail of products."""
 
     @wsexpose(models.Products, wtypes.text, wtypes.text, wtypes.text,
               int, wtypes.text, wtypes.text, wtypes.text)
@@ -351,7 +293,7 @@ class ProductsController(rest.RestController):
             LOG.exception(error)
             raise exception.DBError(reason=error)
 
-        product.unit_price = gringutils._quantize_decimal(product.unit_price)
+        product.unit_price = quantize_decimal(product.unit_price)
 
         # DB model to API model
         return models.Product.from_db_model(product)

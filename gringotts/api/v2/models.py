@@ -110,19 +110,6 @@ class Product(APIBase):
 
     extra = wsme.wsattr(wtypes.text, mandatory=False)
 
-    @classmethod
-    def sample(cls):
-        return cls(product_id='product-xxx',
-                   name='product-1',
-                   service='Compute',
-                   region_id='region-xxx',
-                   description='some decs',
-                   type='regular',
-                   unit_price=2.5,
-                   unit='hour',
-                   created_at=datetime.datetime.utcnow(),
-                   updated_at=datetime.datetime.utcnow())
-
 
 class Products(APIBase):
     total_count = int

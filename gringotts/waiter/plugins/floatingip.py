@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 """Plugins for executing specific actions acrronding to notification events.
@@ -11,9 +10,12 @@ from oslo.config import cfg
 from stevedore import extension
 
 from gringotts import constants as const
-from gringotts import utils as gringutils
 from gringotts import context
 from gringotts import plugin
+from gringotts.openstack.common import log
+from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import jsonutils
+from gringotts.price import pricing
 from gringotts.waiter import plugin as waiter_plugin
 from gringotts.waiter.plugin import Collection
 from gringotts.waiter.plugin import Order
@@ -21,20 +23,13 @@ from gringotts import services
 from gringotts.services import lotus
 from gringotts.services import keystone as ks_client
 
-from gringotts.openstack.common import log
-from gringotts.openstack.common import uuidutils
-from gringotts.openstack.common import jsonutils
-
-
 LOG = log.getLogger(__name__)
-
 
 OPTS = [
     cfg.StrOpt('neutron_control_exchange',
                default='neutron',
                help="Exchange name for Neutron notifications"),
 ]
-
 
 cfg.CONF.register_opts(OPTS)
 
@@ -64,33 +59,6 @@ class RateLimitItem(waiter_plugin.ProductItem):
                           user_id=user_id,
                           project_id=project_id)
 
-    @staticmethod
-    def calculate_price(quantity, unit_price, price_data=None):
-        if price_data and 'type' in price_data:
-            if 'base_price' in price_data:
-                base_price = gringutils._quantize_decimal(
-                    price_data['base_price'])
-            else:
-                base_price = gringutils._quantize_decimal(0)
-
-            if price_data['type'] == 'segmented' \
-                    and 'segmented' in price_data:
-                # using segmented price
-                # price list is a descendent list has elements of the form:
-                #     [(quantity_level)int, (unit_price)int/float]
-                q = int(quantity)
-                total_price = gringutils._quantize_decimal(0)
-                for p in price_data['segmented']:
-                    if q > p[0]:
-                        total_price += \
-                            (q - p[0]) * gringutils._quantize_decimal(p[1])
-                        q = p[0]
-
-                return total_price + base_price
-
-        unit_price = gringutils._quantize_decimal(unit_price)
-        return unit_price * int(quantity)
-
     def get_unit_price(self, message):
         c = self.get_collection(message)
         product = self.worker_api.get_product(
@@ -106,7 +74,7 @@ class RateLimitItem(waiter_plugin.ProductItem):
                 except (Exception):
                     LOG.warning('Decode product["extra"] failed')
 
-            return self.calculate_price(
+            return pricing.calculate_price(
                 c.resource_volume, product['unit_price'], price_data)
         else:
             return 0
@@ -242,7 +210,7 @@ class FloatingIpCreateEnd(FloatingIpNotificationBase):
                         except (Exception):
                             LOG.warning('Decode subscription["extra"] failed')
 
-                    unit_price += RateLimitItem.calculate_price(
+                    unit_price += pricing.calculate_price(
                         sub['quantity'], sub['unit_price'], price_data)
                     unit = sub['unit']
             elif ext.name.startswith('running'):
@@ -257,7 +225,7 @@ class FloatingIpCreateEnd(FloatingIpNotificationBase):
                         except (Exception):
                             LOG.warning('Decode subscription["extra"] failed')
 
-                    unit_price += RateLimitItem.calculate_price(
+                    unit_price += pricing.calculate_price(
                         sub['quantity'], sub['unit_price'], price_data)
                     unit = sub['unit']
 

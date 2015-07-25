@@ -1,4 +1,3 @@
-import re
 
 import mock
 
@@ -279,9 +278,7 @@ class SalesPersonsTestCase(rest.RestfulTestCase):
 
         restr = r'WARNING.*Salesperson %s does not have an account' % (
             sales_id)
-        m = re.search(restr, self.log_fixture.logger.output,
-                      flags=re.MULTILINE)
-        self.assertIsNotNone(m)
+        self.assertLogging(restr)
 
     def test_get_salesperson_of_account(self):
         sales_account = self.sales_account

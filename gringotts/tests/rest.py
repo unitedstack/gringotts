@@ -1,9 +1,11 @@
 
 from oslo_config import cfg
+import six
 
 from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import log as logging
 from gringotts.tests import core as tests
+from gringotts.tests import utils as test_utils
 
 
 CONF = cfg.CONF
@@ -59,7 +61,8 @@ class RestfulTestMixin(object):
         return user
 
 
-class RestfulTestCase(tests.TestCase, RestfulTestMixin):
+class RestfulTestCase(tests.TestCase, RestfulTestMixin,
+                      test_utils.PricingTestMixin):
 
     def setUp(self):
         super(RestfulTestCase, self).setUp()
@@ -169,10 +172,7 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin):
         self.assertDictDecimalEqual(account1, account2, key_list)
 
     def assertProductEqual(self, product1, product2):
-        key_list = [
-            'name', 'service', 'unit',
-            'region_id', 'extra'
-        ]
+        key_list = ['name', 'service', 'unit', 'region_id']
         self.assertDictEqual(product1, product2, key_list)
 
         key_list = ['unit_price']
@@ -270,15 +270,18 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin):
 
         return ref
 
-    def new_product_ref(self, service, unit_price, unit):
-        self.assertIsInstance(unit_price, float)
+    def new_product_ref(self, service, unit_price, unit, extra=None):
         ref = self.new_ref()
         del ref['id']
         ref['service'] = service
         ref['unit_price'] = str(unit_price)
         ref['unit'] = unit
         ref['type'] = 'regular'
-        ref['extra'] = None
+        if extra:
+            ref['extra'] = extra if isinstance(extra, six.text_type) else \
+                jsonutils.dumps(extra)
+        else:
+            ref['extra'] = None
 
         return ref
 
@@ -293,7 +296,8 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin):
         return ref
 
     def new_subs_ref(self, service, product_name, resource_volume,
-                     type, order_id, project_id, user_id):
+                     type, order_id, project_id, user_id,
+                     region_id=CONF.region_name):
         subs_ref = self.new_simple_ref()
         del subs_ref['id']
         subs_ref['service'] = service
@@ -303,13 +307,13 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin):
         subs_ref['order_id'] = order_id
         subs_ref['project_id'] = project_id
         subs_ref['user_id'] = user_id
+        subs_ref['region_id'] = region_id
 
         return subs_ref
 
     def new_order_ref(self, unit_price, unit, user_id, project_id,
                       resource_type, status, order_id=None, resource_id=None,
                       resource_name=None):
-        self.assertIsInstance(unit_price, float)
         order_ref = self.new_simple_ref()
         del order_ref['id']
         order_ref['order_id'] = order_id if order_id else self.new_order_id()
@@ -348,7 +352,6 @@ class RestfulTestCase(tests.TestCase, RestfulTestMixin):
         return bill_ref
 
     def new_precharge_ref(self, number, price, expired_at=None):
-        self.assertIsInstance(price, (float, int))
         precharge_ref = {
             'number': number,
             'price': str(price),

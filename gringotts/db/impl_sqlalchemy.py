@@ -1,37 +1,33 @@
 """SQLAlchemy storage backend."""
 
 from __future__ import absolute_import
-
 import datetime
 import functools
 import os
+
+from oslo.config import cfg
 from sqlalchemy import desc, asc
 from sqlalchemy import func
 from sqlalchemy import not_
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 import wsme
 
-from oslo.config import cfg
-
 from gringotts import constants as const
 from gringotts import context as gring_context
-from gringotts import exception
-from gringotts import utils as gringutils
-
 from gringotts.db import base
 from gringotts.db import models as db_models
-
 from gringotts.db.sqlalchemy import migration
 from gringotts.db.sqlalchemy import models as sa_models
 from gringotts.db.sqlalchemy.models import Base
-
+from gringotts import exception
+from gringotts import utils as gringutils
 from gringotts.openstack.common.db import exception as db_exception
 from gringotts.openstack.common.db.sqlalchemy import session as db_session
-from gringotts.openstack.common import log
-from gringotts.openstack.common import uuidutils
-from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import jsonutils
-
+from gringotts.openstack.common import log
+from gringotts.openstack.common import timeutils
+from gringotts.openstack.common import uuidutils
+from gringotts.price import pricing
 
 LOG = log.getLogger(__name__)
 cfg.CONF.import_opt('enable_owe', 'gringotts.master.service')
@@ -333,33 +329,6 @@ class Connection(base.Connection):
                                    expired_at=row.expired_at,
                                    remarks=row.remarks)
 
-    @staticmethod
-    def calculate_price(quantity, unit_price, price_data=None):
-        if price_data and 'type' in price_data:
-            if 'base_price' in price_data:
-                base_price = gringutils._quantize_decimal(
-                    price_data['base_price'])
-            else:
-                base_price = gringutils._quantize_decimal(0)
-
-            if price_data['type'] == 'segmented' \
-                    and 'segmented' in price_data:
-                # using segmented price
-                # price list is a descendent list has elements of the form:
-                #     [(quantity_level)int, (unit_price)int/float]
-                q = int(quantity)
-                total_price = gringutils._quantize_decimal(0)
-                for p in price_data['segmented']:
-                    if q > p[0]:
-                        total_price += \
-                            (q - p[0]) * gringutils._quantize_decimal(p[1])
-                        q = p[0]
-
-                return total_price + base_price
-
-        unit_price = gringutils._quantize_decimal(unit_price)
-        return unit_price * int(quantity)
-
     def create_product(self, context, product):
         session = db_session.get_session()
         with session.begin():
@@ -467,7 +436,7 @@ class Connection(base.Connection):
                         except (Exception):
                             pass
 
-                    unit_price += self.calculate_price(
+                    unit_price += pricing.calculate_price(
                         s.quantity, s.unit_price, price_data)
 
                 if order.unit_price != 0:
@@ -542,7 +511,7 @@ class Connection(base.Connection):
                     except (Exception):
                         pass
 
-                unit_price += self.calculate_price(
+                unit_price += pricing.calculate_price(
                     sub.quantity, sub.unit_price, price_data)
                 unit = sub.unit
 
@@ -552,11 +521,12 @@ class Connection(base.Connection):
                            updated_at=datetime.datetime.utcnow())
 
             if kwargs['change_order_status']:
-                a_order.update(status=kwargs['first_change_to'] or kwargs['change_to'])
+                a_order.update(
+                    status=kwargs['first_change_to'] or kwargs['change_to'])
             if kwargs['cron_time']:
                 a_order.update(cron_time=kwargs['cron_time'])
 
-            order = model_query(context, sa_models.Order, session=session).\
+            model_query(context, sa_models.Order, session=session).\
                 filter_by(order_id=kwargs['order_id']).\
                 with_lockmode('update').\
                 update(a_order)
@@ -686,7 +656,7 @@ class Connection(base.Connection):
             one_hour_later = timeutils.utcnow() + datetime.timedelta(hours=1)
             query = query.filter(sa_models.Order.cron_time < one_hour_later)
 
-        query = query.filter(not_(sa_models.Order.status==const.STATE_DELETED))
+        query = query.filter(not_(sa_models.Order.status == const.STATE_DELETED))
 
         result = paginate_query(context, sa_models.Order,
                                 limit=limit, offset=offset,
@@ -700,20 +670,24 @@ class Connection(base.Connection):
         with session.begin():
             # Get product
             try:
-                product = model_query(context, sa_models.Product, session=session).\
-                        filter_by(name=subscription['product_name']).\
-                        filter_by(service=subscription['service']).\
-                        filter_by(region_id=subscription['region_id']).\
-                        filter_by(deleted=False).\
-                        with_lockmode('update').one()
+                product = model_query(
+                    context, sa_models.Product, session=session).filter_by(
+                        name=subscription['product_name']).filter_by(
+                            service=subscription['service']).filter_by(
+                                region_id=subscription['region_id']).\
+                    filter_by(deleted=False).with_lockmode('update').one()
             except NoResultFound:
-                msg = "Product with name(%s) within service(%s) in region_id(%s) not found" % \
-                       (subscription['product_name'], subscription['service'], subscription['region_id'])
+                msg = 'Product with name(%s) within service(%s) in' \
+                    ' region_id(%s) not found' % (
+                        subscription['product_name'], subscription['service'],
+                        subscription['region_id'])
                 LOG.warning(msg)
                 return None
             except MultipleResultsFound:
-                msg = "Duplicated products with name(%s) within service(%s) in region_id(%s)" % \
-                       (subscription['product_name'], subscription['service'], subscription['region_id'])
+                msg = 'Duplicated products with name(%s) within' \
+                    'service(%s) in region_id(%s)' % (
+                        subscription['product_name'], subscription['service'],
+                        subscription['region_id'])
                 LOG.error(msg)
                 raise exception.DuplicatedProduct(reason=msg)
 

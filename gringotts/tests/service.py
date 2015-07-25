@@ -9,6 +9,7 @@ from gringotts.master import service as master_service
 from gringotts.openstack.common import log as logging
 from gringotts.tests import client as test_client
 from gringotts.tests import core as tests
+from gringotts.tests import utils as test_utils
 from gringotts.waiter import service as waiter_service
 
 CONF = cfg.CONF
@@ -42,7 +43,8 @@ class MasterServiceTestCase(ServiceTestCase):
         self.service = master_service.MasterService()
 
 
-class WaiterServiceTestCase(ServiceTestCase):
+class WaiterServiceTestCase(ServiceTestCase,
+                            test_utils.PricingTestMixin):
 
     def setUp(self):
         super(WaiterServiceTestCase, self).setUp()
@@ -100,12 +102,12 @@ class WaiterServiceTestCase(ServiceTestCase):
                                      self.datetime_to_isotime_str(
                                          self.utcnow()
                                      )),
-            'id': kwargs.get('id', self.new_uuid4()),
+            'id': kwargs.get('id', self.new_resource_id()),
             'fixed_ip_address': kwargs.get('fixed_ip_address', None),
             'floating_network_id': kwargs.get(
-                'floating_network_id', self.new_uuid4()),
+                'floating_network_id', self.new_resource_id()),
             'floating_subnet_id': kwargs.get(
-                'floating_subnet_id', self.new_uuid4()),
+                'floating_subnet_id', self.new_resource_id()),
             'port_id': kwargs.get('port_id', None),
             'router_id': kwargs.get('router_id', None),
             'status': kwargs.get('status', 'UP'),

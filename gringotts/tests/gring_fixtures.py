@@ -79,7 +79,7 @@ class ProductTableData(fixtures.Fixture):
 
     def build_product_model(self, name, service, description, unit_price,
                             unit, quantity=0, extra=None, product_id=None,
-                            region_id='RegionOne', type='regular',
+                            region_id=CONF.region_name, type='regular',
                             deleted=False):
 
         if not product_id:

@@ -1,20 +1,25 @@
 
 from datetime import datetime
+import logging
 import os.path
+import re
 import uuid
 
+import fixtures
 import mock
 from oslo_config import cfg
 from oslo_config import fixture as config_fixture
 from oslotest import base
 from oslotest import mockpatch
 import pecan.testing
+import six
 from testtools import matchers
 
 from gringotts.api.v2 import models as api_models
 from gringotts.client.auth import token as token_auth_plugin
 import gringotts.context
 from gringotts.db import models as db_models
+from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import timeutils
 import gringotts.policy
 from gringotts.tests import gring_fixtures
@@ -44,6 +49,7 @@ class TestCase(BaseTestCase):
     DATE_FORMAT = '%Y-%m-%d'
     TIMESTAMP_FORMAT = httpapi.TIMESTAMP_TIME_FORMAT
     ISOTIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
+    LOG_FORMAT = '%(levelname)8s [%(name)s] %(message)s'
 
     def setUp(self):
         super(TestCase, self).setUp()
@@ -53,6 +59,11 @@ class TestCase(BaseTestCase):
 
         self.config(self.config_files())
         self.config_override()
+
+        # setup logger
+        self.log_fixture = self.useFixture(
+            fixtures.FakeLogger(level=logging.DEBUG,
+                                format=self.LOG_FORMAT))
 
         # setup database connection and admin context
         self.load_database()
@@ -167,6 +178,14 @@ class TestCase(BaseTestCase):
     def assertNotEqual(self, value1, value2):
         self.assertThat(value1, matchers.NotEquals(value2))
 
+    def assertDecimalEqual(self, value1, value2):
+        self.assertEqual(self.quantize(value1), self.quantize(value2))
+
+    def assertLogging(self, restr):
+        m = re.search(restr, self.log_fixture.output,
+                      flags=re.MULTILINE)
+        self.assertIsNotNone(m, 'No log matched regex: %s' % restr)
+
     def fail(self, message='User caused failure'):
         self.assertEqual(1, 2, message)
 
@@ -279,7 +298,6 @@ class TestCase(BaseTestCase):
                            resource_type, status, order_id=None,
                            resource_id=None, resource_name=None,
                            region_id=CONF.region_name):
-        self.assertIsInstance(order_price, float)
         if not order_id:
             order_id = self.new_order_id()
         if not resource_id:
@@ -297,3 +315,18 @@ class TestCase(BaseTestCase):
                                          **order_ref.as_dict())
         self.assertIsInstance(order, db_models.Order)
         return order
+
+    def update_product_in_db(self, product_id, unit_price=None, extra=None):
+        product = self.dbconn.get_product(self.admin_req_context,
+                                          product_id)
+        if unit_price:
+            self.assertIsInstance(unit_price, six.text_type)
+            product['unit_price'] = self.quantize(unit_price)
+
+        if extra:
+            if not isinstance(extra, six.text_type):
+                product['extra'] = jsonutils.dumps(extra)
+            else:
+                product['extra'] = extra
+
+        return self.dbconn.update_product(self.admin_req_context, product)
