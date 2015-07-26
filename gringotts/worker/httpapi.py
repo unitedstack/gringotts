@@ -329,7 +329,7 @@ class WorkerAPI(object):
                 raise Exception
         except Exception:
             LOG.exception("Fail to get external balance of account: %s" % user_id)
-            raise exception.GetBalanceFailed(user_id=user_id)
+            raise exception.GetExternalBalanceFailed(user_id=user_id)
         return body
 
     def get_orders_summary(self, ctxt, user_id, start_time, end_time):

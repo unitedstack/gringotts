@@ -7,6 +7,7 @@ from gringotts.openstack.common import log as logging
 from gringotts.services import keystone
 from gringotts.tests import gring_fixtures
 from gringotts.tests import rest
+from gringotts.worker import api as worker_api
 
 LOG = logging.getLogger(__name__)
 
@@ -84,6 +85,75 @@ class AccountTestCase(rest.RestfulTestCase):
 
     def test_account_charge_with_negative_value_failed(self):
         pass
+
+
+class ExternalAccountTestCase(rest.RestfulTestCase):
+
+    def setUp(self):
+        super(ExternalAccountTestCase, self).setUp()
+        self.config_fixture.config(enable=True,
+                                   group='external_billing')
+        self.config_fixture.config(auth_plugin='sign',
+                                   group='external_billing')
+
+        self.account_path = '/v2/accounts'
+        self.admin_headers = self.build_admin_http_headers()
+        self.demo_headers = self.build_demo_http_headers()
+
+    def build_account_query_url(self, user_id, custom=None,
+                                offset=None, limit=None):
+        return self.build_query_url(self.account_path, user_id, custom)
+
+    def build_external_balance(self, money=None, code="0"):
+        return {
+            "data": [
+                {
+                    "money": money
+                }
+            ],
+            "code": code,
+            "total": "1",
+            "message": "account balance"
+        }
+
+    def test_get_nonexist_external_account(self):
+        user_id = self.new_user_id()
+        query_url = self.build_account_query_url(user_id)
+        resp = self.get(query_url, headers=self.admin_headers,
+                        expected_status=404)
+        faultstring = "Account %s not found" % user_id
+        self.assertEqual(faultstring, resp.json_body['faultstring'])
+
+    def test_get_external_account_by_user_id(self):
+        balance = "10"
+        external_balance = self.build_external_balance(money=balance)
+
+        admin_account = self.admin_account
+        account_ref = self.new_account_ref(
+            user_id=admin_account.user_id, project_id=admin_account.project_id,
+            domain_id=admin_account.domain_id, level=admin_account.level,
+            owed=admin_account.owed, balance=balance,
+            consumption=admin_account.balance)
+        query_url = self.build_account_query_url(account_ref['user_id'])
+
+        with mock.patch.object(worker_api.HTTPAPI, 'get_external_balance',
+                               return_value=external_balance):
+            resp = self.get(query_url, headers=self.admin_headers)
+            account = resp.json_body
+        self.assertAccountEqual(account_ref, account)
+
+    def test_get_external_account_balance_failed(self):
+        user_id = self.admin_account.user_id
+
+        query_url = self.build_account_query_url(user_id)
+        e = exception.GetExternalBalanceFailed(user_id=user_id)
+        with mock.patch.object(worker_api.HTTPAPI, 'get_external_balance',
+                               side_effect=e):
+            resp = self.get(query_url, headers=self.admin_headers,
+                            expected_status=500)
+
+        faultstring = "Fail to get external balance of account %s" % user_id
+        self.assertEqual(faultstring, resp.json_body['faultstring'])
 
 
 class SalesPersonsTestCase(rest.RestfulTestCase):
@@ -336,8 +406,8 @@ class SalesPersonsTestCase(rest.RestfulTestCase):
                          sales_account_refs2['total_count'])
         self.assertEqual(3, len(sales_account_refs2['accounts']))
 
-        sales_account_refs = sales_account_refs1['accounts'] \
-            + sales_account_refs2['accounts']
+        sales_account_refs = (sales_account_refs1['accounts']
+                              + sales_account_refs2['accounts'])
         for account_ref in sales_account_refs:
             account = self.get_account_from_list(account_ref['user_id'],
                                                  self.sales_customers)

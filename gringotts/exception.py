@@ -183,8 +183,8 @@ class DeductError(GringottsException):
     message = _("Deduct Failed: account: %(user_id)s, money: %(money)s, req_id: %(req_id)s")
 
 
-class GetBalanceFailed(GringottsException):
-    message = _("Fail to get balance of the account: %(user_id)s")
+class GetExternalBalanceFailed(GringottsException):
+    message = _("Fail to get external balance of account %(user_id)s")
 
 
 class Invalid(GringottsException):
@@ -259,6 +259,10 @@ class PreChargeNotFound(NotFound):
 
 class AccountCreateFailed(GringottsException):
     message = _("Fail to create account %(user_id)s for the domain %(domain_id)s")
+
+
+class AccountGetFailed(GringottsException):
+    message = _("Fail to get account %(user_id)s")
 
 
 class AccountChargeFailed(GringottsException):

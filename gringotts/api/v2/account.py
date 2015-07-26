@@ -9,8 +9,10 @@ from wsmeext.pecan import wsexpose
 from oslo.config import cfg
 
 from gringotts.api import acl
+from gringotts.api.app import external_client
 from gringotts.policy import check_policy
 from gringotts import exception
+from gringotts import worker
 from gringotts import utils as gringutils
 from gringotts.api.v2 import models
 from gringotts.db import models as db_models
@@ -92,15 +94,27 @@ class AccountController(rest.RestController):
 
     def __init__(self, user_id):
         self._id = user_id
+        self.worker_api = worker.API(external_client())
 
     def _account(self, user_id=None):
         self.conn = pecan.request.db_conn
         _id = user_id or self._id
         try:
             account = self.conn.get_account(request.context, _id)
+            if cfg.CONF.external_billing.enable:
+                external_balance = self.worker_api.get_external_balance(
+                    request.context, _id)['data'][0]['money']
+                external_balance = gringutils._quantize_decimal(
+                    external_balance)
+                account.balance = external_balance
+        except exception.AccountNotFound:
+            LOG.error("Account %s not found" % _id)
+            raise
+        except exception.GetExternalBalanceFailed:
+            raise
         except (Exception):
-            LOG.error('account %s not found' % _id)
-            raise exception.AccountNotFound(user_id=_id)
+            LOG.error("Fail to get account %s" % _id)
+            raise exception.AccountGetFailed(user_id=_id)
         return account
 
     @pecan.expose()

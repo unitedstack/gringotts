@@ -992,7 +992,10 @@ class Connection(base.Connection):
         else:
             query = get_session().query(sa_models.Account).\
                 filter_by(user_id=user_id)
-        ref = query.one()
+        try:
+            ref = query.one()
+        except NoResultFound:
+            raise exception.AccountNotFound(user_id=user_id)
         return self._row_to_db_account_model(ref)
 
     def get_invitees(self, context, inviter, limit=None, offset=None):
