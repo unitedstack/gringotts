@@ -2,6 +2,7 @@
 import mock
 from oslo_config import cfg
 from oslotest import mockpatch
+import six
 
 from gringotts.client import client
 from gringotts.master import rpcapi as master_rpcapi
@@ -70,16 +71,22 @@ class WaiterServiceTestCase(ServiceTestCase,
             mocked_get_auth_headers
         ))
 
-    def build_notification_message(self, event_type, payload, publisher_id,
+    def build_notification_message(self, user_id, event_type, payload,
+                                   publisher_id='gringotts.test',
                                    message_id=None, priority='INFO',
-                                   timestamp=None):
+                                   timestamp=None, **kwargs):
 
         if message_id is None:
             message_id = self.new_uuid4()
         if timestamp is None:
             timestamp = self.datetime_to_str(self.utcnow())
+        else:
+            timestamp = self.datetime_to_str(timestamp)
 
         message = {
+            '_context_user_id': user_id,
+            '_context_project_name': kwargs.get('project_name',
+                                                self.new_project_id()),
             'event_type': event_type,
             'message_id': message_id,
             'payload': payload,
@@ -98,10 +105,8 @@ class WaiterServiceTestCase(ServiceTestCase,
             'tenant_id': project_id,
 
             # auto generated data
-            'created_at': kwargs.get('created_at',
-                                     self.datetime_to_isotime_str(
-                                         self.utcnow()
-                                     )),
+            'created_at': kwargs.get(
+                'created_at', self.datetime_to_isotime_str(self.utcnow())),
             'id': kwargs.get('id', self.new_resource_id()),
             'fixed_ip_address': kwargs.get('fixed_ip_address', None),
             'floating_network_id': kwargs.get(
@@ -117,3 +122,21 @@ class WaiterServiceTestCase(ServiceTestCase,
         }
 
         return {'floatingip': floatingip}
+
+    def build_floatingipset_payload(self, fipset, rate_limit,
+                                    project_id, **kwargs):
+
+        floatingipset = {
+            'floatingipset_address': fipset,
+            'uos:service_provider': list(six.iterkeys(fipset)),
+            'rate_limit': rate_limit,
+            'tenant_id': project_id,
+
+            # auto generated data
+            'created_at': kwargs.get(
+                'created_at', self.datetime_to_isotime_str(self.utcnow())),
+            'id': kwargs.get('id', self.new_resource_id()),
+            'uos:name': kwargs.get('uos_name', self.new_uuid()),
+        }
+
+        return {'floatingipset': floatingipset}

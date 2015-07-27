@@ -104,7 +104,9 @@ class BillingProtocol(object):
 
         retry = False
         min_balance = "0"
-        if request_method == "POST" and "floatingips" in path_info:
+        if request_method == "POST" \
+                and ("floatingips" in path_info or
+                     'floatingipsets' in path_info):
             min_balance = cfg.CONF.billing.min_balance_fip
 
         try:

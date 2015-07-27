@@ -1,4 +1,5 @@
 
+import six
 from stevedore import driver
 
 from gringotts.client import client
@@ -34,7 +35,6 @@ class Client(client.Client):
 
     def request(self, path, method, **kwargs):
         path = self.version + path
-        LOG.debug('%s %s', method, path)
 
         headers = kwargs.pop('headers', dict())
         headers['User-Agent'] = 'python-gringclient'
@@ -53,9 +53,14 @@ class Client(client.Client):
         # request params
         try:
             params = kwargs.pop('params')
-            params = self.auth_plugin.filter_params(params)
         except (KeyError):
             params = None
+
+        if params:
+            query_vars = [
+                '%s=%s' % (k, v) for k, v in six.iteritems(params)
+            ]
+            path += '?%s' % ('&'.join(query_vars))
 
         # request body
         try:
@@ -69,8 +74,9 @@ class Client(client.Client):
 
         # authenticate headers
         headers.update(self.auth_plugin.get_auth_headers(
-            params=params, body=body))
-        LOG.debug(headers)
+            params=params, body=json_body))
+        LOG.debug('HTTP request headers: %s', headers)
+        LOG.debug('%s %s', method, path)
 
         resp = self.app.request(path, headers=headers, body=json_body,
                                 method=method, **kwargs)

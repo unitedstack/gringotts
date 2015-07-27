@@ -14,8 +14,11 @@ from oslotest import mockpatch
 import pecan.testing
 import six
 from testtools import matchers
+import webtest
+import webtest.debugapp
 
 from gringotts.api.v2 import models as api_models
+import gringotts.client.client
 from gringotts.client.auth import token as token_auth_plugin
 import gringotts.context
 from gringotts.db import models as db_models
@@ -43,6 +46,28 @@ class BaseTestCase(base.BaseTestCase):
         super(BaseTestCase, self).setUp()
         self.root_path = get_root_path()
 
+    def clean_attr(self, attrs):
+        if isinstance(attrs, str):
+            self.addCleanup(delattr, self, attrs)
+        elif isinstance(self, list):
+            for attr in attrs:
+                self.addCleanup(delattr, self, attr)
+
+    def assertNotEqual(self, value1, value2):
+        self.assertThat(value1, matchers.NotEquals(value2))
+
+    def assertDecimalEqual(self, value1, value2):
+        self.assertEqual(self.quantize(value1), self.quantize(value2))
+
+    def fail(self, message='User caused failure'):
+        self.assertEqual(1, 2, message)
+
+    def new_uuid(self):
+        return uuid.uuid4().hex
+
+    def new_uuid4(self):
+        return str(uuid.uuid4())
+
 
 class TestCase(BaseTestCase):
 
@@ -62,8 +87,7 @@ class TestCase(BaseTestCase):
 
         # setup logger
         self.log_fixture = self.useFixture(
-            fixtures.FakeLogger(level=logging.DEBUG,
-                                format=self.LOG_FORMAT))
+            fixtures.FakeLogger(level=logging.DEBUG, format=self.LOG_FORMAT))
 
         # setup database connection and admin context
         self.load_database()
@@ -168,26 +192,10 @@ class TestCase(BaseTestCase):
             )
         )
 
-    def clean_attr(self, attrs):
-        if isinstance(attrs, str):
-            self.addCleanup(delattr, self, attrs)
-        elif isinstance(self, list):
-            for attr in attrs:
-                self.addCleanup(delattr, self, attr)
-
-    def assertNotEqual(self, value1, value2):
-        self.assertThat(value1, matchers.NotEquals(value2))
-
-    def assertDecimalEqual(self, value1, value2):
-        self.assertEqual(self.quantize(value1), self.quantize(value2))
-
     def assertLogging(self, restr):
         m = re.search(restr, self.log_fixture.output,
                       flags=re.MULTILINE)
         self.assertIsNotNone(m, 'No log matched regex: %s' % restr)
-
-    def fail(self, message='User caused failure'):
-        self.assertEqual(1, 2, message)
 
     def build_http_headers(self, auth_token=None, user_id=None,
                            user_name=None, project_id=None, domain_id=None,
@@ -236,12 +244,6 @@ class TestCase(BaseTestCase):
 
     def build_admin_req_context(self):
         return gringotts.context.get_admin_context()
-
-    def new_uuid(self):
-        return uuid.uuid4().hex
-
-    def new_uuid4(self):
-        return str(uuid.uuid4())
 
     def new_order_id(self):
         return self.new_uuid4()
@@ -330,3 +332,61 @@ class TestCase(BaseTestCase):
                 product['extra'] = extra
 
         return self.dbconn.update_product(self.admin_req_context, product)
+
+
+class MiddlewareTestCase(BaseTestCase):
+
+    LOG_FORMAT = '%(levelname)8s [%(name)s] %(message)s'
+
+    def setUp(self):
+        super(MiddlewareTestCase, self).setUp()
+
+        self.config_fixture = self.useFixture(config_fixture.Config(CONF))
+        self.clean_attr('config_fixture')
+
+        self.config(self.config_files())
+
+        # setup logger
+        self.log_fixture = self.useFixture(
+            fixtures.FakeLogger(level=logging.DEBUG, format=self.LOG_FORMAT))
+        self.mock_gringotts_client()
+
+        self.environ = {'HTTP_X_PROJECT_ID': self.new_uuid()}
+
+    def config_files(self):
+        test_config_path = os.path.join(
+            self.root_path,
+            'gringotts/tests/config_files/middleware.conf')
+        return [test_config_path]
+
+    def config(self, config_files):
+        CONF(args=[], project='gringotts', default_config_files=config_files)
+
+    def load_middleware_app(self, filter_factory):
+        app_factory = filter_factory({})
+        return webtest.TestApp(app_factory(webtest.debugapp.debug_app))
+
+    def mock_gringotts_client(self):
+        self.mocked_client = mock.MagicMock(name='gringotts.client')
+        self.useFixture(mockpatch.PatchObject(
+            gringotts.client.client, 'Client',
+            return_value=self.mocked_client))
+
+    def get(self, path, params=None, status=None):
+        return self.app.get(path, params=params, extra_environ=self.environ,
+                            status=status)
+
+    def post_json(self, path, params='', status=None):
+        return self.app.post_json(path, params=params,
+                                  extra_environ=self.environ, status=status)
+
+    def put_json(self, path, params='', status=None):
+        return self.app.put_json(path, params=params,
+                                 extra_environ=self.environ, status=status)
+
+    def delete(self, path, params='', status=None):
+        return self.app.delete(path, params=params,
+                               extra_environ=self.environ, status=status)
+
+    def build_billing_owner(self, level=3, balance='0'):
+        return {'level': level, 'balance': balance}

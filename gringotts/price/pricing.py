@@ -2,6 +2,7 @@
 import six
 
 from gringotts import exception
+from gringotts.openstack.common import jsonutils
 from gringotts import utils as gringutils
 
 
@@ -138,6 +139,14 @@ def validate_price_data(price_data):
     return new_price_data
 
 
+def get_price_data(extra):
+    if not extra:
+        return None
+
+    extra_data = jsonutils.loads(extra)
+    return extra_data.get('price', None)
+
+
 def rate_limit_to_unit(rate_limit):
     rate_limit = int(rate_limit)
     if rate_limit < 0:
@@ -146,4 +155,4 @@ def rate_limit_to_unit(rate_limit):
     if rate_limit < 1024:
         return 1
     else:
-        return rate_limit / 1024
+        return int(rate_limit / 1024)

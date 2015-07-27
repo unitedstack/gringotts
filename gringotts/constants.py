@@ -23,10 +23,11 @@ RESOURCE_SNAPSHOT = 'snapshot'
 RESOURCE_VOLUME = 'volume'
 RESOURCE_SHARE = 'share'
 RESOURCE_FLOATINGIP = 'floatingip'
+RESOURCE_FLOATINGIPSET = 'floatingipset'
 RESOURCE_LISTENER = 'listener'
 RESOURCE_ROUTER = 'router'
 RESOURCE_ALARM = 'alarm'
-RESOURCE_USER= 'user'
+RESOURCE_USER = 'user'
 RESOURCE_PROJECT = 'project'
 
 

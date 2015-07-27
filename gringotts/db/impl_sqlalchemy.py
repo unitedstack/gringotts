@@ -851,6 +851,14 @@ class Connection(base.Connection):
         return (self._row_to_db_subscription_model(r) for r in ref)
 
     @require_context
+    def get_bill(self, context, bill_id):
+        session = db_session.get_session()
+        with session.begin():
+            query = model_query(context, sa_models.Bill)
+            ref = query.filter_by(bill_id=bill_id).one()
+        return self._row_to_db_bill_model(ref)
+
+    @require_context
     def get_latest_bill(self, context, order_id):
         session = db_session.get_session()
         with session.begin():

@@ -7,21 +7,22 @@ from datetime import datetime
 from datetime import timedelta
 
 from oslo.config import cfg
+import six
 from stevedore import extension
 
 from gringotts import constants as const
 from gringotts import context
-from gringotts import plugin
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import jsonutils
+from gringotts import plugin
 from gringotts.price import pricing
-from gringotts.waiter import plugin as waiter_plugin
-from gringotts.waiter.plugin import Collection
-from gringotts.waiter.plugin import Order
 from gringotts import services
 from gringotts.services import lotus
 from gringotts.services import keystone as ks_client
+from gringotts.waiter import plugin as waiter_plugin
+from gringotts.waiter.plugin import Collection
+from gringotts.waiter.plugin import Order
 
 LOG = log.getLogger(__name__)
 
@@ -33,21 +34,82 @@ OPTS = [
 
 cfg.CONF.register_opts(OPTS)
 
+EVENT_FLOATINGIP_CREATE_END = 'floatingip.create.end'
+EVENT_FLOATINGIP_RESIZE_END = 'floatingip.update_ratelimit.end'
+EVENT_FLOATINGIP_DELETE_END = 'floatingip.delete.end'
+EVENT_FLOATINGIPSET_CREATE_END = 'floatingipset.create.end'
+EVENT_FLOATINGIPSET_RESIZE_END = 'floatingipset.update_ratelimit.end'
+EVENT_FLOATINGIPSET_DELETE_END = 'floatingipset.delete.end'
+EVENT_FLOATINGIP = (
+    EVENT_FLOATINGIP_CREATE_END,
+    EVENT_FLOATINGIP_RESIZE_END,
+    EVENT_FLOATINGIP_DELETE_END,
+)
+EVENT_FLOATINGIPSET = (
+    EVENT_FLOATINGIPSET_CREATE_END,
+    EVENT_FLOATINGIPSET_RESIZE_END,
+    EVENT_FLOATINGIPSET_DELETE_END,
+)
+
+
+def get_payload(message):
+    event_type = message['event_type']
+    if event_type in EVENT_FLOATINGIP:
+        return message['payload']['floatingip']
+    elif event_type in EVENT_FLOATINGIPSET:
+        return message['payload']['floatingipset']
+
+
+def generate_ip_str(message):
+    event_type = message['event_type']
+    payload = get_payload(message)
+    if event_type in EVENT_FLOATINGIP:
+        fip = payload['floating_ip_address']
+    elif event_type in EVENT_FLOATINGIPSET:
+        fip_list = []
+        for provider, addr_list in six.iteritems(
+                payload['floatingipset_address']):
+            fip_list.append('%s:%s' % (provider, ','.join(addr_list)))
+        fip = ';'.join(fip_list)
+    else:
+        fip = ''
+
+    return fip
+
+
+def generate_product_name(message):
+    event_type = message['event_type']
+    payload = get_payload(message)
+    if event_type in EVENT_FLOATINGIP:
+        return const.PRODUCT_FLOATINGIP
+    elif event_type in EVENT_FLOATINGIPSET:
+        providers = sorted(payload['uos:service_provider'])
+        return 'ip.floating.%s' % ('-'.join(providers))
+
 
 class RateLimitItem(waiter_plugin.ProductItem):
 
     def get_collection(self, message):
-        """Get collection from message
-        """
-        product_name = const.PRODUCT_FLOATINGIP
+        """Get collection from message."""
+        event_type = message['event_type']
+        if event_type == EVENT_FLOATINGIP_CREATE_END:
+            return self._get_floatingip_collection(message)
+        elif event_type == EVENT_FLOATINGIPSET_CREATE_END:
+            return self._get_floatingipset_collection(message)
+
+    def _get_floatingip_collection(self, message):
+        floatingip = message['payload']['floatingip']
+
+        product_name = generate_product_name(message)
         service = const.SERVICE_NETWORK
         region_id = cfg.CONF.region_name
-        resource_id = message['payload']['floatingip']['id']
-        resource_name = message['payload']['floatingip']['uos:name']
+        resource_id = floatingip['id']
+        resource_name = floatingip['uos:name']
         resource_type = const.RESOURCE_FLOATINGIP
-        resource_volume = int(message['payload']['floatingip']['rate_limit']) / 1024
+        resource_volume = pricing.rate_limit_to_unit(
+            floatingip['rate_limit'])
         user_id = None
-        project_id = message['payload']['floatingip']['tenant_id']
+        project_id = floatingip['tenant_id']
 
         return Collection(product_name=product_name,
                           service=service,
@@ -56,8 +118,32 @@ class RateLimitItem(waiter_plugin.ProductItem):
                           resource_name=resource_name,
                           resource_type=resource_type,
                           resource_volume=resource_volume,
-                          user_id=user_id,
-                          project_id=project_id)
+                          user_id=user_id, project_id=project_id
+                          )
+
+    def _get_floatingipset_collection(self, message):
+        floatingipset = message['payload']['floatingipset']
+
+        product_name = generate_product_name(message)
+        service = const.SERVICE_NETWORK
+        region_id = cfg.CONF.region_name
+        resource_id = floatingipset['id']
+        resource_name = floatingipset['uos:name']
+        resource_type = const.RESOURCE_FLOATINGIPSET
+        resource_volume = pricing.rate_limit_to_unit(
+            floatingipset['rate_limit'])
+        user_id = None
+        project_id = floatingipset['tenant_id']
+
+        return Collection(product_name=product_name,
+                          service=service,
+                          region_id=region_id,
+                          resource_id=resource_id,
+                          resource_name=resource_name,
+                          resource_type=resource_type,
+                          resource_volume=resource_volume,
+                          user_id=user_id, project_id=project_id
+                          )
 
     def get_unit_price(self, message):
         c = self.get_collection(message)
@@ -66,13 +152,10 @@ class RateLimitItem(waiter_plugin.ProductItem):
             c.product_name, c.service, c.region_id)
 
         if product:
-            price_data = None
-            if 'extra' in product and product['extra']:
-                try:
-                    extra_data = jsonutils.loads(product['extra'])
-                    price_data = extra_data.get('price', None)
-                except (Exception):
-                    LOG.warning('Decode product["extra"] failed')
+            if 'extra' in product:
+                price_data = pricing.get_price_data(product['extra'])
+            else:
+                price_data = None
 
             return pricing.calculate_price(
                 c.resource_volume, product['unit_price'], price_data)
@@ -102,12 +185,12 @@ class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
         ]
 
     def make_order(self, message, state=None):
-        """Make an order model for one floating ip
-        """
-        resource_id = message['payload']['floatingip']['id']
-        resource_name = message['payload']['floatingip']['uos:name']
+        """Make an order model for one floating ip."""
+        payload = get_payload(message)
+        resource_id = payload['id']
+        resource_name = payload['uos:name']
+        project_id = payload['tenant_id']
         user_id = None
-        project_id = message['payload']['floatingip']['tenant_id']
 
         order = Order(resource_id=resource_id,
                       resource_name=resource_name,
@@ -160,12 +243,13 @@ class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
         content.append(u'Email: %s' % (user.get('email', '')))
         content.append(u'手机号: %s' % (user.get('mobile_number', '')))
 
-        floatingip = message['payload']['floatingip']
-        content.append(
-            u'公网IP地址: %s' % (floatingip['floating_ip_address']))
+        fip = generate_ip_str(message)
+        content.append(u'公网IP地址: %s' % (fip))
+
         # format of created_at is %Y-%m-%dT%H:%M:%S.%f
+        payload = get_payload(message)
         content.append(u'创建时间: %s' % (
-            convert_to_localtime(floatingip['created_at'].replace('T', ' '))))
+            convert_to_localtime(payload['created_at'].replace('T', ' '))))
 
         lotus.send_notification_email(
             u'公网IP变动通知', u'<br />'.join(content))
@@ -181,12 +265,15 @@ class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
 class FloatingIpCreateEnd(FloatingIpNotificationBase):
     """Handle the event that floating ip be created
     """
-    event_types = ['floatingip.create.end']
+    event_types = [
+        EVENT_FLOATINGIP_CREATE_END,
+        EVENT_FLOATINGIPSET_CREATE_END,
+    ]
 
     def process_notification(self, message, state=None):
+        payload = get_payload(message)
         LOG.warn('Do action for event: %s, resource_id: %s',
-                 message['event_type'],
-                 message['payload']['floatingip']['id'])
+                 message['event_type'], payload['id'])
 
         self.send_email_notification(message)
 
@@ -251,7 +338,8 @@ class FloatingIpCreateEnd(FloatingIpNotificationBase):
         return unit_price
 
     def change_unit_price(self, message, status, order_id):
-        quantity = int(message['payload']['floatingip']['rate_limit']) / 1024
+        payload = get_payload(message)
+        quantity = pricing.rate_limit_to_unit(payload['rate_limit'])
         self.change_order_unit_price(order_id, quantity, status)
 
 
@@ -264,40 +352,45 @@ services.register_class(ks_client,
 class FloatingIpResizeEnd(FloatingIpNotificationBase):
     """Handle the events that floating ip be changed
     """
-    event_types = ['floatingip.update_ratelimit.end']
+    event_types = [
+        EVENT_FLOATINGIP_RESIZE_END,
+        EVENT_FLOATINGIPSET_RESIZE_END,
+    ]
 
     def process_notification(self, message):
+        payload = get_payload(message)
         LOG.warn('Do action for event: %s, resource_id: %s',
-                 message['event_type'],
-                 message['payload']['floatingip']['id'])
+                 message['event_type'], payload['id'])
 
-        quantity = int(message['payload']['floatingip']['rate_limit']) / 1024
-
+        quantity = pricing.rate_limit_to_unit(payload['rate_limit'])
         # Get the order of this resource
-        resource_id = message['payload']['floatingip']['id']
+        resource_id = payload['id']
         order = self.get_order_by_resource_id(resource_id)
 
         # Notify master
         action_time = message['timestamp']
         remarks = 'Floating IP Has Been Resized'
-        self.resource_resized(order['order_id'], action_time, quantity, remarks)
+        self.resource_resized(order['order_id'], action_time,
+                              quantity, remarks)
 
 
 class FloatingIpDeleteEnd(FloatingIpNotificationBase):
     """Handle the event that floating ip be deleted
     """
-    event_types = ['floatingip.delete.end']
+    event_types = [
+        EVENT_FLOATINGIP_DELETE_END,
+        EVENT_FLOATINGIPSET_DELETE_END,
+    ]
 
     def process_notification(self, message):
+        payload = get_payload(message)
         LOG.warn('Do action for event: %s, resource_id: %s',
-                 message['event_type'],
-                 message['payload']['floatingip_id'])
+                 message['event_type'], payload['id'])
 
         self.send_email_notification(message)
 
         # Get the order of this resource
-        resource_id = message['payload']['floatingip_id']
-        order = self.get_order_by_resource_id(resource_id)
+        order = self.get_order_by_resource_id(payload['id'])
 
         # Notify master
         action_time = message['timestamp']

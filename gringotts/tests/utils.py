@@ -68,3 +68,54 @@ class PricingTestMixin(object):
             'segmented': price_list
         }
         return price
+
+
+class ServiceTestMixin(object):
+
+    @staticmethod
+    def build_project_info_from_keystone(
+            project_name, project_id, domain_id,
+            billing_owner_id, billing_owner_name,
+            project_owner_id, project_owner_name,
+            project_creator_id, project_creator_name):
+
+        p = {
+            'description': None,
+            'name': project_name,
+            'id': project_id,
+            'domain_id': domain_id,
+            'created_at': '2015-01-01 00:00:00',
+        }
+        users = {
+            'billing_owner': {
+                'id': billing_owner_id,
+                'name': billing_owner_name,
+            },
+            'project_owner': {
+                'id': project_owner_id,
+                'name': project_owner_name,
+            },
+            'project_creator': {
+                'id': project_creator_id,
+                'name': project_creator_name,
+            }
+        }
+        p['users'] = users
+
+        return p
+
+    @staticmethod
+    def build_uos_user_info_from_keystone(
+            user_id, name, email='email@example.com',
+            real_name='real name', mobile_number='13012345678',
+            company='company'):
+
+        user = {
+            'id': user_id,
+            'name': name,
+            'email': email,
+            'real_name': real_name,
+            'mobile_number': mobile_number,
+            'company': company,
+        }
+        return user
