@@ -424,9 +424,9 @@ class ProductPriceTestCase(rest.RestfulTestCase):
 
     def build_price_query_url(self, purchases):
         query_vars = []
-        for p in purchases:
+        for i, p in enumerate(purchases):
             for k, v in six.iteritems(p):
-                query_vars.append('purchases.%s=%s' % (k, v))
+                query_vars.append('purchases[%d].%s=%s' % (i, k, v))
 
         query_parts = '&'.join(query_vars)
         LOG.debug(query_parts)
@@ -480,3 +480,36 @@ class ProductPriceTestCase(rest.RestfulTestCase):
         query_url = self.build_price_query_url([purchase])
         self.get(query_url, headers=self.admin_headers,
                  expected_status=404)
+
+    def test_get_price_of_product_with_nonzero_index(self):
+        product = self.product_fixture.ip_products[0]
+        quantity = 1
+        purchase = self.build_purchase(
+            product.name, product.service, product.region_id, quantity)
+        price = pricing.calculate_price(quantity, product.unit_price)
+        query_vars = []
+        for k, v in six.iteritems(purchase):
+            query_vars.append('purchases[1].%s=%s' % (k, v))
+
+        query_parts = '&'.join(query_vars)
+        LOG.debug(query_parts)
+        query_url = self.price_path + '?' + query_parts
+        resp = self.get(query_url, headers=self.admin_headers)
+        price_ref = resp.json_body
+        LOG.debug(price_ref)
+        self.assertDecimalEqual(price, price_ref['hourly_price'])
+
+    def test_get_price_of_two_products(self):
+        quantity = 1
+        product1 = self.product_fixture.instance_products[0]
+        product2 = self.product_fixture.instance_products[1]
+        price1 = pricing.calculate_price(quantity, product1.unit_price)
+        price2 = pricing.calculate_price(quantity, product2.unit_price)
+        purchase1 = self.build_purchase(
+            product1.name, product1.service, product1.region_id, quantity)
+        purchase2 = self.build_purchase(
+            product2.name, product2.service, product2.region_id, quantity)
+        query_url = self.build_price_query_url([purchase1, purchase2])
+        resp = self.get(query_url, headers=self.admin_headers)
+        price_ref = resp.json_body
+        self.assertDecimalEqual(price1 + price2, price_ref['hourly_price'])
