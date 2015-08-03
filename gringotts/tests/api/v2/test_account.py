@@ -280,6 +280,18 @@ class SalesPersonsTestCase(rest.RestfulTestCase):
             sales_id)
         self.assertLogging(restr)
 
+    def test_salesadmin_set_salesperson_of_account(self):
+        demo_account = self.demo_account
+        sales_account = self.sales_account
+        query_url = self.build_account_query_url(demo_account.user_id,
+                                                 'salesperson')
+        body = {'sales_id': sales_account.user_id}
+        self.put(query_url, headers=self.sales_admin_account_headers,
+                 body=body)
+        account = self.dbconn.get_account(self.admin_req_context,
+                                          demo_account.user_id)
+        self.assertEqual(sales_account.user_id, account.sales_id)
+
     def test_get_salesperson_of_account(self):
         sales_account = self.sales_account
         customer_account = self.sales_customers[0]
@@ -289,8 +301,8 @@ class SalesPersonsTestCase(rest.RestfulTestCase):
                                                  'salesperson')
         with mock.patch.object(keystone, 'get_uos_user',
                                return_value=sales_user_info):
-            body = self.get(query_url, headers=self.admin_headers)
-            sales_person_info = body.json_body
+            resp = self.get(query_url, headers=self.admin_headers)
+            sales_person_info = resp.json_body
 
         self.assertEqual(sales_account.user_id,
                          sales_person_info['user_id'])
@@ -344,7 +356,22 @@ class SalesPersonsTestCase(rest.RestfulTestCase):
                                                  'salesperson')
         with mock.patch.object(keystone, 'get_uos_user',
                                return_value=sales_user_info):
-            self.get(query_url, headers=self.sales_admin_account_headers)
+            resp = self.get(
+                query_url, headers=self.sales_admin_account_headers)
+            sales_person_info = resp.json_body
+
+            self.assertEqual(sales_account.user_id,
+                             sales_person_info['user_id'])
+            self.assertEqual(sales_user_info['name'],
+                             sales_person_info['user_name'])
+            self.assertEqual(sales_user_info['email'],
+                             sales_person_info['user_email'])
+            self.assertEqual(sales_user_info['real_name'],
+                             sales_person_info['real_name'])
+            self.assertEqual(sales_user_info['mobile_number'],
+                             sales_person_info['mobile_number'])
+            self.assertEqual(sales_user_info['company'],
+                             sales_person_info['company'])
 
     def test_salesadmin_get_salesperson_of_account_noset(self):
         query_url = self.build_account_query_url(self.demo_account.user_id,
@@ -430,11 +457,24 @@ class SalesPersonsTestCase(rest.RestfulTestCase):
         def _mocked_get_uos_user(user_id):
             return self.mocked_get_uos_user(user_id)
 
+        sales_account = self.sales_account
         query_url = self.build_salesperson_query_url(
-            self.sales_account.user_id, 'accounts')
+            sales_account.user_id, 'accounts')
         with mock.patch.object(keystone, 'get_uos_user',
                                side_effect=_mocked_get_uos_user):
-            self.get(query_url, headers=self.sales_admin_account_headers)
+
+            resp = self.get(
+                query_url, headers=self.sales_admin_account_headers)
+            sales_accounts = resp.json_body
+
+        self.assertEqual(self.customers_number,
+                         sales_accounts['total_count'])
+        for account_ref in sales_accounts['accounts']:
+            account = self.get_account_from_list(account_ref['user_id'],
+                                                 self.sales_customers)
+            self.assertIsNotNone(account)
+            self.assertEqual(account.name, account_ref['user_name'])
+            self.assertEqual(account.email, account_ref['user_email'])
 
     def test_get_amount_of_salesperson(self):
         sales_account = self.sales_account
@@ -444,12 +484,9 @@ class SalesPersonsTestCase(rest.RestfulTestCase):
         amount = resp.json_body
         self.assertEqual(self.customers_number, amount['accounts_number'])
 
-        expected_sales_amount = 0
-        for account in self.sales_customers:
-            expected_sales_amount += account.consumption
-
-        self.assertEqual(self.quantize(expected_sales_amount),
-                         self.quantize(amount['sales_amount']))
+        expected_sales_amount = sum([
+            c.consumption for c in self.sales_customers])
+        self.assertDecimalEqual(expected_sales_amount, amount['sales_amount'])
 
     def test_normal_user_get_amount_of_salesperson_failed(self):
         query_url = self.build_salesperson_query_url(
@@ -464,9 +501,16 @@ class SalesPersonsTestCase(rest.RestfulTestCase):
                  expected_status=403)
 
     def test_salesadmin_get_amount_of_another_salesperson(self):
+        sales_account = self.sales_account
         query_url = self.build_salesperson_query_url(
-            self.sales_account.user_id, 'amount')
-        self.get(query_url, headers=self.sales_admin_account_headers)
+            sales_account.user_id, 'amount')
+        resp = self.get(query_url, headers=self.sales_admin_account_headers)
+        amount = resp.json_body
+        self.assertEqual(self.customers_number, amount['accounts_number'])
+
+        expected_sales_amount = sum([
+            c.consumption for c in self.sales_customers])
+        self.assertDecimalEqual(expected_sales_amount, amount['sales_amount'])
 
     def test_update_salesperson_of_many_accounts(self):
         old_sales_account = self.sales_account

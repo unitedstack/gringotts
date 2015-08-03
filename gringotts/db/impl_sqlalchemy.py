@@ -1885,11 +1885,11 @@ class Connection(base.Connection):
                     raise exception.AccountNotFound(user_id=user_id)
 
     def get_salesperson_amount(self, context, sales_id):
-        Account = sa_models.Account
-        query = model_query(
-            context, Account,
-            func.count(Account.id).label('count'),
-            func.sum(Account.consumption).label('sales_amount'))
+        session = db_session.get_session()
+        query = session.query(
+            sa_models.Account,
+            func.count(sa_models.Account.id).label('count'),
+            func.sum(sa_models.Account.consumption).label('sales_amount'))
         query = query.filter_by(sales_id=sales_id)
         try:
             result = query.one()
