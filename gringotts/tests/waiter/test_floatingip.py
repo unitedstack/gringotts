@@ -6,7 +6,6 @@ from oslo_config import cfg
 from oslotest import mockpatch
 
 from gringotts import constants as gring_const
-from gringotts.db import models as db_models
 from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import log as logging
 from gringotts.price import pricing
@@ -258,20 +257,7 @@ class FloatingIpSetTestCase(test_service.WaiterServiceTestCase):
             floatingip.FloatingIpNotificationBase,
             '_send_email_notification'))
 
-    def load_sample_data(self):
-        super(FloatingIpSetTestCase, self).load_sample_data()
-
-        self.product_name = 'ip.floating.CHINAMOBILE-CHINAUNICOM'
-        product_id = self.new_uuid4()
-
-        self.product = db_models.Product(
-            product_id=product_id, name=self.product_name,
-            service='network', unit_price='0.3', unit='hour', extra=None,
-            description='some desc', quantity=0,
-            region_id=CONF.region_name, type='regular', deleted=False,
-            created_at=None, updated_at=None, deleted_at=None
-        )
-        self.dbconn.create_product(self.admin_req_context, self.product)
+        self.product = self.product_fixture.ip_products[1]
 
     def create_floatingipset(self, rate_limit, project_id, timestamp=None):
         handle = floatingip.FloatingIpCreateEnd()
@@ -401,21 +387,7 @@ class FloatingIpEmailNofiticationTestCase(test_service.WaiterServiceTestCase,
         self.mocked_lotus_method = mock.MagicMock(name='lotus')
         self.useFixture(mockpatch.PatchObject(
             lotus, 'send_notification_email', self.mocked_lotus_method))
-
-    def load_sample_data(self):
-        super(FloatingIpEmailNofiticationTestCase, self).load_sample_data()
-
-        self.product_name = 'ip.floating.CHINAMOBILE-CHINAUNICOM'
-        product_id = self.new_uuid4()
-
-        self.product = db_models.Product(
-            product_id=product_id, name=self.product_name,
-            service='network', unit_price='0.3', unit='hour', extra=None,
-            description='some desc', quantity=0,
-            region_id=CONF.region_name, type='regular', deleted=False,
-            created_at=None, updated_at=None, deleted_at=None
-        )
-        self.dbconn.create_product(self.admin_req_context, self.product)
+        self.product = self.product_fixture.ip_products[1]
 
     def create_floatingip(self, timestamp=None):
         handle = floatingip.FloatingIpCreateEnd()

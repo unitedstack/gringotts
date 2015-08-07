@@ -1,20 +1,20 @@
+
 import functools
-import requests
 import time
-from oslo.config import cfg
 
-from gringotts import utils
-from gringotts import constants as const
-
-from gringotts.openstack.common import log
-
-from gringotts.services import wrap_exception,register
-from gringotts.services import Resource
-from gringotts.services import keystone as ks_client
-from neutronclient.v2_0 import client as neutron_client
 from neutronclient.common import exceptions
-from gringotts.openstack.common import timeutils
+from neutronclient.v2_0 import client as neutron_client
+from oslo.config import cfg
+import requests
 
+from gringotts import constants as const
+from gringotts.openstack.common import log
+from gringotts.openstack.common import timeutils
+from gringotts.services import keystone as ks_client
+from gringotts.services import register
+from gringotts.services import Resource
+from gringotts.services import wrap_exception
+from gringotts import utils
 
 LOG = log.getLogger(__name__)
 
@@ -39,6 +39,23 @@ class FloatingIp(Resource):
             'event_type': 'floatingip.create.end.again',
             'payload': {
                 'floatingip': {
+                    'id': self.id,
+                    'uos:name': self.name,
+                    'rate_limit': self.size,
+                    'tenant_id': self.project_id
+                }
+            },
+            'timestamp': utils.format_datetime(timeutils.strtime())
+        }
+        return msg
+
+
+class FloatingIpSet(Resource):
+    def to_message(self):
+        msg = {
+            'event_type': 'floatingipset.create.end.again',
+            'payload': {
+                'floatingipset': {
                     'id': self.id,
                     'uos:name': self.name,
                     'rate_limit': self.size,
@@ -117,7 +134,8 @@ def loadbalancer_list(project_id, region_name=None):
 @wrap_exception(exc_type='list')
 def security_group_list(project_id, region_name=None):
     client = get_neutronclient(region_name)
-    sgs = client.list_security_groups(tenant_id=project_id).get('security_groups')
+    sgs = client.list_security_groups(
+        tenant_id=project_id).get('security_groups')
     return sgs
 
 
@@ -176,7 +194,8 @@ def network_list(project_id, region_name=None, project_name=None):
 @wrap_exception(exc_type='get')
 def floatingip_get(fip_id, region_name=None):
     try:
-        fip = get_neutronclient(region_name).show_floatingip(fip_id).get('floatingip')
+        fip = get_neutronclient(
+            region_name).show_floatingip(fip_id).get('floatingip')
     except exceptions.NotFound:
         return None
     except exceptions.NeutronException as e:
@@ -192,11 +211,34 @@ def floatingip_get(fip_id, region_name=None):
                       is_reserved=True)
 
 
+@register(resource=const.RESOURCE_FLOATINGIPSET, mtype='get')
+@wrap_exception(exc_type='get')
+def floatingipset_get(fipset_id, region_name=None):
+    try:
+        client = get_neutronclient(region_name)
+        fipset = client.show_floatingipset(fipset_id).get('floatingipset')
+    except (exceptions.NotFound):
+        return None
+    except (exceptions.NeutronException) as e:
+        if e.status_code == 404:
+            return None
+        raise e
+
+    status = utils.transform_status(fipset['status'])
+    return FloatingIpSet(id=fipset['id'],
+                         name=fipset['uos:name'],
+                         resource_type=const.RESOURCE_FLOATINGIPSET,
+                         status=status,
+                         original_status=fipset['status'],
+                         is_reserved=True)
+
+
 @register(resource=const.RESOURCE_ROUTER, mtype='get')
 @wrap_exception(exc_type='get')
 def router_get(router_id, region_name=None):
     try:
-        router = get_neutronclient(region_name).show_router(router_id).get('router')
+        router = get_neutronclient(
+            region_name).show_router(router_id).get('router')
     except exceptions.NotFound:
         return None
     except exceptions.NeutronException as e:
@@ -223,16 +265,46 @@ def floatingip_list(project_id, region_name=None, project_name=None):
     for fip in fips:
         created_at = utils.format_datetime(fip['created_at'])
         status = utils.transform_status(fip['status'])
-        formatted_fips.append(FloatingIp(id=fip['id'],
-                                         name=fip['uos:name'],
-                                         size=fip['rate_limit'],
-                                         project_id=fip['tenant_id'],
-                                         project_name=project_name,
-                                         resource_type=const.RESOURCE_FLOATINGIP,
-                                         status=status,
-                                         original_status=fip['status'],
-                                         created_at=created_at))
+        formatted_fips.append(
+            FloatingIp(id=fip['id'],
+                       name=fip['uos:name'],
+                       size=fip['rate_limit'],
+                       project_id=fip['tenant_id'],
+                       project_name=project_name,
+                       resource_type=const.RESOURCE_FLOATINGIP,
+                       status=status,
+                       original_status=fip['status'],
+                       created_at=created_at))
+
     return formatted_fips
+
+
+@register(mtype='list')
+@wrap_exception(exc_type='list')
+def floatingipset_list(project_id, region_name=None, project_name=None):
+    client = get_neutronclient(region_name)
+    if project_id:
+        fipsets = client.list_floatingipsets(
+            tenant_id=project_id).get('floatingipsets')
+    else:
+        fipsets = client.list_floatingipsets().get('floatingipsets')
+
+    formatted_fipsets = []
+    for fipset in fipsets:
+        created_at = utils.format_datetime(fipset['created_at'])
+        status = utils.transform_status(fipset['status'])
+        formatted_fipsets.append(
+            FloatingIpSet(id=fipset['id'],
+                          name=fipset['uos:name'],
+                          size=fipset['rate_limit'],
+                          project_id=fipset['tenant_id'],
+                          project_name=project_name,
+                          resource_type=const.RESOURCE_FLOATINGIPSET,
+                          status=status,
+                          original_status=fipset['status'],
+                          created_at=created_at))
+
+    return formatted_fipsets
 
 
 @wrap_exception(exc_type='list')
@@ -301,6 +373,30 @@ def delete_fips(project_id, region_name=None):
 
 @register(mtype='deletes')
 @wrap_exception(exc_type='bulk')
+def delete_fipsets(project_id, region_name=None):
+    client = get_neutronclient(region_name)
+
+    fipsets = client.list_floatingipsets(tenant_id=project_id)
+    fipsets = fipsets.get('floatingipsets')
+
+    update_dict = {'port_id': None}
+    for fipset in fipsets:
+        try:
+            client.update_floatingipset(
+                fipset['id'], {'floatingipset': update_dict})
+        except (Exception):
+            pass
+
+    for fipset in fipsets:
+        try:
+            client.delete_floatingipset(fipset['id'])
+            LOG.warn('Delete floatingipset: %s', fipset['id'])
+        except (Exception):
+            pass
+
+
+@register(mtype='deletes')
+@wrap_exception(exc_type='bulk')
 def delete_networks(project_id, region_name=None):
     client = get_neutronclient(region_name)
 
@@ -315,8 +411,9 @@ def delete_networks(project_id, region_name=None):
                 body = dict(subnet_id=port['fixed_ips'][0]['subnet_id'])
                 client.remove_interface_router(port['device_id'], body)
             elif port['device_owner'] == 'compute:None':
-                nova_client.servers.interface_detach(port['device_id'], port['id'])
-                time.sleep(1) # wait a second to detach interface
+                nova_client.servers.interface_detach(
+                    port['device_id'], port['id'])
+                time.sleep(1)  # wait a second to detach interface
                 try:
                     client.delete_port(port['id'])
                 except Exception:
@@ -353,12 +450,14 @@ def delete_routers(project_id, region_name=None):
     for router in routers:
         try:
             # Delete VPNs of this router
-            vpns = client.list_pptpconnections(router_id=router['id']).get('pptpconnections')
+            vpns = client.list_pptpconnections(
+                router_id=router['id']).get('pptpconnections')
             for vpn in vpns:
                 client.delete_pptpconnection(vpn['id'])
 
             # Remove floatingips of this router
-            fips = client.list_floatingips(tenant_id=project_id).get('floatingips')
+            fips = client.list_floatingips(
+                tenant_id=project_id).get('floatingips')
             update_dict = {'port_id': None}
             for fip in fips:
                 client.update_floatingip(fip['id'],
@@ -399,6 +498,16 @@ def delete_fip(fip_id, region_name=None):
     client.delete_floatingip(fip_id)
 
 
+@register(resource=const.RESOURCE_FLOATINGIPSET, mtype='delete')
+@wrap_exception(exc_type='delete')
+def delete_fipset(fipset_id, region_name):
+    client = get_neutronclient(region_name)
+    update_dict = {'port_id': None}
+    client.update_floatingipset(
+        fipset_id, {'floatingipset': update_dict})
+    client.delete_floatingip(fipset_id)
+
+
 @register(resource=const.RESOURCE_FLOATINGIP, mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_fip(fip_id, region_name=None):
@@ -425,18 +534,43 @@ def stop_fip(fip_id, region_name=None):
     return False
 
 
+@register(resource=const.RESOURCE_FLOATINGIPSET, mtype='stop')
+@wrap_exception(exc_type='stop')
+def stop_fipset(fipset_id, region_name=None):
+    client = get_neutronclient(region_name)
+
+    try:
+        fipset = client.show_floatingipset(fipset_id)
+        fipset = fipset.get('floatingipset')
+    except (exceptions.NotFound):
+        return False
+    except (exceptions.NeutronException) as e:
+        if e.stataus_code == 404:
+            return False
+
+    if cfg.CONF.reserve_fip:
+        return True
+
+    update_dict = {'port_id': None}
+    client.update_floatingipset(
+        fipset_id, {'floatingipset': update_dict})
+    client.delete_floatingipset(fipset_id)
+
+    return False
+
+
 @wrap_exception(exc_type='bulk')
 def _delete_tunnels(tunnels, region_name=None):
     endpoint = ks_client.get_endpoint(region_name, 'network')
     auth_token = ks_client.get_token()
-    path = "%s/v2.0/uos_resources/%s/remove_tunnel.json" % (endpoint.rstrip('/'), '%s')
+    path = "%s/v2.0/uos_resources/%s/remove_tunnel.json" % (
+        endpoint.rstrip('/'), '%s')
     for tunnel in tunnels:
         url = path % tunnel
         try:
             requests.put(url, headers={'X-Auth-Token': auth_token})
         except Exception as e:
             LOG.warn('Fail to delete tunnel: %s, as: %s' % (tunnel, e))
-
 
 
 @register(resource=const.RESOURCE_ROUTER, mtype='delete')
@@ -447,7 +581,8 @@ def delete_router(router_id, region_name=None):
     router = client.show_router(router_id).get('router')
 
     # Delete VPNs of this router
-    vpns = client.list_pptpconnections(router_id=router_id).get('pptpconnections')
+    vpns = client.list_pptpconnections(
+        router_id=router_id).get('pptpconnections')
     for vpn in vpns:
         client.delete_pptpconnection(vpn['id'])
 
@@ -488,26 +623,32 @@ def stop_router(router_id, region_name=None):
 def listener_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     if project_id:
-        listeners = client.list_listeners(tenant_id=project_id).get('listeners')
+        listeners = client.list_listeners(
+            tenant_id=project_id).get('listeners')
     else:
         listeners = client.list_listeners().get('listeners')
 
     formatted_listeners = []
     for listener in listeners:
         status = utils.transform_status(listener['status'])
-        admin_state = const.STATE_RUNNING if listener['admin_state_up'] else const.STATE_STOPPED
-        created_at = utils.format_datetime(listener.get('created_at', timeutils.strtime()))
-        formatted_listeners.append(Listener(id=listener['id'],
-                                            name=listener['name'],
-                                            admin_state_up=listener['admin_state_up'],
-                                            admin_state=admin_state,
-                                            connection_limit=listener['connection_limit'],
-                                            project_id=listener['tenant_id'],
-                                            project_name=project_name,
-                                            resource_type=const.RESOURCE_LISTENER,
-                                            status=status,
-                                            original_status=listener['status'],
-                                            created_at=created_at))
+        admin_state = (const.STATE_RUNNING
+                       if listener['admin_state_up']
+                       else const.STATE_STOPPED)
+        created_at = utils.format_datetime(
+            listener.get('created_at', timeutils.strtime()))
+        formatted_listeners.append(
+            Listener(id=listener['id'],
+                     name=listener['name'],
+                     admin_state_up=listener['admin_state_up'],
+                     admin_state=admin_state,
+                     connection_limit=listener['connection_limit'],
+                     project_id=listener['tenant_id'],
+                     project_name=project_name,
+                     resource_type=const.RESOURCE_LISTENER,
+                     status=status,
+                     original_status=listener['status'],
+                     created_at=created_at))
+
     return formatted_listeners
 
 
@@ -536,7 +677,8 @@ def _is_last_up_listener(client, loadbalancer_id, listener_id):
     return False
 
 
-@register(resource=const.RESOURCE_LISTENER, mtype='get', stopped_state=const.STATE_STOPPED)
+@register(resource=const.RESOURCE_LISTENER,
+          mtype='get', stopped_state=const.STATE_STOPPED)
 @wrap_exception(exc_type='get')
 def listener_get(listener_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -549,9 +691,12 @@ def listener_get(listener_id, region_name=None):
             return None
         raise e
 
-    is_last_up = _is_last_up_listener(client, listener['loadbalancer_id'], listener_id)
+    is_last_up = _is_last_up_listener(
+        client, listener['loadbalancer_id'], listener_id)
     status = utils.transform_status(listener['status'])
-    admin_state = const.STATE_RUNNING if listener['admin_state_up'] else const.STATE_STOPPED
+    admin_state = (const.STATE_RUNNING
+                   if listener['admin_state_up']
+                   else const.STATE_STOPPED)
 
     return Listener(id=listener['id'],
                     name=listener['name'],
@@ -580,7 +725,7 @@ def delete_listener(listener_id, region_name=None):
 
 @wrap_exception(exc_type='put')
 def quota_update(project_id, user_id=None, region_name=None, **kwargs):
-    """
+    """Update quota of networks service.
     kwargs = {"floatingip": 10,
               "network": 20,
               "router": 1024,
@@ -595,7 +740,7 @@ def quota_update(project_id, user_id=None, region_name=None, **kwargs):
 
 @wrap_exception(exc_type='get')
 def quota_get(project_id, region_name=None):
-    """
+    """Get quota of networks service.
     {u'quota': {u'floatingip': 20,
                 u'listener': 6,
                 u'loadbalancer': 3,
@@ -617,13 +762,20 @@ def quota_get(project_id, region_name=None):
     sg_n = len(security_group_list(project_id, region_name))
     pf_n = len(port_forwarding_list(project_id, region_name))
 
-    quota = {'floatingip': {'in_use': fip_n, 'limit': limit.get('floatingip')},
-             'listener': {'in_use': listener_n, 'limit': limit.get('listener')},
-             'loadbalancer': {'in_use': lb_n, 'limit': limit.get('loadbalancer')},
-             'network': {'in_use': net_n, 'limit': limit.get('network')},
-             'pool': {'in_use': pool_n, 'limit': limit.get('pool')},
-             'router': {'in_use': router_n, 'limit': limit.get('router')},
-             'security_group': {'in_use': sg_n, 'limit': limit.get('security_group')},
-             'subnet': {'in_use': subnet_n, 'limit': limit.get('subnet')},
-             'portforwardings': {'in_use': pf_n, 'limit': limit.get('portforwardings')}}
+    quota = {
+        'floatingip': {'in_use': fip_n, 'limit': limit.get('floatingip')},
+        'listener': {'in_use': listener_n, 'limit': limit.get('listener')},
+        'loadbalancer': {'in_use': lb_n, 'limit': limit.get('loadbalancer')},
+        'network': {'in_use': net_n, 'limit': limit.get('network')},
+        'pool': {'in_use': pool_n, 'limit': limit.get('pool')},
+        'router': {'in_use': router_n, 'limit': limit.get('router')},
+        'security_group': {
+            'in_use': sg_n, 'limit': limit.get('security_group')
+        },
+        'subnet': {'in_use': subnet_n, 'limit': limit.get('subnet')},
+        'portforwardings': {
+            'in_use': pf_n, 'limit': limit.get('portforwardings')
+        }
+    }
+
     return quota

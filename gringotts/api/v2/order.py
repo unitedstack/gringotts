@@ -1,26 +1,20 @@
-import calendar
-import pecan
-import wsme
 import datetime
 
-from pecan import rest
-from pecan import request
-from wsmeext.pecan import wsexpose
-from wsme import types as wtypes
-
 from oslo.config import cfg
+import pecan
+from pecan import request
+from pecan import rest
+from wsme import types as wtypes
+from wsmeext.pecan import wsexpose
 
 from gringotts.api import acl
-from gringotts import exception
-from gringotts import utils as gringutils
-from gringotts import constants as const
-
-from gringotts.services import keystone
 from gringotts.api.v2 import models
-from gringotts.db import models as db_models
+from gringotts import constants as const
+from gringotts import exception
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
-
+from gringotts.services import keystone
+from gringotts import utils as gringutils
 
 LOG = log.getLogger(__name__)
 
@@ -46,7 +40,7 @@ class OrderController(rest.RestController):
                                                     end_time=end_time,
                                                     limit=limit,
                                                     offset=offset)
-        except Exception as e:
+        except Exception:
             LOG.error('Order(%s)\'s bills not found' % self._id)
             raise exception.OrderBillsNotFound(order_id=self._id)
         return bills
@@ -79,26 +73,30 @@ class OrderController(rest.RestController):
 class SummaryController(rest.RestController):
     """Summary every order type's consumption
     """
-    @wsexpose(models.Summaries, datetime.datetime, datetime.datetime, wtypes.text,
+    @wsexpose(models.Summaries,
+              datetime.datetime, datetime.datetime, wtypes.text,
               wtypes.text, wtypes.text, wtypes.text)
     def get(self, start_time=None, end_time=None, region_id=None,
             user_id=None, project_id=None, read_deleted=None):
         """Get summary of all kinds of orders
         """
-        limit_user_id = acl.get_limited_to_user(request.headers, 'uos_support_staff')
+        limit_user_id = acl.get_limited_to_user(
+            request.headers, 'uos_support_staff')
 
-        if limit_user_id: # normal user
+        if limit_user_id:  # normal user
             user_id = None
             projects = keystone.get_projects_by_user(limit_user_id)
             _project_ids = [project['id'] for project in projects]
             if project_id:
-                project_ids = [project_id] if project_id in _project_ids else _project_ids
+                project_ids = ([project_id]
+                               if project_id in _project_ids
+                               else _project_ids)
             else:
                 project_ids = _project_ids
-        else: # accountant
-            if project_id: # look up specified project
+        else:  # accountant
+            if project_id:  # look up specified project
                 project_ids = [project_id]
-            else: # look up all projects
+            else:  # look up all projects
                 project_ids = []
 
         if project_ids:
@@ -140,16 +138,22 @@ class SummaryController(rest.RestController):
             # traverse them directly
             for order in orders_db:
                 if order.type != order_type:
-                    continue
-                price, count = self._get_order_price_and_count(order,
-                                                               start_time=start_time,
-                                                               end_time=end_time)
+                    if (order.type == const.RESOURCE_FLOATINGIPSET
+                            and order_type == const.RESOURCE_FLOATINGIP):
+                        # floatingipset consumption belongs to floatingip
+                        pass
+                    else:
+                        continue
+                price, count = self._get_order_price_and_count(
+                    order, start_time=start_time, end_time=end_time)
                 order_total_price += price
                 order_total_count += count
 
-            summaries.append(models.Summary.transform(total_count=order_total_count,
-                                                      order_type=order_type,
-                                                      total_price=order_total_price))
+            summaries.append(models.Summary.transform(
+                total_count=order_total_count,
+                order_type=order_type,
+                total_price=order_total_price)
+            )
             total_price += order_total_price
             total_count += order_total_count
 
@@ -272,20 +276,23 @@ class OrdersController(rest.RestController):
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
-        limit_user_id = acl.get_limited_to_user(request.headers, 'uos_support_staff')
+        limit_user_id = acl.get_limited_to_user(
+            request.headers, 'uos_support_staff')
 
-        if limit_user_id: # normal user
+        if limit_user_id:  # normal user
             user_id = None
             projects = keystone.get_projects_by_user(limit_user_id)
             _project_ids = [project['id'] for project in projects]
             if project_id:
-                project_ids = [project_id] if project_id in _project_ids else _project_ids
+                project_ids = ([project_id]
+                               if project_id in _project_ids
+                               else _project_ids)
             else:
                 project_ids = _project_ids
-        else: # accountant
-            if project_id: # look up specified project
+        else:  # accountant
+            if project_id:  # look up specified project
                 project_ids = [project_id]
-            else: # look up all projects
+            else:  # look up all projects
                 project_ids = None
 
         if project_ids:
@@ -335,7 +342,7 @@ class OrdersController(rest.RestController):
             conn.create_order(request.context, **data.as_dict())
         except Exception as e:
             LOG.exception('Fail to create order: %s, for reason %s' %
-                           (data.as_dict(), e))
+                          (data.as_dict(), e))
 
     @wsexpose(None, body=models.OrderPutBody)
     def put(self, data):
@@ -345,4 +352,4 @@ class OrdersController(rest.RestController):
             conn.update_order(request.context, **data.as_dict())
         except Exception as e:
             LOG.exception('Fail to update order: %s, for reason %s' %
-                           (data.as_dict(), e))
+                          (data.as_dict(), e))

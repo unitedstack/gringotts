@@ -32,6 +32,10 @@ PRODUCT_IP_FLOATING = dict(
     name='ip.floating', service='network', description='some desc',
     unit_price=0.030, unit='hour')
 
+PRODUCT_IP_FLOATING_CHINAMOBILE_CHINAUNICOM = dict(
+    name='ip.floating.CHINAMOBILE-CHINAUNICOM', service='network',
+    description='some desc', unit_price=0.050, unit='hour')
+
 instance_products = [
     PRODUCT_INSTANCE_MICRO1,
     PRODUCT_INSTANCE_MICRO2,
@@ -54,4 +58,5 @@ instance_products = [
 
 ip_products = [
     PRODUCT_IP_FLOATING,
+    PRODUCT_IP_FLOATING_CHINAMOBILE_CHINAUNICOM,
 ]
