@@ -12,14 +12,14 @@ from stevedore import extension
 
 from gringotts import constants as const
 from gringotts import context
+from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
-from gringotts.openstack.common import jsonutils
 from gringotts import plugin
 from gringotts.price import pricing
 from gringotts import services
-from gringotts.services import lotus
 from gringotts.services import keystone as ks_client
+from gringotts.services import lotus
 from gringotts.waiter import plugin as waiter_plugin
 from gringotts.waiter.plugin import Collection
 from gringotts.waiter.plugin import Order
@@ -35,18 +35,22 @@ OPTS = [
 cfg.CONF.register_opts(OPTS)
 
 EVENT_FLOATINGIP_CREATE_END = 'floatingip.create.end'
+EVENT_FLOATINGIP_CREATE_END_AGAIN = 'floatingip.create.end.again'
 EVENT_FLOATINGIP_RESIZE_END = 'floatingip.update_ratelimit.end'
 EVENT_FLOATINGIP_DELETE_END = 'floatingip.delete.end'
 EVENT_FLOATINGIPSET_CREATE_END = 'floatingipset.create.end'
+EVENT_FLOATINGIPSET_CREATE_END_AGAIN = 'floatingipset.create.end.again'
 EVENT_FLOATINGIPSET_RESIZE_END = 'floatingipset.update_ratelimit.end'
 EVENT_FLOATINGIPSET_DELETE_END = 'floatingipset.delete.end'
 EVENT_FLOATINGIP = (
     EVENT_FLOATINGIP_CREATE_END,
+    EVENT_FLOATINGIP_CREATE_END_AGAIN,
     EVENT_FLOATINGIP_RESIZE_END,
     EVENT_FLOATINGIP_DELETE_END,
 )
 EVENT_FLOATINGIPSET = (
     EVENT_FLOATINGIPSET_CREATE_END,
+    EVENT_FLOATINGIPSET_CREATE_END_AGAIN,
     EVENT_FLOATINGIPSET_RESIZE_END,
     EVENT_FLOATINGIPSET_DELETE_END,
 )
@@ -92,9 +96,9 @@ class RateLimitItem(waiter_plugin.ProductItem):
     def get_collection(self, message):
         """Get collection from message."""
         event_type = message['event_type']
-        if event_type == EVENT_FLOATINGIP_CREATE_END:
+        if event_type in EVENT_FLOATINGIP:
             return self._get_floatingip_collection(message)
-        elif event_type == EVENT_FLOATINGIPSET_CREATE_END:
+        elif event_type in EVENT_FLOATINGIPSET:
             return self._get_floatingipset_collection(message)
 
     def _get_floatingip_collection(self, message):

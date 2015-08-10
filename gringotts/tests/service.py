@@ -137,6 +137,7 @@ class WaiterServiceTestCase(ServiceTestCase,
                 'created_at', self.datetime_to_isotime_str(self.utcnow())),
             'id': kwargs.get('id', self.new_resource_id()),
             'uos:name': kwargs.get('uos_name', self.new_uuid()),
+            'status': kwargs.get('status', 'UP'),
         }
 
         return {'floatingipset': floatingipset}

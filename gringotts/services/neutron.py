@@ -58,6 +58,7 @@ class FloatingIpSet(Resource):
                 'floatingipset': {
                     'id': self.id,
                     'uos:name': self.name,
+                    'uos:service_provider': self.providers,
                     'rate_limit': self.size,
                     'tenant_id': self.project_id
                 }
@@ -227,6 +228,7 @@ def floatingipset_get(fipset_id, region_name=None):
     status = utils.transform_status(fipset['status'])
     return FloatingIpSet(id=fipset['id'],
                          name=fipset['uos:name'],
+                         providers=fipset['uos:service_provider'],
                          resource_type=const.RESOURCE_FLOATINGIPSET,
                          status=status,
                          original_status=fipset['status'],
@@ -297,6 +299,7 @@ def floatingipset_list(project_id, region_name=None, project_name=None):
             FloatingIpSet(id=fipset['id'],
                           name=fipset['uos:name'],
                           size=fipset['rate_limit'],
+                          providers=fipset['uos:service_provider'],
                           project_id=fipset['tenant_id'],
                           project_name=project_name,
                           resource_type=const.RESOURCE_FLOATINGIPSET,

@@ -11,6 +11,7 @@ from gringotts.openstack.common import log as logging
 from gringotts.price import pricing
 from gringotts.services import keystone
 from gringotts.services import lotus
+from gringotts.services import neutron
 from gringotts.tests import service as test_service
 from gringotts.tests import utils as test_utils
 from gringotts.waiter.plugins import floatingip
@@ -232,7 +233,67 @@ class FloatingIpTestCase(test_service.WaiterServiceTestCase):
         handle.change_unit_price(
             message, gring_const.STATE_RUNNING, order.order_id)
         order = self.dbconn.get_order(self.admin_req_context, order.order_id)
-        self.assertEqual(expected_price, order.unit_price)
+        self.assertDecimalEqual(expected_price, order.unit_price)
+        subs_list = list(self.dbconn.get_subscriptions_by_order_id(
+            self.admin_req_context, order.order_id))
+        for subs in subs_list:
+            self.assertEqual(quantity, subs.quantity)
+
+    def test_floatingip_get_unit_price_with_again_event(self):
+        product = self.product_fixture.ip_products[0]
+        rate_limit = 10240
+        quantity = pricing.rate_limit_to_unit(rate_limit)
+        expected_price = pricing.calculate_price(quantity, product.unit_price)
+
+        payload = self.build_floatingip_payload(
+            self.floating_ip_address, rate_limit,
+            self.admin_account.project_id)
+        payload = payload['floatingip']
+        fip = neutron.FloatingIp(
+            id=payload['id'], name=payload['uos:name'],
+            size=payload['rate_limit'], project_id=payload['tenant_id'],
+            resource_type=gring_const.RESOURCE_FLOATINGIP,
+            status=payload['status'], is_reserved=True)
+        message = fip.to_message()
+
+        handle = floatingip.FloatingIpCreateEnd()
+        price = handle.get_unit_price(message,
+                                      gring_const.STATE_RUNNING)
+        self.assertDecimalEqual(expected_price, price)
+
+    def test_floatingip_change_unit_price_with_again_event(self):
+        product = self.product_fixture.ip_products[0]
+        project_id = self.admin_account.project_id
+        end_time = self.utcnow()
+        start_time = end_time - datetime.timedelta(hours=1)
+
+        # rate_limit = 1024
+        rate_limit = 1024
+        resource_id = self.create_floatingip(
+            rate_limit, project_id, timestamp=start_time)
+        order = self.dbconn.get_order_by_resource_id(
+            self.admin_req_context, resource_id)
+
+        # change rate_limit to 1024 * 11
+        rate_limit = 1024 * 11
+        quantity = pricing.rate_limit_to_unit(rate_limit)
+        expected_price = pricing.calculate_price(quantity, product.unit_price)
+
+        payload = self.build_floatingip_payload(
+            self.floating_ip_address, rate_limit, project_id, id=resource_id)
+        payload = payload['floatingip']
+        fip = neutron.FloatingIp(
+            id=payload['id'], name=payload['uos:name'],
+            size=payload['rate_limit'], project_id=payload['tenant_id'],
+            resource_type=gring_const.RESOURCE_FLOATINGIP,
+            status=payload['status'], is_reserved=True)
+        message = fip.to_message()
+
+        handle = floatingip.FloatingIpCreateEnd()
+        handle.change_unit_price(
+            message, gring_const.STATE_RUNNING, order.order_id)
+        order = self.dbconn.get_order(self.admin_req_context, order.order_id)
+        self.assertDecimalEqual(expected_price, order.unit_price)
         subs_list = list(self.dbconn.get_subscriptions_by_order_id(
             self.admin_req_context, order.order_id))
         for subs in subs_list:
@@ -366,6 +427,67 @@ class FloatingIpSetTestCase(test_service.WaiterServiceTestCase):
                                            order.order_id)
         self.assertDecimalEqual('0', bill.unit_price)
 
+    def test_fipset_get_unit_price_with_again_event(self):
+        rate_limit = 10240
+        quantity = pricing.rate_limit_to_unit(rate_limit)
+        expected_price = pricing.calculate_price(
+            quantity, self.product.unit_price)
+
+        payload = self.build_floatingipset_payload(
+            self.fipset, rate_limit, self.admin_account.project_id)
+        payload = payload['floatingipset']
+        fipset = neutron.FloatingIpSet(
+            id=payload['id'], name=payload['uos:name'],
+            size=payload['rate_limit'], project_id=payload['tenant_id'],
+            providers=payload['uos:service_provider'],
+            resource_type=gring_const.RESOURCE_FLOATINGIPSET,
+            status=payload['status'], is_reserved=True)
+        message = fipset.to_message()
+
+        handle = floatingip.FloatingIpCreateEnd()
+        price = handle.get_unit_price(message,
+                                      gring_const.STATE_RUNNING)
+        self.assertDecimalEqual(expected_price, price)
+
+    def test_fipset_change_unit_price_with_again_event(self):
+        project_id = self.admin_account.project_id
+        end_time = self.utcnow()
+        start_time = end_time - datetime.timedelta(hours=1)
+
+        # rate_limit = 1024
+        rate_limit = 1024
+        resource_id = self.create_floatingipset(
+            rate_limit, project_id, timestamp=start_time)
+        order = self.dbconn.get_order_by_resource_id(
+            self.admin_req_context, resource_id)
+
+        # change rate_limit to 1024 * 11
+        rate_limit = 1024 * 11
+        quantity = pricing.rate_limit_to_unit(rate_limit)
+        expected_price = pricing.calculate_price(
+            quantity, self.product.unit_price)
+
+        payload = self.build_floatingipset_payload(
+            self.fipset, rate_limit, self.admin_account.project_id)
+        payload = payload['floatingipset']
+        fipset = neutron.FloatingIpSet(
+            id=payload['id'], name=payload['uos:name'],
+            size=payload['rate_limit'], project_id=payload['tenant_id'],
+            providers=payload['uos:service_provider'],
+            resource_type=gring_const.RESOURCE_FLOATINGIPSET,
+            status=payload['status'], is_reserved=True)
+        message = fipset.to_message()
+
+        handle = floatingip.FloatingIpCreateEnd()
+        handle.change_unit_price(
+            message, gring_const.STATE_RUNNING, order.order_id)
+        order = self.dbconn.get_order(self.admin_req_context, order.order_id)
+        self.assertDecimalEqual(expected_price, order.unit_price)
+        subs_list = list(self.dbconn.get_subscriptions_by_order_id(
+            self.admin_req_context, order.order_id))
+        for subs in subs_list:
+            self.assertEqual(quantity, subs.quantity)
+
 
 class FloatingIpEmailNofiticationTestCase(test_service.WaiterServiceTestCase,
                                           test_utils.ServiceTestMixin):
@@ -387,7 +509,6 @@ class FloatingIpEmailNofiticationTestCase(test_service.WaiterServiceTestCase,
         self.mocked_lotus_method = mock.MagicMock(name='lotus')
         self.useFixture(mockpatch.PatchObject(
             lotus, 'send_notification_email', self.mocked_lotus_method))
-        self.product = self.product_fixture.ip_products[1]
 
     def create_floatingip(self, timestamp=None):
         handle = floatingip.FloatingIpCreateEnd()
