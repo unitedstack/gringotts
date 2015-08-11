@@ -29,8 +29,28 @@ OPTS = [
                 default=True,
                 help="Reserve floating ip or not when account owed")
 ]
-
 cfg.CONF.register_opts(OPTS)
+
+
+FIPSET_IS_AVAILABLE = None
+
+
+def _floatingipset_available():
+    global FIPSET_IS_AVAILABLE
+
+    if FIPSET_IS_AVAILABLE is not None:
+        return FIPSET_IS_AVAILABLE
+
+    FIPSET_IS_AVAILABLE = True
+    try:
+        client = get_neutronclient(cfg.CONF.region_name)
+        admin_tenant_id = ks_client.get_admin_tenant_id()
+        client.list_floatingipsets(
+            tenant_id=admin_tenant_id).get('floatingipsets')
+    except Exception:
+        LOG.warn("FloatingipSet is not avaliable")
+        FIPSET_IS_AVAILABLE = False
+    return FIPSET_IS_AVAILABLE
 
 
 class FloatingIp(Resource):
@@ -281,7 +301,8 @@ def floatingip_list(project_id, region_name=None, project_name=None):
     return formatted_fips
 
 
-@register(mtype='list')
+@register(mtype='list',
+          function_available=_floatingipset_available)
 @wrap_exception(exc_type='list')
 def floatingipset_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)

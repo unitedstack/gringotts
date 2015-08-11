@@ -74,12 +74,19 @@ RESOURCE_CREATE_MAP = {}
 
 
 def register(ks_client, service=None, resource=None, mtype=None,
-             stopped_state=None):
+             stopped_state=None, function_available=None,
+             *args, **kwargs):
     def inner(f):
         def wrapped(uuid, *args, **kwargs):
             return f(uuid, *args, **kwargs)
+
+        is_available = True
+        if callable(function_available):
+            is_available = function_available(*args, **kwargs)
+
         services = ks_client.get_services()
-        if service in services:
+
+        if service in services and is_available:
             if mtype == 'list':
                 RESOURCE_LIST_METHOD.append(f)
             elif mtype == 'deletes':

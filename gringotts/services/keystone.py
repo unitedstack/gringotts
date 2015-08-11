@@ -254,7 +254,8 @@ def get_services():
         return []
 
     for s in _services:
-        services.append(s.type)
+        if s.enabled:
+            services.append(s.type)
 
     cache.set(key, services, CACHE_SECONDS)
 
