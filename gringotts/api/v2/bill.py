@@ -21,7 +21,7 @@ from gringotts import worker
 
 LOG = log.getLogger(__name__)
 
-# NOTE(suo): The bill sum in the past will not change forever, so
+# NOTE(suo): The bill sum in the past won't be changed forever, so
 #            we can cache them a little longer.
 BILL_CACHE_SECONDS = 60 * 60 * 24 * 30
 MC = None
@@ -163,8 +163,7 @@ class TrendsController(rest.RestController):
 
 
 class DetailController(rest.RestController):
-    """Get detail of bills
-    """
+    """Get the detail of bills."""
     @wsme_pecan.wsexpose(models.Bills, datetime.datetime, datetime.datetime,
                          wtypes.text, wtypes.text, int, int)
     def get_all(self, start_time=None, end_time=None, type=None,
@@ -360,8 +359,7 @@ class BillsController(rest.RestController):
                          wtypes.text, wtypes.text)
     def get_all(self, start_time=None, end_time=None, type=None,
                 project_id=None):
-        """Get all bills, filter by type, start time, and end time
-        """
+        """Get all bills, filter by type, start time, and end time."""
         conn = pecan.request.db_conn
         total_price = conn.get_bills_sum(pecan.request.context,
                                          project_id=project_id,

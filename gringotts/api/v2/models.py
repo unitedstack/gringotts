@@ -34,7 +34,7 @@ class APIBase(wtypes.Base):
                     for k in wtypes.inspect_class(self.__class__)
                     if getattr(self, k.name) != wsme.Unset)
 
-    # NOTE(suo): These two methods is to ensure the APIBase object can
+    # NOTE(suo): these two methods are to ensure the APIBase object can
     # be pickled by python-memcache client.
     def __getstate__(self):
         return self.as_dict()
@@ -51,8 +51,7 @@ class APIBase(wtypes.Base):
 
 
 class Query(APIBase):
-    """Sample query filter.
-    """
+    """Sample query filter."""
 
     _op = None  # provide a default
 
@@ -62,16 +61,16 @@ class Query(APIBase):
     def set_op(self, value):
         self._op = value
 
+    # The name of the field to test
     field = wtypes.text
-    "The name of the field to test"
 
     # op = wsme.wsattr(operation_kind, default='eq')
     # this ^ doesn't seem to work.
+    # The comparison operator. Defaults to 'eq'.
     op = wsme.wsproperty(operation_kind, get_op, set_op)
-    "The comparison operator. Defaults to 'eq'."
 
+    # The value to compare against the stored data
     value = wtypes.text
-    "The value to compare against the stored data"
 
     def __repr__(self):
         # for logging calls
@@ -86,13 +85,12 @@ class Query(APIBase):
 
 
 class Version(APIBase):
-    """The version model"""
+    """The version model."""
     version = wtypes.text
 
 
 class Product(APIBase):
-    """A product represents a rule applied to resources to be billed
-    """
+    """A product represents a rule which is applied to a billing resource."""
     product_id = wtypes.text
     name = wtypes.text
     service = wtypes.text
@@ -117,8 +115,7 @@ class Products(APIBase):
 
 
 class SimpleProduct(APIBase):
-    """A product represents a rule applied to resources to be billed
-    """
+    """A product represents a rule which is applied to a billing resource."""
     name = wtypes.text
     service = wtypes.text
 
@@ -129,8 +126,7 @@ class SimpleProduct(APIBase):
 
 
 class Purchase(APIBase):
-    """A Purchase
-    """
+    """A purchase."""
     product_name = wtypes.text
     service = wtypes.text
     region_id = wtypes.text
@@ -138,8 +134,7 @@ class Purchase(APIBase):
 
 
 class Price(APIBase):
-    """Price represents some products collection
-    """
+    """Price represents some products collection."""
     unit_price = decimal.Decimal
     hourly_price = decimal.Decimal
     monthly_price = decimal.Decimal
@@ -147,8 +142,7 @@ class Price(APIBase):
 
 
 class Sale(APIBase):
-    """Statisttics Model for one single product
-    """
+    """Statisttics Model for one single product."""
     product_id = wtypes.text
     product_name = wtypes.text
     service = wtypes.text
@@ -170,15 +164,13 @@ class Sale(APIBase):
 
 
 class Sales(APIBase):
-    """Statistics for all products
-    """
+    """Statistics for all products."""
     total_price = decimal.Decimal
     sales = [Sale]
 
 
 class Subscription(APIBase):
-    """Represent model for a subscription to a product
-    """
+    """Represent model for a subscription to a product."""
     unit_price = decimal.Decimal
     quantity = int
     unit = wtypes.text
@@ -212,8 +204,7 @@ class SubscriptionPutBody(APIBase):
 
 
 class OrderPostBody(APIBase):
-    """One single order
-    """
+    """One single order."""
     order_id = wtypes.text
     unit_price = decimal.Decimal
     unit = wtypes.text
@@ -239,8 +230,7 @@ class OrderIds(APIBase):
 
 
 class Order(APIBase):
-    """One single order
-    """
+    """One single order."""
     order_id = wtypes.text
     resource_id = wtypes.text
     resource_name = wtypes.text
@@ -281,8 +271,7 @@ class Order(APIBase):
 
 
 class Orders(APIBase):
-    """Collection of orders
-    """
+    """Collection of orders."""
     total_count = int
     orders = [Order]
 
@@ -313,8 +302,7 @@ class BillResult(APIBase):
 
 
 class Bill(APIBase):
-    """Detail of an order
-    """
+    """Detail of an order."""
     resource_id = wtypes.text
     start_time = wtypes.text
     end_time = wtypes.text
@@ -342,16 +330,14 @@ class Bill(APIBase):
 
 
 class Bills(APIBase):
-    """Collection of bills
-    """
+    """Collection of bills."""
     total_count = int
     total_price = decimal.Decimal
     bills = [Bill]
 
 
 class UserAccount(APIBase):
-    """Account for a tenant
-    """
+    """Account for a tenant."""
     balance = decimal.Decimal
     consumption = decimal.Decimal
     currency = wtypes.text
@@ -374,8 +360,7 @@ class Invitees(APIBase):
 
 
 class AdminAccount(APIBase):
-    """Account Detail for a tenant
-    """
+    """Account Detail for a tenant."""
     balance = decimal.Decimal
     consumption = decimal.Decimal
     level = int
@@ -433,46 +418,40 @@ class SalesPersonAccountsPutBody(APIBase):
 
 
 class Summary(APIBase):
-    """Summary of one single kind of order
-    """
+    """Summary of one single kind of order."""
     total_price = decimal.Decimal
     total_count = int
     order_type = wtypes.text
 
 
 class Summaries(APIBase):
-    """Summary of all kind of orders
-    """
+    """Summary of all kind of orders."""
     total_price = decimal.Decimal
     total_count = int
     summaries = [Summary]
 
 
 class Trend(APIBase):
-    """Total sunsumption in one months
-    """
+    """Total cunsumption in one period."""
     start_time = wtypes.text
     end_time = wtypes.text
     consumption = decimal.Decimal
 
 
 class User(APIBase):
-    """UOS user model
-    """
+    """UOS user model."""
     user_id = wtypes.text
     user_name = wtypes.text
 
 
 class SimpleProject(APIBase):
-    """UOS project model
-    """
+    """UOS project model."""
     project_id = wtypes.text
     project_name = wtypes.text
 
 
 class Charge(APIBase):
-    """Charge to account
-    """
+    """Charge to account."""
     charge_id = wtypes.text
     value = decimal.Decimal
     type = wtypes.text

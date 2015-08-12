@@ -20,8 +20,7 @@ LOG = log.getLogger(__name__)
 
 
 class OrderController(rest.RestController):
-    """For one single order, getting its detail consumptions
-    """
+    """For one single order, getting its detail consumptions."""
 
     _custom_actions = {
         'order': ['GET'],
@@ -47,8 +46,7 @@ class OrderController(rest.RestController):
 
     @wsexpose(models.Bills, datetime.datetime, datetime.datetime, int, int)
     def get(self, start_time=None, end_time=None, limit=None, offset=None):
-        """Return this order's detail
-        """
+        """Get this order's detail."""
         bills = self._order(start_time=start_time, end_time=end_time,
                             limit=limit, offset=offset)
         bills_list = []
@@ -71,15 +69,14 @@ class OrderController(rest.RestController):
 
 
 class SummaryController(rest.RestController):
-    """Summary every order type's consumption
-    """
+    """Summary every order type's consumption."""
+
     @wsexpose(models.Summaries,
               datetime.datetime, datetime.datetime, wtypes.text,
               wtypes.text, wtypes.text, wtypes.text)
     def get(self, start_time=None, end_time=None, region_id=None,
             user_id=None, project_id=None, read_deleted=None):
-        """Get summary of all kinds of orders
-        """
+        """Get summary of all kinds of orders."""
         limit_user_id = acl.get_limited_to_user(
             request.headers, 'uos_support_staff')
 
@@ -115,7 +112,7 @@ class SummaryController(rest.RestController):
         else:
             read_deleted = True
 
-        # Get all orders of this particular context one time
+        # Get all orders of this particular context at one time
         orders_db = list(conn.get_orders(request.context,
                                          start_time=start_time,
                                          end_time=end_time,
@@ -179,8 +176,8 @@ class SummaryController(rest.RestController):
 
 
 class ResourceController(rest.RestController):
-    """Order related to resource
-    """
+    """Order related to resource."""
+
     @wsexpose(models.Order, wtypes.text)
     def get(self, resource_id):
         conn = pecan.request.db_conn
@@ -190,8 +187,8 @@ class ResourceController(rest.RestController):
 
 
 class CountController(rest.RestController):
-    """Get number of active order
-    """
+    """Get number of active order."""
+
     @wsexpose(int, wtypes.text, bool, wtypes.text)
     def get(self, region_id, owed=None, type=None):
         conn = pecan.request.db_conn
@@ -203,8 +200,8 @@ class CountController(rest.RestController):
 
 
 class StoppedOrderCountController(rest.RestController):
-    """Get number of active order
-    """
+    """Get number of active order."""
+
     @wsexpose(int, wtypes.text, bool, wtypes.text)
     def get(self, region_id, owed=None, type=None):
         conn = pecan.request.db_conn
@@ -216,8 +213,8 @@ class StoppedOrderCountController(rest.RestController):
 
 
 class ActiveController(rest.RestController):
-    """Get active orders
-    """
+    """Get active orders."""
+
     @wsexpose([models.Order], wtypes.text, int, int, wtypes.text,
               wtypes.text, wtypes.text, bool, bool)
     def get_all(self, type=None, limit=None, offset=None,
@@ -238,8 +235,8 @@ class ActiveController(rest.RestController):
 
 
 class ResetOrderController(rest.RestController):
-    """Reset a bunch of charged orders to uncharged
-    """
+    """Reset a bunch of charged orders to uncharged."""
+
     @wsexpose(None, body=models.OrderIds)
     def put(self, data):
         conn = pecan.request.db_conn
@@ -250,8 +247,8 @@ class ResetOrderController(rest.RestController):
 
 
 class OrdersController(rest.RestController):
-    """The controller of resources
-    """
+    """The controller of resources."""
+
     summary = SummaryController()
     resource = ResourceController()
     count = CountController()
@@ -346,7 +343,7 @@ class OrdersController(rest.RestController):
 
     @wsexpose(None, body=models.OrderPutBody)
     def put(self, data):
-        """Change the unit price of the order"""
+        """Change the unit price of the order."""
         conn = pecan.request.db_conn
         try:
             conn.update_order(request.context, **data.as_dict())

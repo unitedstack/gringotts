@@ -119,7 +119,7 @@ def external_client():
 
 
 def get_pecan_config():
-    # Set up the pecan configuration
+    """Get the pecan configuration."""
     filename = config.__file__.replace('.pyc', '.py')
     return pecan.configuration.conf_from_file(filename)
 

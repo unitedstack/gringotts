@@ -20,8 +20,7 @@ LOG = log.getLogger(__name__)
 
 
 class ResourcesController(rest.RestController):
-    """Operations on resources
-    """
+    """Operations on resources."""
     @wsexpose(None, wtypes.text, wtypes.text)
     def delete(self, project_id, region_name=None):
         """Delete all resources in specified region that belongs to a tenant
@@ -40,8 +39,8 @@ class ResourcesController(rest.RestController):
 
     @wsexpose([models.Resource], wtypes.text, wtypes.text)
     def get_all(self, project_id, region_name=None):
-        """ Get all resources of specified project_id in all regions
-        """
+        """ Get all resources of specified project_id in the region specified by
+        the region_name or the regions in conf file."""
         project_id = acl.get_limited_to_project(request.headers, 'uos_staff') or project_id
         if project_id is None:
             project_id = request.headers.get('X-Project-Id')
@@ -61,8 +60,7 @@ class ResourcesController(rest.RestController):
 
     @wsexpose(None, wtypes.text)
     def get(self, resource_id):
-        """ Just for test resource_get method
-        """
+        """ Just for testing resource_get method."""
         GET_METHODS = services.RESOURCE_GET_MAP.values()
         for method in GET_METHODS:
             method(resource_id)

@@ -8,8 +8,7 @@ OPT_GROUP_NAME = 'keystone_authtoken'
 
 
 def register_opts(conf):
-    """Register keystoneclient middleware options
-    """
+    """Register keystoneclient middleware options."""
     conf.register_opts(auth_token.opts,
                        group=OPT_GROUP_NAME)
     auth_token.CONF = conf
@@ -37,7 +36,6 @@ def get_limited_to(headers, action):
     :param headers: HTTP headers dictionary
     :return: A tuple of (user, project), set to None if there's no limit on
     one of these.
-
     """
     _ENFORCER = get_enforcer()
     if not _ENFORCER.enforce(action,
@@ -76,7 +74,7 @@ def limit_to_sales(context, user_id):
 
 
 def context_is_admin(headers):
-    """Check if the context is admin"""
+    """Check whether the context is admin or not."""
     global _ENFORCER
     if not _ENFORCER:
         _ENFORCER = policy.Enforcer()
@@ -89,7 +87,7 @@ def context_is_admin(headers):
 
 
 def context_is_domain_owner(headers):
-    """Check if the context is domain owner"""
+    """Check whether the context is domain owner or not."""
     global _ENFORCER
     if not _ENFORCER:
         _ENFORCER = policy.Enforcer()

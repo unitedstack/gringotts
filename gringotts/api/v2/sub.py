@@ -25,8 +25,7 @@ LOG = log.getLogger(__name__)
 
 
 class SubsController(rest.RestController):
-    """The controller of resources
-    """
+    """The controller of resources."""
     @wsexpose([models.Subscription], wtypes.text, wtypes.text)
     def get_all(self, order_id=None, type=None):
         conn = pecan.request.db_conn

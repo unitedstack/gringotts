@@ -51,6 +51,7 @@ class ProductExtraData(object):
 
 class ProductController(rest.RestController):
     """Manages operations on a single product."""
+
     def __init__(self, product_id):
         pecan.request.context['product_id'] = product_id
         self._id = product_id
@@ -67,12 +68,12 @@ class ProductController(rest.RestController):
 
     @wsexpose(models.Product, wtypes.text)
     def get(self):
-        """Return this product"""
+        """Return this product."""
         return models.Product.from_db_model(self._product())
 
     @wsexpose(None, wtypes.text, status_code=204)
     def delete(self):
-        """Delete this product"""
+        """Delete this product."""
         # ensure product exists before deleting
         product = self._product()
         try:
@@ -84,8 +85,7 @@ class ProductController(rest.RestController):
 
     @wsexpose(models.Product, wtypes.text, body=models.Product)
     def put(self, data):
-        """Modify this product. PUT method will override all the fields.
-        """
+        """Modify this product. PUT method will override all the fields."""
         # Ensure this product exists
         # NOTE(suo): we can't make product_in and product_old
         # point to the same object
@@ -209,8 +209,7 @@ class DetailController(rest.RestController):
     def get_all(self, name=None, service=None, region_id=None,
                 limit=None, offset=None,
                 sort_key='created_at', sort_dir='desc'):
-        """Get all product
-        """
+        """Get all product."""
         filters = {}
         if name:
             filters.update(name=name)
@@ -235,8 +234,8 @@ class DetailController(rest.RestController):
 
 
 class ProductsController(rest.RestController):
-    """Manages operations on the products collection
-    """
+    """Manages operations on the products collection."""
+
     price = PriceController()
     detail = DetailController()
 
@@ -250,8 +249,7 @@ class ProductsController(rest.RestController):
 
     @wsexpose(models.Product, body=models.Product)
     def post(self, data):
-        """Create a new product
-        """
+        """Create a new product."""
         data.product_id = uuidutils.generate_uuid()
         conn = pecan.request.db_conn
 
@@ -303,8 +301,7 @@ class ProductsController(rest.RestController):
     def get_all(self, name=None, service=None, region_id=None,
                 limit=None, offset=None,
                 sort_key='created_at', sort_dir='desc'):
-        """Get all product
-        """
+        """Get all product."""
         filters = {}
         if name:
             filters.update(name=name)

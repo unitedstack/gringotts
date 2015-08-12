@@ -20,13 +20,11 @@ LOG = log.getLogger(__name__)
 
 
 class QuotasController(rest.RestController):
-    """Operations on resources
-    """
+    """Operations on resources."""
 
     @wsexpose(None, body=models.QuotaBody)
     def put(self, data):
-        """ Get all resources of specified project_id in all regions
-        """
+        """ Get all resources of specified project_id in all regions."""
         from gringotts.services import cinder
         from gringotts.services import neutron
         from gringotts.services import nova
@@ -57,8 +55,7 @@ class QuotasController(rest.RestController):
 
     @wsexpose(models.Quota, wtypes.text, wtypes.text, wtypes.text)
     def get(self, project_id=None, user_id=None, region_name=None):
-        """Get quota of specified project in specified region
-        """
+        """Get quota of specified project in specified region."""
         from gringotts.services import cinder
         from gringotts.services import neutron
         from gringotts.services import nova
