@@ -15,6 +15,7 @@
     "account:charge": "rule:uos_accountant or role:uos_support_staff",
     "account:level": "rule:uos_accountant",
     "charges:all": "rule:uos_accountant or rule:uos_staff",
+    "account:delete": "rule:context_is_admin",
 
     "deduct:account_pay": "rule:context_is_admin",
     "deduct:account_get": "rule:context_is_admin",

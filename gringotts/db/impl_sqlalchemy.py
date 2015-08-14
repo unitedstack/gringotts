@@ -1015,6 +1015,32 @@ class Connection(base.Connection):
             raise exception.AccountNotFound(user_id=user_id)
         return self._row_to_db_account_model(ref)
 
+    def delete_account(self, context, user_id):
+        """delete the account and projects"""
+
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                account = session.query(sa_models.Account).\
+                    filter_by(user_id=user_id).one()
+            except NoResultFound:
+                raise exception.AccountNotFound(user_id=user_id)
+
+            # delete the account
+            session.delete(account)
+
+            # delete the projects which are related to the account
+            projects = session.query(sa_models.Project).\
+                filter_by(user_id=user_id).all()
+            for project in projects:
+                session.delete(project)
+
+            # delete the user_projects which were related to the account
+            user_projects = session.query(sa_models.UserProject).\
+                filter_by(user_id=user_id).all()
+            for user_project in user_projects:
+                session.delete(user_project)
+
     def get_invitees(self, context, inviter, limit=None, offset=None):
         query = get_session().query(sa_models.Account).\
             filter_by(inviter=inviter)
