@@ -20,8 +20,7 @@ class SalesPersonAccountsController(rest.RestController):
 
     @wsexpose(models.SalesPersonAccounts, int, int)
     def get(self, offset=None, limit=None):
-        """Get the accounts of this sales person
-        """
+        """Get the accounts of this sales person."""
         context = pecan.request.context
         if not acl.limit_to_sales(context, self.sales_id):
             raise exception.NotAuthorized()
@@ -61,8 +60,7 @@ class SalesPersonAccountsController(rest.RestController):
 
 
 class SalesPersonController(rest.RestController):
-    """Controller of a sales person
-    """
+    """Controller of a sales person."""
 
     _custom_actions = {
         'amount': ['GET'],
@@ -79,8 +77,7 @@ class SalesPersonController(rest.RestController):
 
     @wsexpose(models.SalesPersonAmount)
     def amount(self):
-        """Get the sales amount of this sales person
-        """
+        """Get the sales amount of this sales person."""
         context = pecan.request.context
         if not acl.limit_to_sales(context, self.sales_id):
             raise exception.NotAuthorized()
@@ -93,8 +90,7 @@ class SalesPersonController(rest.RestController):
 
 
 class SalesPersonsController(rest.RestController):
-    """Controller of sales persons
-    """
+    """Controller of sales persons."""
 
     @pecan.expose()
     def _lookup(self, sales_id, *remainder):

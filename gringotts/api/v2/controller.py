@@ -19,8 +19,7 @@ from gringotts.api.v2 import models
 
 
 class V2Controller(rest.RestController):
-    """Version 2 API controller root
-    """
+    """Version 2 API controller root."""
     products = product.ProductsController()
     accounts = account.AccountsController()
     orders = order.OrdersController()
@@ -39,6 +38,5 @@ class V2Controller(rest.RestController):
 
     @wsexpose(models.Version)
     def get(self):
-        """Return the version info when request the root path
-        """
+        """Return the version info when request the root path."""
         return models.Version(version='0.2.0')

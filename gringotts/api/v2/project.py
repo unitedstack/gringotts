@@ -29,8 +29,7 @@ LOG = log.getLogger(__name__)
 
 
 class ProjectController(rest.RestController):
-    """Manages operations on project
-    """
+    """Manages operations on project."""
 
     _custom_actions = {
         'billing_owner': ['PUT'],
@@ -54,12 +53,12 @@ class ProjectController(rest.RestController):
 
     @wsexpose(models.Project)
     def get(self):
-        """Return this project"""
+        """Return this project."""
         return models.Project.from_db_model(self._project())
 
     @wsexpose(None, wtypes.text)
     def billing_owner(self, user_id):
-        """Change billing_owner of this project"""
+        """Change billing_owner of this project."""
         self.conn = pecan.request.db_conn
         self.conn.change_billing_owner(request.context,
                                        project_id=self._id,
@@ -79,8 +78,7 @@ class ProjectController(rest.RestController):
 
     @wsexpose(models.Summaries, wtypes.text)
     def estimate(self, region_id=None):
-        """Get estimation of specified project and region
-        """
+        """Get estimation of specified project and region."""
         limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
 
         if limit_user_id: # normal user
@@ -129,8 +127,8 @@ class ProjectController(rest.RestController):
 
 
 class ProjectsController(rest.RestController):
-    """Manages operations on the projects collection
-    """
+    """Manages operations on the projects collection."""
+
     def __init__(self):
         self.worker_api = worker.API(external_client())
 
@@ -142,8 +140,7 @@ class ProjectsController(rest.RestController):
 
     @wsexpose([models.UserProject], wtypes.text, wtypes.text)
     def get_all(self, user_id=None, type=None):
-        """Get all projects
-        """
+        """Get all projects."""
         user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or user_id
 
         self.conn = pecan.request.db_conn
@@ -247,8 +244,7 @@ class ProjectsController(rest.RestController):
 
     @wsexpose(None, body=models.Project)
     def post(self, data):
-        """Create a new project
-        """
+        """Create a new project."""
         conn = pecan.request.db_conn
         try:
             project = db_models.Project(**data.as_dict())

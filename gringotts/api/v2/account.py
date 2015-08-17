@@ -81,8 +81,7 @@ class AccountSalesPersonController(rest.RestController):
 
 
 class AccountController(rest.RestController):
-    """Manages operations on account
-    """
+    """Manages operations on account."""
 
     _custom_actions = {
         'level': ['PUT'],
@@ -124,8 +123,7 @@ class AccountController(rest.RestController):
 
     @wsexpose(models.Invitees, int, int)
     def invitees(self, limit=None, offset=None):
-        """Get invitees of inviter
-        """
+        """Get invitees of the inviter."""
         inviter = acl.get_limited_to_user(
             request.headers, 'uos_admin') or self._id
 
@@ -160,7 +158,7 @@ class AccountController(rest.RestController):
 
     @wsexpose(models.UserAccount, int)
     def level(self, level):
-
+        """Update the account's level."""
         check_policy(request.context, "account:level")
 
         if not isinstance(level, int) or level < 0 or level > 9:
@@ -178,15 +176,14 @@ class AccountController(rest.RestController):
 
     @wsexpose(models.UserAccount)
     def get(self):
-        """Return this account"""
+        """Get this account."""
         user_id = acl.get_limited_to_user(
             request.headers, 'uos_staff') or self._id
         return models.UserAccount.from_db_model(self._account(user_id=user_id))
 
     @wsexpose(models.Charge, wtypes.text, body=models.Charge)
     def put(self, data):
-        """Charge the account
-        """
+        """Charge the account."""
         check_policy(request.context, "account:charge")
 
         # check support staff charge value
@@ -281,8 +278,7 @@ class AccountController(rest.RestController):
               datetime.datetime, int, int)
     def charges(self, type=None, start_time=None,
                 end_time=None, limit=None, offset=None):
-        """Return this account's charge records
-        """
+        """Get this account's charge records."""
         user_id = acl.get_limited_to_user(
             request.headers, 'uos_support_staff') or self._id
 
@@ -345,6 +341,9 @@ class AccountController(rest.RestController):
 
     @wsexpose(models.Estimate)
     def estimate_per_day(self):
+        """Get the price per day and the remaining days that the
+        balance can support.
+        """
         self.conn = pecan.request.db_conn
         user_id = acl.get_limited_to_user(
             request.headers, 'uos_staff') or self._id
@@ -380,8 +379,7 @@ class ChargeController(rest.RestController):
               datetime.datetime, datetime.datetime, int, int)
     def get(self, user_id=None, type=None, start_time=None,
             end_time=None, limit=None, offset=None):
-        """Get all charges of all account
-        """
+        """Get all charges of all account."""
         check_policy(request.context, "charges:all")
 
         users = {}
@@ -425,6 +423,9 @@ class TransferMoneyController(rest.RestController):
 
     @wsexpose(None, body=models.TransferMoneyBody)
     def post(self, data):
+        """Transfer money from one account to another.
+        And only the domain owner can do the operation.
+        """
         is_domain_owner = acl.context_is_domain_owner(request.headers)
         if not is_domain_owner:
             raise exception.NotAuthorized()
@@ -434,8 +435,7 @@ class TransferMoneyController(rest.RestController):
 
 
 class AccountsController(rest.RestController):
-    """Manages operations on the accounts collection
-    """
+    """Manages operations on the accounts collection."""
 
     charges = ChargeController()
     transfer = TransferMoneyController()
@@ -449,8 +449,7 @@ class AccountsController(rest.RestController):
 
     @wsexpose(models.AdminAccounts, bool, int, int)
     def get_all(self, owed=None, limit=None, offset=None):
-        """Get all accounts
-        """
+        """Get all accounts."""
         check_policy(request.context, "account:all")
 
         self.conn = pecan.request.db_conn
@@ -461,10 +460,10 @@ class AccountsController(rest.RestController):
             count = self.conn.get_accounts_count(request.context, owed=owed)
             pecan.response.headers['X-Total-Count'] = str(count)
         except exception.NotAuthorized as e:
-            LOG.exception('Fail to get all accounts')
+            LOG.exception('Failed to get all accounts')
             raise exception.NotAuthorized()
         except Exception as e:
-            LOG.exception('Fail to get all accounts')
+            LOG.exception('Failed to get all accounts')
             raise exception.DBError(reason=e)
 
         accounts = [models.AdminAccount.from_db_model(account)
@@ -475,8 +474,7 @@ class AccountsController(rest.RestController):
 
     @wsexpose(None, body=models.AdminAccount)
     def post(self, data):
-        """Create a new account
-        """
+        """Create a new account."""
         check_policy(request.context, "account:post")
 
         conn = pecan.request.db_conn

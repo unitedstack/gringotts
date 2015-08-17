@@ -29,8 +29,7 @@ def _get_cache():
 
 
 class PrechargeController(rest.RestController):
-    """Manage operations on a single precharge
-    """
+    """Manage operations on a single precharge."""
 
     _custom_actions = {
         'dispatched': ['PUT'],
@@ -167,8 +166,8 @@ class PrechargeController(rest.RestController):
 
 
 class PrechargesController(rest.RestController):
-    """Manage operations on Precharges
-    """
+    """Manage operations on Precharges."""
+
     @pecan.expose()
     def _lookup(self, code, *remainder):
         if remainder and not remainder[-1]:
@@ -203,8 +202,7 @@ class PrechargesController(rest.RestController):
 
     @wsexpose([models.PreCharge], wtypes.text, int, int)
     def get_all(self, user_id=None, limit=None, offset=None):
-        """Get all precharges
-        """
+        """Get all precharges."""
         conn = pecan.request.db_conn
         precharges = conn.get_precharges(pecan.request.context,
                                          user_id=user_id,

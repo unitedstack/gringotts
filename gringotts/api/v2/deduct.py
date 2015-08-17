@@ -23,8 +23,7 @@ LOG = log.getLogger(__name__)
 
 
 class GetBalanceController(rest.RestController):
-    """Get balance of specified account
-    """
+    """Get balance of specified account."""
     @wsexpose(models.GetBalanceResponse, wtypes.text)
     def get(self, accountNum):
 
@@ -44,8 +43,7 @@ class GetBalanceController(rest.RestController):
 
 
 class CheckReqController(rest.RestController):
-    """Check if the deduction is successfull
-    """
+    """Check if the deduction is successfull."""
 
     @wsexpose(models.CheckReqResponse, wtypes.text)
     def get(self, reqId):
@@ -73,8 +71,7 @@ class CheckReqController(rest.RestController):
 
 
 class PayController(rest.RestController):
-    """Handle the deduct logic
-    """
+    """Handle the deduct logic."""
     @wsexpose(models.PayResponse, body=models.PayRequest)
     def put(self, data):
 
