@@ -51,7 +51,9 @@ def _make_cache_key(region_id, user_id, project_id, start_time, end_time):
         key = "%s-%s-%s-%s" % (project_id, region_id, start_time, end_time)
     elif user_id:
         key = "%s-%s-%s-%s" % (user_id, region_id, start_time, end_time)
-    return key
+    # NOTE(suo): As python-memcached only accepts byte string as memcache key,
+    # not unicode, so this key should be encoded using str()
+    return str(key)
 
 
 class TrendsController(rest.RestController):
