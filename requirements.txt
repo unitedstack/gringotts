@@ -20,6 +20,7 @@ python-novaclient>=2014.20.3
 python-glanceclient>=0.9.0,!=0.14.0,<=0.14.2
 python-cinderclient>=1.0.6,<=1.1.2
 python-neutronclient>=2014.12.53
+python-troveclient>=2015.10.1
 python-dateutil>=1.4.1
 pecan>=0.4.5,<=0.8.3
 WSME>=0.6,<=0.6.4
