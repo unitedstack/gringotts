@@ -155,7 +155,7 @@ def subnet_list(project_id, region_name=None):
 
 @register(mtype='list')
 @wrap_exception(exc_type='list')
-def loadbalancer_list(project_id, region_name=None):
+def loadbalancer_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     lbs = client.list_loadbalancers(tenant_id=project_id).get('loadbalancers')
     formatted_loadbalancer = []
@@ -422,7 +422,8 @@ def delete_fips(project_id, region_name=None):
             pass
 
 
-@register(mtype='deletes')
+@register(mtype='deletes',
+          function_available=_floatingipset_available)
 @wrap_exception(exc_type='bulk')
 def delete_fipsets(project_id, region_name=None):
     client = get_neutronclient(region_name)
@@ -537,6 +538,11 @@ def delete_routers(project_id, region_name=None):
             for vpn in vpns:
                 client.delete_pptpconnection(vpn['id'])
 
+            # Delete tunnel of this router
+            tunnels = router.get('tunnels')
+            if tunnels:
+                _delete_tunnels(tunnels, region_name=region_name)
+
             # Remove floatingips of this router
             fips = client.list_floatingips(
                 tenant_id=project_id).get('floatingips')
@@ -558,16 +564,11 @@ def delete_routers(project_id, region_name=None):
                 body['port_id'] = port['id']
                 client.remove_interface_router(router['id'], body)
 
-            # Delete tunnel of this router
-            tunnels = router.get('tunnels')
-            if tunnels:
-                _delete_tunnels(tunnels, region_name=region_name)
-
             # And then delete this router
             client.delete_router(router['id'])
             LOG.warn("Delete router: %s" % router['id'])
         except Exception:
-            pass
+            LOG.error("Fail to delete router: %s" % router['id'])
 
 
 @register(resource=const.RESOURCE_FLOATINGIP, mtype='delete')
@@ -652,7 +653,7 @@ def _delete_tunnels(tunnels, region_name=None):
         try:
             requests.put(url, headers={'X-Auth-Token': auth_token})
         except Exception as e:
-            LOG.warn('Fail to delete tunnel: %s, as: %s' % (tunnel, e))
+            LOG.error('Fail to delete tunnel: %s, as: %s' % (tunnel, e))
 
 
 @register(resource=const.RESOURCE_ROUTER, mtype='delete')
@@ -667,6 +668,11 @@ def delete_router(router_id, region_name=None):
         router_id=router_id).get('pptpconnections')
     for vpn in vpns:
         client.delete_pptpconnection(vpn['id'])
+
+    # Delete tunnel of this router
+    tunnels = router.get('tunnels')
+    if tunnels:
+        _delete_tunnels(tunnels, region_name=region_name)
 
     # Remove floatingips of this router
     project_id = router['tenant_id']
@@ -683,11 +689,6 @@ def delete_router(router_id, region_name=None):
         if port['device_owner'] == 'network:router_interface':
             body['subnet_id'] = port['fixed_ips'][0]['subnet_id']
             client.remove_interface_router(router_id, body)
-
-    # Delete tunnel of this router
-    tunnels = router.get('tunnels')
-    if tunnels:
-        _delete_tunnels(tunnels, region_name=region_name)
 
     time.sleep(5)
     # And then delete this router
@@ -744,7 +745,7 @@ def delete_listeners(project_id, region_name=None):
             client.delete_listener(listener['id'])
             LOG.warn("Delete listener: %s" % listener['id'])
         except Exception:
-            pass
+            LOG.error("Fail to delete listener: %s" % listener['id'])
 
 
 def _is_last_up_listener(client, loadbalancer_id, listener_id):
