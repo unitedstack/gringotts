@@ -29,6 +29,8 @@ RESOURCE_ROUTER = 'router'
 RESOURCE_ALARM = 'alarm'
 RESOURCE_USER = 'user'
 RESOURCE_PROJECT = 'project'
+RESOURCE_SECURITY_GROUP = 'security_group'
+RESOURCE_LOADBALANCER = 'loadbalancer'
 
 
 # Product Name

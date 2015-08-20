@@ -182,6 +182,9 @@ def delete_volumes(project_id, region_name=None):
                    'project_id': project_id}
     volumes = client.volumes.list(detailed=False, search_opts=search_opts)
 
+    # Should delete the snapshots first
+    delete_snapshots(project_id, region_name)
+
     # Force delete or detach and then delete
     for volume in volumes:
         # try to delete attachments

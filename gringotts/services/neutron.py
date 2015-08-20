@@ -122,6 +122,14 @@ class Listener(Resource):
         return msg
 
 
+class SecurityGroup(Resource):
+    pass
+
+
+class Loadbalancer(Resource):
+    pass
+
+
 class Network(Resource):
     pass
 
@@ -145,19 +153,38 @@ def subnet_list(project_id, region_name=None):
     return subnets
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
 def loadbalancer_list(project_id, region_name=None):
     client = get_neutronclient(region_name)
     lbs = client.list_loadbalancers(tenant_id=project_id).get('loadbalancers')
-    return lbs
+    formatted_loadbalancer = []
+    for lb in lbs:
+        formatted_loadbalancer.append(
+            Loadbalancer(id=lb['id'],
+                         name=lb['name'],
+                         is_bill=False,
+                         resource_type=const.RESOURCE_LOADBALANCER,
+                         tenant_id=lb['tenant_id']))
+
+    return formatted_loadbalancer
 
 
+@register(mtype='list')
 @wrap_exception(exc_type='list')
-def security_group_list(project_id, region_name=None):
+def security_group_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     sgs = client.list_security_groups(
         tenant_id=project_id).get('security_groups')
-    return sgs
+    formatted_security_group = []
+    for sg in sgs:
+        formatted_security_group.append(
+            SecurityGroup(id=sg['id'],
+                          name=sg['name'],
+                          is_bill=False,
+                          resource_type=const.RESOURCE_SECURITY_GROUP,
+                          tenant_id=sg['tenant_id']))
+    return formatted_security_group
 
 
 @wrap_exception(exc_type='list')
@@ -463,6 +490,37 @@ def delete_networks(project_id, region_name=None):
             client.delete_network(network['id'])
         except Exception:
             pass
+
+
+@register(mtype='deletes')
+@wrap_exception(exc_type='bulk')
+def delete_security_groups(project_id, region_name=None):
+    client = get_neutronclient(region_name)
+    security_groups = client.list_security_groups(
+        tenant_id=project_id).get('security_groups')
+
+    for security_group in security_groups:
+        ports = client.list_ports(tenant_id=project_id).get('ports')
+        for port in ports:
+            if security_group['id'] in port['security_groups']:
+                client.delete_port(port['id'])
+        client.delete_security_group(security_group['id'])
+        LOG.warn("Delete security_group: %s" % security_group['id'])
+
+
+@register(mtype='deletes')
+@wrap_exception(exc_type='bulk')
+def delete_loadbalancers(project_id, region_name=None):
+    client = get_neutronclient(region_name)
+    loadbalancers = client.list_loadbalancers(
+        tenant_id=project_id).get('loadbalancers')
+
+    # delete the listeners first
+    delete_listeners(project_id, region_name)
+
+    for loadbalancer in loadbalancers:
+        client.delete_loadbalancer(loadbalancer['id'])
+        LOG.warn("Delete loadbalancer: %s" % loadbalancer['id'])
 
 
 @register(mtype='deletes')
