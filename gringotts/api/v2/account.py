@@ -372,6 +372,23 @@ class AccountController(rest.RestController):
         return models.Estimate(price_per_day=price_per_day,
                                remaining_day=remaining_day)
 
+    @wsexpose(None)
+    def delete(self):
+        """Delete the account including the projects that belong to it."""
+        # only admin can delete account
+        check_policy(request.context, "account:delete")
+
+        try:
+            self.conn = pecan.request.db_conn
+            self.conn.delete_account(request.context, self._id)
+        except (exception.NotFound):
+            msg = _('Could not find account whose user_id is %s' % self._id)
+            raise exception.NotFound(msg)
+        except Exception as e:
+            msg = _("failed to delete account whose user_id is %s." % self._id)
+            LOG.warn(msg)
+            raise exception.DBError(reason=e)
+
 
 class ChargeController(rest.RestController):
 

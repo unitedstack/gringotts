@@ -85,6 +85,24 @@ class AccountTestCase(rest.RestfulTestCase):
     def test_account_charge_with_negative_value_failed(self):
         pass
 
+    def test_delete_account_by_admin(self):
+        """only admin account can delete the account."""
+        admin_account = self.admin_account
+        query_url = self.build_account_query_url(admin_account.user_id)
+        self.delete(query_url, headers=self.admin_headers)
+
+    def test_delete_account_with_nonexistent_user_id(self):
+        """delete a account with nonexistent user_id."""
+        fake_user_id = self.new_uuid()
+        query_url = self.build_account_query_url(fake_user_id)
+        self.delete(query_url, headers=self.admin_headers, expected_status=404)
+
+    def test_delete_account_by_demo(self):
+        """account without admin previlege can't delete the account."""
+        demo_account = self.demo_account
+        query_url = self.build_account_query_url(demo_account.user_id)
+        self.delete(query_url, headers=self.demo_headers, expected_status=403)
+
 
 class ExternalAccountTestCase(rest.RestfulTestCase):
 
