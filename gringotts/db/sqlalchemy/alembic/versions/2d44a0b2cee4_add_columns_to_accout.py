@@ -22,11 +22,16 @@ def upgrade():
     op.add_column('order', sa.Column('owed', sa.Boolean))
 
     admin_project_id = keystone.get_admin_tenant_id()
+    manila_project_id = keystone.get_services_project_id()
 
     op.execute("UPDATE account set level=3, owed=0")
     op.execute("UPDATE account set level=9, owed=0 where project_id='%s'" %
                admin_project_id)
     op.execute("UPDATE `order` set owed=0")
+    if manila_project_id is not None:
+        op.execute("UPDATE account set level=9, owed=0 where project_id='%s'" %
+                   manila_project_id)
+
 
 def downgrade():
     op.drop_column('account', 'level')

@@ -22,6 +22,9 @@ def upgrade():
     admin_user_id = keystone.get_admin_user_id()
     admin_project_id = keystone.get_admin_tenant_id()
 
+    manila_user_id = keystone.get_manila_user_id()
+    manila_project_id = keystone.get_services_project_id()
+
     op.create_table(
         'product',
 
@@ -231,6 +234,9 @@ def upgrade():
         "(1, '%s', '%s', 10, 0, 'CNY', '%s', '%s')" % (admin_user_id, admin_project_id, now, now),
     ]
 
+    if manila_user_id is not None and manila_project_id is not None:
+        ACCOUNT_SQLS.append("(2, '%s', '%s', 10, 0, 'CNY', '%s', '%s')"
+                            % (manila_user_id, manila_project_id, now, now))
     for ACCOUNT in ACCOUNT_SQLS:
         op.execute(ACCOUNT_SQL_PRE + ACCOUNT)
 

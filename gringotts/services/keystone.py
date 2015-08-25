@@ -234,8 +234,8 @@ def get_user_list():
     return users
 
 
-def get_project_list():
-    return get_ks_client().projects.list()
+def get_project_list(domain=None, name=None):
+    return get_ks_client().projects.list(domain=domain, name=name)
 
 
 def get_services():
@@ -287,6 +287,21 @@ def get_uos_user(user_id):
     return r.json()['user']
 
 
+@wrap_exception(exc_type='get', with_raise=False)
+def get_uos_user_by_name(user_name):
+
+    internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url + '/US-INTERNAL'+ '/' + api
+
+    query = {'query': {'name': user_name}}
+    r = requests.post(internal_api('get_user'),
+                      data=json.dumps(query),
+                      headers={'Content-Type': 'application/json'})
+    if r.status_code == 404:
+        LOG.warn("can't not find user %s from keystone" % user_name)
+        raise exception.NotFound()
+    return r.json()['user']
+
+
 def get_projects_by_project_ids(project_ids=[]):
 
     internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url + '/US-INTERNAL'+ '/' + api
@@ -311,6 +326,7 @@ def get_projects_by_user(user_id):
         return []
     return r.json()['projects']
 
+
 def get_account_type( type='user', key='id', op='eq', value=None):
     url = '%s/UOS-EXT/search/?type=%s&key=%s&op=%s&value=%s' % \
           (cfg.CONF.service_credentials.os_auth_url, type, key, op, value)
@@ -320,6 +336,7 @@ def get_account_type( type='user', key='id', op='eq', value=None):
     if r.status_code != 200:
         return {}
     return r.json()
+
 
 def get_role_list(user=None, group=None, domain=None, project=None):
     """Get role list of particular user on particular project by
@@ -331,3 +348,16 @@ def get_role_list(user=None, group=None, domain=None, project=None):
                                       group=group,
                                       domain=domain,
                                       project=project)
+
+
+def get_manila_user_id():
+    user_id = get_uos_user_by_name('manila')['id']
+    return user_id
+
+
+def get_services_project_id():
+    project_id = None
+    projects = get_project_list('default', 'services')
+    if projects:
+        project_id = projects[0].id
+    return project_id
