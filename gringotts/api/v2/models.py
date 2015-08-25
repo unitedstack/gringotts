@@ -543,6 +543,12 @@ class ComputeQuotaBody(APIBase):
     key_pairs = int
 
 
+class TroveQuotaBody(APIBase):
+    instances = int
+    backups = int
+    volumes = int
+
+
 class VolumeQuotaBody(APIBase):
     volume_type = wtypes.text
     gigabytes = int
@@ -569,6 +575,7 @@ class QuotaBody(APIBase):
     compute = ComputeQuotaBody
     volume = [VolumeQuotaBody]
     network = NetworkQuotaBody
+    quotas = TroveQuotaBody
 
 
 class QuotaItem(APIBase):
@@ -581,6 +588,12 @@ class ComputeQuota(APIBase):
     cores = QuotaItem
     ram = QuotaItem
     key_pairs = QuotaItem
+
+
+class TroveQuota(APIBase):
+   instances = QuotaItem
+   backups = QuotaItem
+   volumes = QuotaItem
 
 
 class VolumeQuota(APIBase):
@@ -609,6 +622,7 @@ class Quota(APIBase):
     compute = ComputeQuota
     volume = [VolumeQuota]
     network = NetworkQuota
+    quotas = TroveQuota
 
 
 class Estimate(APIBase):

@@ -28,6 +28,7 @@ class QuotasController(rest.RestController):
         from gringotts.services import cinder
         from gringotts.services import neutron
         from gringotts.services import nova
+        from gringotts.services import trove
 
         project_id = acl.get_limited_to_project(request.headers, 'uos_support_staff')
         if project_id:
@@ -52,6 +53,8 @@ class QuotasController(rest.RestController):
                 cinder.quota_update(data.project_id, region_name=data.region_name,
                                     **quota_body.as_dict())
 
+        if data.quotas != wtypes.Unset:
+            trove.quota_update(data.project_id, **data.quotas.as_dict())
 
     @wsexpose(models.Quota, wtypes.text, wtypes.text, wtypes.text)
     def get(self, project_id=None, user_id=None, region_name=None):
@@ -59,6 +62,7 @@ class QuotasController(rest.RestController):
         from gringotts.services import cinder
         from gringotts.services import neutron
         from gringotts.services import nova
+        from gringotts.services import trove
 
         _project_id = acl.get_limited_to_project(request.headers, 'uos_support_staff')
         if _project_id:
@@ -121,9 +125,22 @@ class QuotasController(rest.RestController):
                                                    used=nnq['portforwardings']['in_use']),
             )
 
+        tq = trove.quota_get(project_id, region_name)
+        database_quota = None
+        if tq:
+            database_quota = models.TroveQuota(
+                instances = models.QuotaItem(limit=tq['instances']['limit'],
+                                             used=tq['instances']['in_use']),
+                backups = models.QuotaItem(limit=tq['backups']['limit'],
+                                           used=tq['backups']['in_use']),
+                volumes = models.QuotaItem(limit=tq['volumes']['limit'],
+                                           used=tq['volumes']['in_use']),
+            )
+
         return models.Quota(project_id=project_id,
                             user_id=user_id,
                             region_name=region_name,
                             compute=compute_quota,
                             volume=volume_quotas,
-                            network=network_quota)
+                            network=network_quota,
+                            quotas=database_quota)
