@@ -320,6 +320,7 @@ class ProductsController(rest.RestController):
                                    sort_dir=sort_dir)
         return [models.SimpleProduct.transform(name=p.name,
                                                service=p.service,
+                                               region_id=p.region_id,
                                                unit_price=p.unit_price,
                                                currency='CNY',
                                                unit=p.unit,

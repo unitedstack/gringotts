@@ -118,6 +118,7 @@ class SimpleProduct(APIBase):
     """A product represents a rule which is applied to a billing resource."""
     name = wtypes.text
     service = wtypes.text
+    region_id = wtypes.text
 
     unit_price = decimal.Decimal
     currency = wtypes.text
