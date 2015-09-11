@@ -1,5 +1,11 @@
 Release Notes
 -------------
+**0.4.14**
+* 修复了bill/trends接口报memcache错误的bug
+* 在数据库升级脚本中添加了manila账户
+* 添加了一个删除账户的API
+* 删除项目时，删除lb和sg
+* 其他改进
 
 **0.4.13**
 * 升级APScheduler到3.0.3版本
