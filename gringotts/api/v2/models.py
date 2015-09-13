@@ -473,15 +473,20 @@ class PreChargeBody(APIBase):
     number = int
     price = decimal.Decimal
     expired_at = datetime.datetime
-
-
-class PreChargeDispatched(APIBase):
     remarks = wtypes.text
 
 
-class PreChargeUsed(APIBase):
-    user_id = wtypes.text
-    domain_id = wtypes.text
+class PreChargeDispatchedBody(APIBase):
+    remarks = wtypes.text
+
+
+class PreChargesDispatchedBody(APIBase):
+    codes = [wtypes.text]
+    remarks = wtypes.text
+
+
+class PreChargesCodeBody(APIBase):
+    codes = [wtypes.text]
 
 
 class PreCharge(APIBase):
@@ -489,11 +494,20 @@ class PreCharge(APIBase):
     price = decimal.Decimal
     used = bool
     dispatched = bool
+    deleted = bool
+    operator_id = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
+    domain_id = wtypes.text
     created_at = wtypes.text
+    deleted_at = wtypes.text
     expired_at = wtypes.text
     remarks = wtypes.text
+
+
+class PreCharges(APIBase):
+    precharges = [PreCharge]
+    total_count = int
 
 
 class PreChargeSimple(APIBase):
@@ -592,9 +606,9 @@ class ComputeQuota(APIBase):
 
 
 class TroveQuota(APIBase):
-   instances = QuotaItem
-   backups = QuotaItem
-   volumes = QuotaItem
+    instances = QuotaItem
+    backups = QuotaItem
+    volumes = QuotaItem
 
 
 class VolumeQuota(APIBase):

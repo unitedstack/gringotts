@@ -48,8 +48,8 @@ class Product(Model):
     :param unit: The unit of the price, currently there are fllowing options:
                  hour, month, year, GB-hour, IOPS-hour. Note that the unit
                  here should be corresponding to the period field. Fox example,
-                 if period is hourly, and the unit here should be hour or GB-hour,
-                 not month or GB-month.
+                 if period is hourly, and the unit here should be hour or
+                 GB-hour, not month or GB-month.
     :param extra: Contains extra information.
     """
     def __init__(self,
@@ -211,7 +211,7 @@ class Account(Model):
                  user_id, domain_id, balance, consumption, level,
                  owed=None, created_at=None, updated_at=None,
                  project_id=None,
-                 inviter=None, charged=None,sales_id=None, reward_value=None):
+                 inviter=None, charged=None, sales_id=None, reward_value=None):
         Model.__init__(
             self,
             user_id=user_id,
@@ -237,7 +237,8 @@ class Charge(Model):
     :param charge_time: The charge time
     """
 
-    def __init__(self, charge_id, user_id, project_id, domain_id, value, charge_time,
+    def __init__(self, charge_id, user_id, project_id, domain_id,
+                 value, charge_time,
                  type=None, come_from=None, operator=None, remarks=None,
                  created_at=None, updated_at=None):
         Model.__init__(
@@ -274,17 +275,22 @@ class Region(Model):
 class PreCharge(Model):
     """The precharge model
     """
-    def __init__(self, code, price, used, dispatched, user_id, project_id, domain_id,
-                 created_at=None, expired_at=None, remarks=None):
+    def __init__(self, code, price, used, dispatched, deleted,
+                 operator_id, user_id, project_id, domain_id,
+                 created_at=None, deleted_at=None, expired_at=None,
+                 remarks=None):
         Model.__init__(self,
                        code=code,
                        price=price,
                        used=used,
                        dispatched=dispatched,
+                       deleted=deleted,
+                       operator_id=operator_id,
                        user_id=user_id,
                        project_id=project_id,
                        domain_id=domain_id,
                        created_at=created_at,
+                       deleted_at=deleted_at,
                        expired_at=expired_at,
                        remarks=remarks)
 

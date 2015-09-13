@@ -6,9 +6,9 @@ import json
 import urlparse
 from oslo.config import cfg
 
-from sqlalchemy import Column, Integer, String, Table, ForeignKey
+from sqlalchemy import Column, Integer, String
 from sqlalchemy import DateTime, Index, DECIMAL, Boolean, Text
-from sqlalchemy.types import TypeDecorator, DATETIME
+from sqlalchemy.types import TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base
 
 from gringotts.openstack.common import timeutils
@@ -85,7 +85,7 @@ class Product(Base):
     type = Column(String(64))
     deleted = Column(Boolean)
 
-    unit_price = Column(DECIMAL(20,4))
+    unit_price = Column(DECIMAL(20, 4))
     unit = Column(String(64))
     quantity = Column(Integer)
 
@@ -115,9 +115,9 @@ class Order(Base):
     type = Column(String(255))
     status = Column(String(64))
 
-    unit_price = Column(DECIMAL(20,4))
+    unit_price = Column(DECIMAL(20, 4))
     unit = Column(String(64))
-    total_price = Column(DECIMAL(20,4))
+    total_price = Column(DECIMAL(20, 4))
     cron_time = Column(DateTime)
     owed = Column(Boolean, default=False)
     charged = Column(Boolean, default=False)
@@ -149,7 +149,7 @@ class Subscription(Base):
     type = Column(String(64))
 
     product_id = Column(String(255))
-    unit_price = Column(DECIMAL(20,4))
+    unit_price = Column(DECIMAL(20, 4))
     unit = Column(String(64))
     quantity = Column(Integer)
 
@@ -186,9 +186,9 @@ class Bill(Base):
     type = Column(String(255))
     status = Column(String(64))
 
-    unit_price = Column(DECIMAL(20,4))
+    unit_price = Column(DECIMAL(20, 4))
     unit = Column(String(64))
-    total_price = Column(DECIMAL(20,4))
+    total_price = Column(DECIMAL(20, 4))
     order_id = Column(String(255))
     resource_id = Column(String(255))
 
@@ -212,7 +212,7 @@ class Charge(Base):
     user_id = Column(String(255))
     project_id = Column(String(255))
     domain_id = Column(String(255))
-    value = Column(DECIMAL(20,4))
+    value = Column(DECIMAL(20, 4))
     type = Column(String(64))
     come_from = Column(String(255))
     charge_time = Column(DateTime)
@@ -243,7 +243,7 @@ class PreCharge(Base):
     id = Column(Integer, primary_key=True)
 
     code = Column(String(64))
-    price = Column(DECIMAL(20,4))
+    price = Column(DECIMAL(20, 4))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     expired_at = Column(DateTime)
@@ -252,6 +252,8 @@ class PreCharge(Base):
     used = Column(Boolean, default=False)
     dispatched = Column(Boolean, default=False)
     deleted = Column(Boolean, default=False)
+
+    operator_id = Column(String(255))
 
     user_id = Column(String(255))
     project_id = Column(String(255))
@@ -268,8 +270,8 @@ class Account(Base):
     user_id = Column(String(255))
     project_id = Column(String(255))
     domain_id = Column(String(255))
-    balance = Column(DECIMAL(20,4))
-    consumption = Column(DECIMAL(20,4))
+    balance = Column(DECIMAL(20, 4))
+    consumption = Column(DECIMAL(20, 4))
     level = Column(Integer)
     owed = Column(Boolean, default=False)
     inviter = Column(String(64))
@@ -288,7 +290,7 @@ class Project(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(String(255))
     project_id = Column(String(255))
-    consumption = Column(DECIMAL(20,4))
+    consumption = Column(DECIMAL(20, 4))
     domain_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)
@@ -302,7 +304,7 @@ class UserProject(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(String(255))
     project_id = Column(String(255))
-    consumption = Column(DECIMAL(20,4))
+    consumption = Column(DECIMAL(20, 4))
     domain_id = Column(String(255))
 
     created_at = Column(DateTime, default=timeutils.utcnow)

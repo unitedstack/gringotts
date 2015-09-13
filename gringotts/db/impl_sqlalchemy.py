@@ -106,8 +106,14 @@ def paginate_query(context, model, limit=None, offset=None,
     if not query:
         query = model_query(context, model)
     sort_keys = ['id']
-    if sort_key and sort_key not in sort_keys:
-        sort_keys.insert(0, sort_key)
+    # support for multiple sort_key
+    keys = []
+    if sort_key:
+        keys = sort_key.split(',')
+    for k in keys:
+        k = k.strip()
+        if k and k not in sort_keys:
+            sort_keys.insert(0, k)
     query = _paginate_query(query, model, limit, sort_keys,
                             offset=offset, sort_dir=sort_dir)
     return query.all()
@@ -325,10 +331,13 @@ class Connection(base.Connection):
                                    price=row.price,
                                    used=row.used,
                                    dispatched=row.dispatched,
+                                   deleted=row.deleted,
+                                   operator_id=row.operator_id,
                                    user_id=row.user_id,
                                    project_id=row.project_id,
                                    domain_id=row.domain_id,
                                    created_at=row.created_at,
+                                   deleted_at=row.deleted_at,
                                    expired_at=row.expired_at,
                                    remarks=row.remarks)
 
@@ -1861,10 +1870,11 @@ class Connection(base.Connection):
             account.balance += more_fee
             account.consumption -= more_fee
 
-    @require_admin_context
+    @require_context
     def create_precharge(self, context, **kwargs):
         session = db_session.get_session()
         with session.begin():
+            operator_id = context.user_id
             for i in xrange(kwargs['number']):
                 while True:
                     try:
@@ -1872,6 +1882,8 @@ class Connection(base.Connection):
                             sa_models.PreCharge(
                                 code=gringutils.random_str(),
                                 price=kwargs['price'],
+                                operator_id=operator_id,
+                                remarks=kwargs['remarks'],
                                 expired_at=kwargs['expired_at'])
                         )
                     except db_exception.DBDuplicateEntry:
@@ -1879,17 +1891,13 @@ class Connection(base.Connection):
                     else:
                         break
 
-    @require_context
-    def get_precharges(self, context, user_id=None, project_id=None,
-                       limit=None, offset=None, sort_key=None, sort_dir=None):
+    def get_precharges(self, context, user_id=None, limit=None, offset=None,
+                       sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.PreCharge).\
             filter_by(deleted=False)
 
         if user_id:
             query = query.filter_by(user_id=user_id)
-
-        if project_id:
-            query = query.filter_by(project_id=project_id)
 
         result = paginate_query(context, sa_models.PreCharge,
                                 limit=limit, offset=offset,
@@ -1898,7 +1906,32 @@ class Connection(base.Connection):
 
         return (self._row_to_db_precharge_model(r) for r in result)
 
-    @require_context
+    def get_precharges_count(self, context, user_id=None):
+        query = model_query(context, sa_models.PreCharge,
+                            func.count(sa_models.PreCharge.id).
+                            label('count')).filter_by(deleted=False)
+
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+
+        try:
+            result = query.one()
+        except (NoResultFound):
+            return 0
+        return result.count
+
+    def delete_precharge(self, context, code):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                precharge = model_query(
+                    context, sa_models.PreCharge, session=session).\
+                    filter_by(code=code).one()
+            except NoResultFound:
+                raise exception.PreChargeNotFound(precharge_code=code)
+            precharge.deleted = True
+            precharge.deleted_at = datetime.datetime.utcnow()
+
     def get_precharge_by_code(self, context, code):
         try:
             precharge = model_query(context, sa_models.PreCharge).\
@@ -1909,7 +1942,6 @@ class Connection(base.Connection):
             raise exception.PreChargeNotFound(precharge_code=code)
         return self._row_to_db_precharge_model(precharge)
 
-    @require_admin_context
     def dispatch_precharge(self, context, code, remarks=None):
         session = db_session.get_session()
         with session.begin():
@@ -1917,6 +1949,7 @@ class Connection(base.Connection):
                 precharge = model_query(
                     context, sa_models.PreCharge, session=session).\
                     filter_by(deleted=False).\
+                    filter_by(dispatched=False).\
                     filter_by(code=code).one()
             except NoResultFound:
                 raise exception.PreChargeNotFound(precharge_code=code)
@@ -1925,7 +1958,6 @@ class Connection(base.Connection):
 
         return self._row_to_db_precharge_model(precharge)
 
-    @require_context
     def use_precharge(self, context, code, user_id=None, project_id=None):
         session = db_session.get_session()
         with session.begin():

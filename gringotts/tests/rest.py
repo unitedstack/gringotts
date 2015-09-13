@@ -303,7 +303,7 @@ class RestfulTestCase(tests.TestCase,
         }
         return bill_ref
 
-    def new_precharge_ref(self, number, price, expired_at=None):
+    def new_precharge_ref(self, number, price, expired_at=None, remarks=None):
         precharge_ref = {
             'number': number,
             'price': str(price),
@@ -311,4 +311,7 @@ class RestfulTestCase(tests.TestCase,
         if expired_at:
             # let it be wsme.Unset if expired_at is None
             precharge_ref['expired_at'] = expired_at
+        if remarks:
+            # let it be wsme.Unset if remarks is None
+            precharge_ref['remarks'] = remarks
         return precharge_ref

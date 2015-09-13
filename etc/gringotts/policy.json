@@ -1,5 +1,5 @@
 {
-    "context_is_admin":  "role:admin or role:uos_admin",
+    "context_is_admin": "role:admin or role:uos_admin",
     "context_is_domain_owner": "role:domain_owner",
 
     "uos_admin": "role:uos_admin or role:admin",
@@ -13,6 +13,7 @@
     "account:post": "rule:uos_admin",
     "account:all": "rule:uos_accountant",
     "account:charge": "rule:uos_accountant or role:uos_support_staff",
+    "account:precharge": "rule:uos_accountant or role:uos_support_staff",
     "account:level": "rule:uos_accountant",
     "charges:all": "rule:uos_accountant or rule:uos_staff",
     "account:delete": "rule:context_is_admin",
