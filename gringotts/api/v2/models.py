@@ -379,6 +379,28 @@ class AdminAccounts(APIBase):
     accounts = [AdminAccount]
 
 
+class AdminAccountInDetail(APIBase):
+    """Account in detail for a tenant."""
+    balance = decimal.Decimal
+    consumption = decimal.Decimal
+    level = int
+    user = {wtypes.text: wtypes.text}
+    salesperson = {wtypes.text: wtypes.text}
+    project_id = wtypes.text
+    domain_id = wtypes.text
+    owed = bool
+    inviter = wtypes.text
+    created_at = wtypes.text
+    price_per_day = decimal.Decimal
+    remaining_day = int
+
+
+class AdminAccountsInDetail(APIBase):
+    """Accounts in detail for a tenant."""
+    total_count = int
+    accounts = [AdminAccountInDetail]
+
+
 class AccountSalesPersonPutBody(APIBase):
     sales_id = wtypes.text
 
