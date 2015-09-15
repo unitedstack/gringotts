@@ -211,7 +211,7 @@ class PrechargesDispatchedController(rest.RestController):
                 conn.dispatch_precharge(context, code, data.remarks)
             except Exception as e:
                 LOG.error('Fail to dispatch precharge(%s), for reason: %s' %
-                          (self.code, e))
+                          (code, e))
 
 
 class PrechargesController(rest.RestController):

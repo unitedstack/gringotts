@@ -1926,6 +1926,7 @@ class Connection(base.Connection):
             try:
                 precharge = model_query(
                     context, sa_models.PreCharge, session=session).\
+                    filter_by(deleted=False).\
                     filter_by(code=code).one()
             except NoResultFound:
                 raise exception.PreChargeNotFound(precharge_code=code)
@@ -1949,10 +1950,16 @@ class Connection(base.Connection):
                 precharge = model_query(
                     context, sa_models.PreCharge, session=session).\
                     filter_by(deleted=False).\
-                    filter_by(dispatched=False).\
                     filter_by(code=code).one()
             except NoResultFound:
                 raise exception.PreChargeNotFound(precharge_code=code)
+
+            if precharge.used:
+                raise exception.PreChargeHasUsed(precharge_code=code)
+
+            if precharge.dispatched:
+                raise exception.PreChargeHasDispatched(precharge_code=code)
+
             precharge.dispatched = True
             precharge.remarks = remarks
 
