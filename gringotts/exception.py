@@ -231,6 +231,10 @@ class InvalidParameterValue(Invalid):
     message = _("%(err)s")
 
 
+class OrderRenewError(Invalid):
+    message = _("%(err)s")
+
+
 class NotFound(GringottsException):
     message = _("Resource could not be found.")
     code = 404
@@ -282,25 +286,15 @@ class ProjectCreateFailed(GringottsException):
 
 
 class NotSufficientFund(GringottsException):
-    message = _("Account: %(project_id)s is owed")
+    message = _("The balance of the billing owner %(user_id)s of "
+                "the project %(project_id)s is not sufficient")
     code = 402
 
-    def __init__(self, message=None, **kwargs):
-        self.user_id = kwargs.get('user_id')
-        self.project_id = kwargs.get('project_id')
-        self.resource_id = kwargs.get('resource_id')
-        super(NotSufficientFund, self).__init__(message, **kwargs)
 
-
-class AccountHasOwed(GringottsException):
-    message = _("Account %(project_id)s has owed")
+class NotSufficientFrozenBalance(GringottsException):
+    message = _("The frozen balance of the billing owner %(user_id)s of "
+                "the project %(project_id)s is not sufficient")
     code = 402
-
-    def __init__(self, message=None, **kwargs):
-        self.user_id = kwargs.get('user_id')
-        self.project_id = kwargs.get('project_id')
-        self.resource_id = kwargs.get('resource_id')
-        super(AccountHasOwed, self).__init__(message, **kwargs)
 
 
 class BillCreateFailed(GringottsException):
@@ -324,7 +318,7 @@ class ResourceOrderNotFound(NotFound):
 
 
 class OrderNotFound(NotFound):
-    message = _("Order %(order_id)s bills not found")
+    message = _("Order %(order_id)s not found")
 
 
 class ProductIdNotFound(NotFound):
@@ -502,12 +496,6 @@ class PaymentRequired(HTTPClientError):
     """
     http_status = 402
     message = "Payment Required"
-
-    def __init__(self, message=None, **kwargs):
-        self.user_id = kwargs.get('user_id')
-        self.project_id = kwargs.get('project_id')
-        self.owed = kwargs.get('owed')
-        super(PaymentRequired, self).__init__(message, **kwargs)
 
 
 class Forbidden(HTTPClientError):
@@ -766,11 +754,6 @@ def from_response(response, method, url):
                 kwargs["details"] = body.get("faultstring")
     elif content_type.startswith("text/"):
         kwargs["details"] = response.text
-
-    if response.status_code == 402:
-        kwargs['user_id'] = response.headers.get('user_id')
-        kwargs['project_id'] = response.headers.get('project_id')
-        kwargs['resource_id'] = response.headers.get('resource_id')
 
     try:
         cls = _code_map[response.status_code]

@@ -1,18 +1,16 @@
 from oslo.config import cfg
 
 from gringotts.client import client
-from gringotts.openstack.common import log
-
-
-LOG = log.getLogger(__name__)
+from gringotts.services import keystone
 
 
 def get_gringclient(region_name=None):
-    os_cfg = cfg.CONF.service_credentials
-    c = client.Client(username=os_cfg.os_username,
-                      password=os_cfg.os_password,
-                      project_name=os_cfg.os_tenant_name,
-                      auth_url=os_cfg.os_auth_url)
+    ks_cfg = cfg.CONF.keystone_authtoken
+    auth_url = keystone.get_auth_url()
+    c = client.Client(username=ks_cfg.admin_user,
+                      password=ks_cfg.admin_password,
+                      project_name=ks_cfg.admin_tenant_name,
+                      auth_url=auth_url)
     return c
 
 

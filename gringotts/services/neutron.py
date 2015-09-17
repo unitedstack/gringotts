@@ -1,6 +1,6 @@
-
 import functools
 import time
+import logging as log
 
 from neutronclient.common import exceptions
 from neutronclient.v2_0 import client as neutron_client
@@ -8,7 +8,6 @@ from oslo.config import cfg
 import requests
 
 from gringotts import constants as const
-from gringotts.openstack.common import log
 from gringotts.openstack.common import timeutils
 from gringotts.services import keystone as ks_client
 from gringotts.services import register
@@ -16,13 +15,12 @@ from gringotts.services import Resource
 from gringotts.services import wrap_exception
 from gringotts import utils
 
-LOG = log.getLogger(__name__)
 
+LOG = log.getLogger(__name__)
 register = functools.partial(register,
                              ks_client,
                              service='network',
                              stopped_state=const.STATE_RUNNING)
-
 
 OPTS = [
     cfg.BoolOpt('reserve_fip',
@@ -61,6 +59,7 @@ class FloatingIp(Resource):
                 'floatingip': {
                     'id': self.id,
                     'uos:name': self.name,
+                    'uos:service_provider': self.providers,
                     'rate_limit': self.size,
                     'tenant_id': self.project_id
                 }
@@ -253,6 +252,7 @@ def floatingip_get(fip_id, region_name=None):
     status = utils.transform_status(fip['status'])
     return FloatingIp(id=fip['id'],
                       name=fip['uos:name'],
+                      providers=fip['uos:service_provider'],
                       resource_type=const.RESOURCE_FLOATINGIP,
                       status=status,
                       original_status=fip['status'],
@@ -318,6 +318,7 @@ def floatingip_list(project_id, region_name=None, project_name=None):
             FloatingIp(id=fip['id'],
                        name=fip['uos:name'],
                        size=fip['rate_limit'],
+                       providers=fip['uos:service_provider'],
                        project_id=fip['tenant_id'],
                        project_name=project_name,
                        resource_type=const.RESOURCE_FLOATINGIP,

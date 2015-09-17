@@ -128,7 +128,7 @@ class QuotasController(rest.RestController):
         tq = trove.quota_get(project_id, region_name)
         database_quota = None
         if tq:
-            database_quota = models.TroveQuota(
+            database_quota = models.DatabaseQuota(
                 instances = models.QuotaItem(limit=tq['instances']['limit'],
                                              used=tq['instances']['in_use']),
                 backups = models.QuotaItem(limit=tq['backups']['limit'],
@@ -143,4 +143,4 @@ class QuotasController(rest.RestController):
                             compute=compute_quota,
                             volume=volume_quotas,
                             network=network_quota,
-                            quotas=database_quota)
+                            database=database_quota)

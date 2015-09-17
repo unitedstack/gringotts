@@ -18,7 +18,7 @@ import webtest
 import webtest.debugapp
 
 from gringotts.api.v2 import models as api_models
-import gringotts.client.client
+import gringotts.client.v2.client
 from gringotts.client.auth import token as token_auth_plugin
 import gringotts.context
 from gringotts.db import models as db_models
@@ -26,7 +26,6 @@ from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import timeutils
 import gringotts.policy
 from gringotts.tests import gring_fixtures
-from gringotts.worker import httpapi
 from gringotts import utils as gring_utils
 
 
@@ -72,7 +71,7 @@ class BaseTestCase(base.BaseTestCase):
 class TestCase(BaseTestCase):
 
     DATE_FORMAT = '%Y-%m-%d'
-    TIMESTAMP_FORMAT = httpapi.TIMESTAMP_TIME_FORMAT
+    TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
     ISOTIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
     LOG_FORMAT = '%(levelname)8s [%(name)s] %(message)s'
 
@@ -351,7 +350,9 @@ class MiddlewareTestCase(BaseTestCase):
             fixtures.FakeLogger(level=logging.DEBUG, format=self.LOG_FORMAT))
         self.mock_gringotts_client()
 
-        self.environ = {'HTTP_X_PROJECT_ID': self.new_uuid()}
+        self.environ = {'HTTP_X_USER_ID': self.new_uuid(),
+                        'HTTP_X_PROJECT_ID': self.new_uuid(),
+                        'HTTP_X_ROLES': '_member_'}
 
     def config_files(self):
         test_config_path = os.path.join(
@@ -369,24 +370,27 @@ class MiddlewareTestCase(BaseTestCase):
     def mock_gringotts_client(self):
         self.mocked_client = mock.MagicMock(name='gringotts.client')
         self.useFixture(mockpatch.PatchObject(
-            gringotts.client.client, 'Client',
+            gringotts.client.v2.client, 'Client',
             return_value=self.mocked_client))
 
     def get(self, path, params=None, status=None):
         return self.app.get(path, params=params, extra_environ=self.environ,
                             status=status)
 
-    def post_json(self, path, params='', status=None):
+    def post_json(self, path, params={}, status=None):
         return self.app.post_json(path, params=params,
                                   extra_environ=self.environ, status=status)
 
-    def put_json(self, path, params='', status=None):
+    def put_json(self, path, params={}, status=None):
         return self.app.put_json(path, params=params,
                                  extra_environ=self.environ, status=status)
 
-    def delete(self, path, params='', status=None):
+    def delete(self, path, params={}, status=None):
         return self.app.delete(path, params=params,
                                extra_environ=self.environ, status=status)
 
     def build_billing_owner(self, level=3, balance='0'):
         return {'level': level, 'balance': balance}
+
+    def build_order(self, unit=None):
+        return {'unit': unit, 'order_id': self.new_uuid4()}

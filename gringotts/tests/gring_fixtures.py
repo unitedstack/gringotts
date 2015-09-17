@@ -131,7 +131,8 @@ class AccountAndProjectData(fixtures.Fixture):
 
     def __init__(self, dbconn, context,
                  user_id, project_id, domain_id, level, owed=False,
-                 balance=0, consumption=0, inviter=None, sales_id=None):
+                 balance=0, frozen_balance=0, consumption=0, inviter=None,
+                 sales_id=None):
 
         self.dbconn = dbconn
         self.context = context
@@ -143,6 +144,7 @@ class AccountAndProjectData(fixtures.Fixture):
         self.inviter = inviter
         self.sales_id = sales_id
         self.balance = balance
+        self.frozen_balance = frozen_balance
         self.consumption = consumption
 
     def setUp(self):
@@ -151,6 +153,7 @@ class AccountAndProjectData(fixtures.Fixture):
         self.account = db_models.Account(
             user_id=self.user_id, project_id=self.project_id,
             domain_id=self.domain_id, balance=self.balance,
+            frozen_balance=self.frozen_balance,
             consumption=self.consumption, level=self.level,
             inviter=self.inviter, sales_id=self.sales_id
         )

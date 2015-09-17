@@ -192,7 +192,8 @@ class AlarmDeleteEnd(AlarmNotificationBase):
         resource_id = message['payload']['alarm_id']
         order = self.get_order_by_resource_id(resource_id)
 
-        # Notify master
-        action_time = message['timestamp']
-        remarks = 'Alarm Has Been Deleted'
-        self.resource_deleted(order['order_id'], action_time, remarks)
+        if not order.get('unit') or order.get('unit') == 'hour':
+            # Notify master
+            action_time = message['timestamp']
+            remarks = 'Alarm Has Been Deleted'
+            self.resource_deleted(order['order_id'], action_time, remarks)

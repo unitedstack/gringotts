@@ -8,6 +8,7 @@ import sys
 import calendar
 
 from dateutil import tz
+from dateutil.relativedelta import relativedelta
 from decimal import Decimal, ROUND_HALF_UP
 from oslo.config import cfg
 from gringotts import constants as const
@@ -43,6 +44,18 @@ def next_month_days(year, month):
     year += month / 12
     month = month % 12 + 1
     return calendar.monthrange(year, month)[1]
+
+
+def to_months(method, period):
+    if method == 'month':
+        return period
+    elif method == 'year':
+        return period * 12
+    raise ValueError("method should be month or year")
+
+
+def add_months(source_datetime, months):
+    return source_datetime + relativedelta(months=months)
 
 
 def import_class(import_str):
@@ -117,7 +130,7 @@ def utc_to_local(utc_dt):
 
 def random_str(randomlength=16):
     str = ''
-    chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    chars = 'ABCDEFGHIJKLMNPQRSTUVWXY13456789'
     length = len(chars) - 1
     random = Random()
     for i in range(randomlength):
@@ -204,3 +217,15 @@ class HashRing(object):
             return None
         pos = self._get_position_on_ring(key)
         return self._ring[self._sorted_keys[pos]]
+
+
+def true_or_false(abool):
+    if isinstance(abool, bool):
+        return abool
+    elif isinstance(abool, six.string_types):
+        abool = abool.lower()
+        if abool == 'true':
+            return True
+        if abool == 'false':
+            return False
+    raise ValueError("should be bool or true/false string")

@@ -1,4 +1,5 @@
 import functools
+import logging as log
 
 from oslo.config import cfg
 import  glanceclient
@@ -7,8 +8,6 @@ from glanceclient.exc import NotFound,HTTPNotFound
 from gringotts import utils
 from gringotts import constants as const
 
-from gringotts.openstack.common import log
-
 from gringotts.openstack.common import timeutils
 from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception,register
@@ -16,7 +15,6 @@ from gringotts.services import Resource
 
 
 LOG = log.getLogger(__name__)
-
 register = functools.partial(register,
                              ks_client,
                              service='image',
@@ -58,6 +56,7 @@ def image_get(image_id, region_name=None):
     status = utils.transform_status(image.status)
     return Image(id=image.id,
                  name=image.name,
+                 image_label=image.get('image_label', 'default').lower(),
                  status=status,
                  original_status=image.status,
                  resource_type=const.RESOURCE_IMAGE)

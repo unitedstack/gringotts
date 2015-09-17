@@ -83,6 +83,6 @@ if __name__ == '__main__':
     for name, service, region_id, unit_price, ram, vcpus, disk in products:
         try:
             create_product(name, service, region_id, unit_price)
-            create_flavor(name, ram, vcpus, disk)
+            #create_flavor(name, ram, vcpus, disk)
         except Exception:
             pass

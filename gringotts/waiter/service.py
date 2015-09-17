@@ -61,7 +61,7 @@ class WaiterService(rpc_service.Service):
         self.tg.add_timer(604800, lambda: None)
 
     def initialize_service_hook(self, service):
-        '''Consumers must be declared before consume_thread start.'''
+        """Consumers must be declared before consume_thread start."""
 
         self.notification_manager = \
             extension.ExtensionManager(

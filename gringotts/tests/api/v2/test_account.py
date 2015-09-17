@@ -1,12 +1,13 @@
 
 import mock
 
+from gringotts.client.v2 import client
 from gringotts import exception
 from gringotts.openstack.common import log as logging
 from gringotts.services import keystone
 from gringotts.tests import gring_fixtures
 from gringotts.tests import rest
-from gringotts.worker import api as worker_api
+
 
 LOG = logging.getLogger(__name__)
 
@@ -260,7 +261,7 @@ class ExternalAccountTestCase(rest.RestfulTestCase):
             consumption=admin_account.balance)
         query_url = self.build_account_query_url(account_ref['user_id'])
 
-        with mock.patch.object(worker_api.HTTPAPI, 'get_external_balance',
+        with mock.patch.object(client.Client, 'get_external_balance',
                                return_value=external_balance):
             resp = self.get(query_url, headers=self.admin_headers)
             account = resp.json_body
@@ -271,7 +272,7 @@ class ExternalAccountTestCase(rest.RestfulTestCase):
 
         query_url = self.build_account_query_url(user_id)
         e = exception.GetExternalBalanceFailed(user_id=user_id)
-        with mock.patch.object(worker_api.HTTPAPI, 'get_external_balance',
+        with mock.patch.object(client.Client, 'get_external_balance',
                                side_effect=e):
             resp = self.get(query_url, headers=self.admin_headers,
                             expected_status=500)

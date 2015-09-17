@@ -6,12 +6,8 @@ import json
 import requests
 from oslo.config import cfg
 
-from gringotts.openstack.common import log
 from gringotts.services import keystone
 from gringotts.services import wrap_exception
-
-
-LOG = log.getLogger(__name__)
 
 
 OPTS = [

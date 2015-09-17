@@ -121,6 +121,9 @@ class Order(Base):
     cron_time = Column(DateTime)
     owed = Column(Boolean, default=False)
     charged = Column(Boolean, default=False)
+    renew = Column(Boolean, default=False)
+    renew_method = Column(String(64))
+    renew_period = Column(Integer)
     date_time = Column(DateTime)
 
     user_id = Column(String(255))
@@ -271,6 +274,7 @@ class Account(Base):
     project_id = Column(String(255))
     domain_id = Column(String(255))
     balance = Column(DECIMAL(20, 4))
+    frozen_balance = Column(DECIMAL(20, 4))
     consumption = Column(DECIMAL(20, 4))
     level = Column(Integer)
     owed = Column(Boolean, default=False)

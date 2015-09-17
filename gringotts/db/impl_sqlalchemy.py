@@ -227,6 +227,9 @@ class Connection(base.Connection):
                                domain_id=row.domain_id,
                                owed=row.owed,
                                charged=row.charged,
+                               renew=row.renew,
+                               renew_method=row.renew_method,
+                               renew_period=row.renew_period,
                                created_at=row.created_at,
                                updated_at=row.updated_at)
 
@@ -273,6 +276,7 @@ class Connection(base.Connection):
                                  project_id=row.project_id,
                                  domain_id=row.domain_id,
                                  balance=row.balance,
+                                 frozen_balance=row.frozen_balance,
                                  consumption=row.consumption,
                                  level=row.level,
                                  owed=row.owed,
@@ -481,29 +485,128 @@ class Connection(base.Connection):
     def create_order(self, context, **order):
         session = db_session.get_session()
         with session.begin():
-            project = self.get_project(context, order['project_id'])
-            ref = sa_models.Order(
-                order_id=order['order_id'],
-                resource_id=order['resource_id'],
-                resource_name=order['resource_name'],
-                type=order['type'],
-                unit_price=order['unit_price'],
-                unit=order['unit'],
-                total_price=0,
-                cron_time=None,
-                date_time=None,
-                status=order['status'],
-                user_id=project.user_id,  # the payer
-                project_id=order['project_id'],
-                domain_id=project.domain_id,
-                region_id=order['region_id'],
-            )
-            session.add(ref)
+            # get project
+            try:
+                project = model_query(
+                    context, sa_models.Project, session=session).\
+                    filter_by(project_id=order['project_id']).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                LOG.error('Could not find the project: %s', order['project_id'])
+                raise exception.ProjectNotFound(project_id=order['project_id'])
+
+            if order['unit'] == 'hour':
+                ref = sa_models.Order(
+                    order_id=order['order_id'],
+                    resource_id=order['resource_id'],
+                    resource_name=order['resource_name'],
+                    type=order['type'],
+                    unit_price=order['unit_price'],
+                    unit=order['unit'],
+                    total_price=0,
+                    cron_time=None,
+                    date_time=None,
+                    status=order['status'],
+                    user_id=project.user_id,  # the payer
+                    project_id=order['project_id'],
+                    domain_id=project.domain_id,
+                    region_id=order['region_id'],
+                )
+                session.add(ref)
+            else:
+                start_time = timeutils.utcnow()
+                months = gringutils.to_months(order['unit'], order['period'])
+                end_time = gringutils.add_months(start_time, months)
+                total_price = order['unit_price'] * order['period']
+                if order['period'] > 1:
+                    remarks = "Charge for %s %ss" % \
+                            (order['period'], order['unit'])
+                else:
+                    remarks = "Charge for %s %s" % \
+                            (order['period'], order['unit'])
+
+                # add a bill
+                bill = sa_models.Bill(
+                    bill_id=uuidutils.generate_uuid(),
+                    start_time=start_time,
+                    end_time=end_time,
+                    type=order['type'],
+                    status=const.BILL_PAYED,
+                    unit_price=order['unit_price'],
+                    unit=order['unit'],
+                    total_price=total_price,
+                    order_id=order['order_id'],
+                    resource_id=order['resource_id'],
+                    remarks=remarks,
+                    user_id=project.user_id,
+                    project_id=order['project_id'],
+                    region_id=order['region_id'],
+                    domain_id=project.domain_id)
+                session.add(bill)
+
+                # add an order
+                ref = sa_models.Order(
+                    order_id=order['order_id'],
+                    resource_id=order['resource_id'],
+                    resource_name=order['resource_name'],
+                    type=order['type'],
+                    unit_price=order['unit_price'],
+                    unit=order['unit'],
+                    total_price=total_price,
+                    cron_time=end_time,
+                    date_time=None,
+                    status=order['status'],
+                    user_id=project.user_id,  # the payer
+                    project_id=order['project_id'],
+                    domain_id=project.domain_id,
+                    region_id=order['region_id'],
+                )
+                if order['renew']:
+                    ref.renew = order['renew']
+                    ref.renew_method = order['unit']
+                    ref.renew_period = order['period']
+                session.add(ref)
+
+                # Update project and user_project
+                try:
+                    user_project = model_query(
+                        context, sa_models.UserProject, session=session).\
+                        filter_by(project_id=order['project_id']).\
+                        filter_by(user_id=project.user_id).\
+                        with_lockmode('update').one()
+                except NoResultFound:
+                    LOG.error('Could not find the relationship between user(%s) '
+                              'and project(%s)',
+                              project.user_id, order['project_id'])
+                    raise exception.UserProjectNotFound(
+                        user_id=project.user_id,
+                        project_id=order['project_id'])
+
+                project.consumption += total_price
+                project.updated_at = datetime.datetime.utcnow()
+                user_project.consumption += total_price
+                user_project.updated_at = datetime.datetime.utcnow()
+
+                # Update account
+                try:
+                    account = model_query(
+                        context, sa_models.Account, session=session).\
+                        filter_by(user_id=project.user_id).\
+                        with_lockmode('update').one()
+                except NoResultFound:
+                    LOG.error('Could not find the account: %s', project.user_id)
+                    raise exception.AccountNotFound(user_id=project.user_id)
+
+                account.frozen_balance -= total_price
+                account.consumption += total_price
+                account.updated_at = datetime.datetime.utcnow()
+
         return self._row_to_db_order_model(ref)
 
     @require_admin_context
     def update_order(self, context, **kwargs):
-
+        """Change unit price of this order
+        """
         session = db_session.get_session()
         with session.begin():
             # Get subs of this order
@@ -515,7 +618,6 @@ class Connection(base.Connection):
 
             # caculate new unit price
             unit_price = 0
-            unit = None
 
             for sub in subs:
                 price_data = None
@@ -528,11 +630,9 @@ class Connection(base.Connection):
 
                 unit_price += pricing.calculate_price(
                     sub.quantity, sub.unit_price, price_data)
-                unit = sub.unit
 
             # update the order
             a_order = dict(unit_price=unit_price,
-                           unit=unit,
                            updated_at=datetime.datetime.utcnow())
 
             if kwargs['change_order_status']:
@@ -545,6 +645,23 @@ class Connection(base.Connection):
                 filter_by(order_id=kwargs['order_id']).\
                 with_lockmode('update').\
                 update(a_order)
+
+    @require_admin_context
+    def close_order(self, context, order_id):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                order = model_query(
+                    context, sa_models.Order, session=session).\
+                    filter_by(order_id=order_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.OrderNotFound(order_id=order_id)
+            order.cron_time = None
+            order.unit_price = quantize('0.0000')
+            order.status = const.STATE_DELETED
+            order.updated_at = datetime.datetime.utcnow()
+        return self._row_to_db_order_model(order)
 
     @require_context
     def get_order_by_resource_id(self, context, resource_id):
@@ -574,8 +691,8 @@ class Connection(base.Connection):
     def get_orders(self, context, start_time=None, end_time=None, type=None,
                    status=None, limit=None, offset=None, sort_key=None,
                    sort_dir=None, with_count=False, region_id=None,
-                   user_id=None, project_ids=None, owed=None,
-                   read_deleted=True):
+                   user_id=None, project_ids=None, owed=None, resource_id=None,
+                   bill_method=None, read_deleted=True):
         """Get orders that have bills during start_time and end_time.
         If start_time is None or end_time is None, will ignore the datetime
         range, and return all orders
@@ -586,6 +703,10 @@ class Connection(base.Connection):
             query = query.filter_by(type=type)
         if status:
             query = query.filter_by(status=status)
+        if resource_id:
+            query = query.filter_by(resource_id=resource_id)
+        if bill_method:
+            query = query.filter_by(unit=bill_method)
         if region_id:
             query = query.filter_by(region_id=region_id)
         if user_id:
@@ -1289,7 +1410,7 @@ class Connection(base.Connection):
         return self._row_to_db_project_model(project_ref)
 
     @require_context
-    def get_project_billing_owner(self, context, project_id):
+    def get_billing_owner(self, context, project_id):
         try:
             project = model_query(context, sa_models.Project).\
                 filter_by(project_id=project_id).one()
@@ -1301,6 +1422,58 @@ class Connection(base.Connection):
                 filter_by(user_id=project.user_id).one()
         except NoResultFound:
             raise exception.AccountNotFound(user_id=project.user_id)
+
+        return self._row_to_db_account_model(account)
+
+    @require_admin_context
+    def freeze_balance(self, context, project_id, total_price):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                project = model_query(context, sa_models.Project).\
+                    filter_by(project_id=project_id).one()
+            except NoResultFound:
+                raise exception.ProjectNotFound(project_id=project_id)
+
+            try:
+                account = session.query(sa_models.Account).\
+                    filter_by(user_id=project.user_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.AccountNotFound(user_id=project.user_id)
+
+            if account.balance < total_price and account.level != 9:
+                raise exception.NotSufficientFund(user_id=project.user_id,
+                                                  project_id=project_id)
+
+            account.balance -= total_price
+            account.frozen_balance += total_price
+
+        return self._row_to_db_account_model(account)
+
+    @require_admin_context
+    def unfreeze_balance(self, context, project_id, total_price):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                project = model_query(context, sa_models.Project).\
+                    filter_by(project_id=project_id).one()
+            except NoResultFound:
+                raise exception.ProjectNotFound(project_id=project_id)
+
+            try:
+                account = session.query(sa_models.Account).\
+                    filter_by(user_id=project.user_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.AccountNotFound(user_id=project.user_id)
+
+            if account.frozen_balance < total_price:
+                raise exception.NotSufficientFrozenBalance(
+                    user_id=project.user_id, project_id=project_id)
+
+            account.balance += total_price
+            account.frozen_balance -= total_price
 
         return self._row_to_db_account_model(account)
 
@@ -2217,3 +2390,99 @@ class Connection(base.Connection):
         except (NoResultFound):
             # This salesperson has no customer
             return ()
+
+    def activate_auto_renew(self, context, order_id, renew):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                order = model_query(
+                    context, sa_models.Order, session=session).\
+                    filter_by(order_id=order_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.OrderNotFound(order_id=order_id)
+
+            if not order.unit or order.unit == 'hour':
+                raise exception.OrderRenewError(
+                    err="Hourly billing resources can't be renewed")
+
+            if order.status == const.STATE_DELETED:
+                raise exception.OrderRenewError(
+                    err="Deleted resource can't be renewed")
+
+            order.renew = True
+            order.renew_method = renew.method
+            order.renew_period = renew.period
+            order.updated_at = datetime.datetime.utcnow()
+        return self._row_to_db_order_model(order)
+
+    def switch_auto_renew(self, context, order_id, action):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                order = model_query(
+                    context, sa_models.Order, session=session).\
+                    filter_by(order_id=order_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.OrderNotFound(order_id=order_id)
+
+            if not order.unit or order.unit == 'hour':
+                raise exception.OrderRenewError(
+                    err="Hourly billing resources can't be renewed")
+
+            if order.status == const.STATE_DELETED:
+                raise exception.OrderRenewError(
+                    err="Deleted resource can't be renewed")
+
+            if not order.renew_method or not order.renew_period:
+                raise exception.OrderRenewError(
+                    err="The order's auto renew has not been activated")
+
+            if action == 'start':
+                order.renew = True
+            elif action == 'stop':
+                order.renew = False
+            order.updated_at = datetime.datetime.utcnow()
+        return self._row_to_db_order_model(order)
+
+    def renew_order(self, context, order_id, renew):
+        session = db_session.get_session()
+        with session.begin():
+            try:
+                order = model_query(
+                    context, sa_models.Order, session=session).\
+                    filter_by(order_id=order_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.OrderNotFound(order_id=order_id)
+
+            if not order.unit or order.unit == 'hour':
+                raise exception.OrderRenewError(
+                    err="Hourly billing resources can't be renewed")
+
+            if order.status == const.STATE_DELETED:
+                raise exception.OrderRenewError(
+                    err="Deleted resource can't be renewed")
+
+            if not order.cron_time:
+                raise exception.OrderRenewError(err="Order cron_time is None")
+
+            months = gringutils.to_months(renew.method, renew.period)
+
+            # Get subs of this order
+            subs = model_query(
+                context, sa_models.Subscription, session=session).\
+                filter_by(order_id=order_id).\
+                filter_by(type=order.status).\
+                with_lockmode('read').all()
+
+            if renew.auto:
+                order.renew = True
+                order.renew_method = renew.method
+                order.renew_period = renew.period
+
+            order.cron_time = gringutils.add_months(order.cron_time, months)
+            order.date_time = None
+            order.updated_at = datetime.datetime.utcnow()
+        return self._row_to_db_order_model(order)

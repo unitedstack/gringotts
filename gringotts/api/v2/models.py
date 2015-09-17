@@ -126,7 +126,7 @@ class SimpleProduct(APIBase):
     extra = wtypes.text
 
 
-class Purchase(APIBase):
+class PurchaseItem(APIBase):
     """A purchase."""
     product_name = wtypes.text
     service = wtypes.text
@@ -134,11 +134,14 @@ class Purchase(APIBase):
     quantity = int
 
 
+class Purchase(APIBase):
+    purchases = [PurchaseItem]
+    bill_method = wtypes.text
+
+
 class Price(APIBase):
     """Price represents some products collection."""
     unit_price = decimal.Decimal
-    hourly_price = decimal.Decimal
-    monthly_price = decimal.Decimal
     unit = wtypes.text
 
 
@@ -209,6 +212,8 @@ class OrderPostBody(APIBase):
     order_id = wtypes.text
     unit_price = decimal.Decimal
     unit = wtypes.text
+    period = int
+    renew = bool
     resource_id = wtypes.text
     resource_name = wtypes.text
     user_id = wtypes.text
@@ -237,16 +242,21 @@ class Order(APIBase):
     resource_name = wtypes.text
     status = wtypes.text
     unit_price = decimal.Decimal
+    unit = wtypes.text
     total_price = decimal.Decimal
     type = wtypes.text
     cron_time = wtypes.text
     date_time = wtypes.text
     created_at = wtypes.text
+    updated_at = wtypes.text
     user_id = wtypes.text
     project_id = wtypes.text
     domain_id = wtypes.text
     region_id = wtypes.text
     owed = bool
+    renew = bool
+    renew_method = wtypes.text
+    renew_period = int
 
     @classmethod
     def sample1(cls):
@@ -363,6 +373,7 @@ class Invitees(APIBase):
 class AdminAccount(APIBase):
     """Account Detail for a tenant."""
     balance = decimal.Decimal
+    frozen_balance = decimal.Decimal
     consumption = decimal.Decimal
     level = int
     user_id = wtypes.text
@@ -646,7 +657,7 @@ class ComputeQuota(APIBase):
     key_pairs = QuotaItem
 
 
-class TroveQuota(APIBase):
+class DatabaseQuota(APIBase):
     instances = QuotaItem
     backups = QuotaItem
     volumes = QuotaItem
@@ -678,7 +689,7 @@ class Quota(APIBase):
     compute = ComputeQuota
     volume = [VolumeQuota]
     network = NetworkQuota
-    quotas = TroveQuota
+    database = DatabaseQuota
 
 
 class Estimate(APIBase):
@@ -748,3 +759,24 @@ class TransferMoneyBody(APIBase):
 class AccountsSales(APIBase):
     accounts = [wtypes.text]
     sales_id = wtypes.text
+
+
+class Renew(APIBase):
+    method = wtypes.text
+    period = int
+    auto = bool
+
+
+class SwitchRenew(APIBase):
+    action = wsme.wsattr(wtypes.text, mandatory=True)
+
+
+class BalanceFrozenResult(APIBase):
+    user_id = wtypes.text
+    project_id = wtypes.text
+    balance = decimal.Decimal
+    frozen_balance = decimal.Decimal
+
+
+class BalanceFrozenBody(APIBase):
+    total_price = wsme.wsattr(decimal.Decimal, mandatory=True)

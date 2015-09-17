@@ -11,9 +11,8 @@ from wsme import types as wtypes
 from oslo.config import cfg
 
 from gringotts import constants as const
-from gringotts import worker
 from gringotts.api import acl
-from gringotts.api.app import external_client
+from gringotts.api import app
 from gringotts import exception
 from gringotts import utils as gringutils
 from gringotts.api.v2 import models
@@ -28,18 +27,96 @@ from gringotts.openstack.common import timeutils
 LOG = log.getLogger(__name__)
 
 
+class BillingOwnerController(rest.RestController):
+
+    _custom_actions = {
+        'freeze': ['PUT'],
+        'unfreeze': ['PUT'],
+    }
+
+    def __init__(self, project_id, external_client):
+        self.project_id = project_id
+        self.external_client = external_client
+
+    @wsexpose(None, wtypes.text)
+    def put(self, user_id):
+        """Change billing_owner of this project."""
+        self.conn = pecan.request.db_conn
+        self.conn.change_billing_owner(request.context,
+                                       project_id=self.project_id,
+                                       user_id=user_id)
+
+    @wsexpose(models.UserAccount)
+    def get(self):
+        self.conn = pecan.request.db_conn
+        account = self.conn.get_billing_owner(request.context,
+                                                      self.project_id)
+        try:
+            if cfg.CONF.external_billing.enable:
+                external_balance = self.external_client.get_external_balance(
+                    account.user_id)['data'][0]['money']
+                account.balance = gringutils._quantize_decimal(
+                    external_balance)
+        except Exception:
+            LOG.exception("Fail to get external balance of the account: %s" % \
+                account.user_id)
+        return models.UserAccount.from_db_model(account)
+
+    @wsexpose(models.BalanceFrozenResult, body=models.BalanceFrozenBody)
+    def freeze(self, data):
+        self.conn = pecan.request.db_conn
+        try:
+            account = self.conn.freeze_balance(request.context,
+                                               self.project_id,
+                                               data.total_price)
+        except (exception.ProjectNotFound, exception.AccountNotFound):
+            raise
+        except exception.NotSufficientFund:
+            raise
+        except Exception:
+            msg = "Fail to freeze balance %s of the project_id %s" % \
+                (data.total_price, self.project_id)
+            LOG.exception(msg)
+            raise exception.GringottsException(message=msg)
+
+        return models.BalanceFrozenResult(user_id=account.user_id,
+                                          project_id=account.project_id,
+                                          balance=account.balance,
+                                          frozen_balance=account.frozen_balance)
+
+    @wsexpose(models.BalanceFrozenResult, body=models.BalanceFrozenBody)
+    def unfreeze(self, data):
+        self.conn = pecan.request.db_conn
+        try:
+            account = self.conn.unfreeze_balance(request.context,
+                                                 self.project_id,
+                                                 data.total_price)
+        except (exception.ProjectNotFound, exception.AccountNotFound):
+            raise
+        except exception.NotSufficientFrozenBalance:
+            raise
+        except Exception:
+            msg = "Fail to unfreeze balance %s of the project_id %s" % \
+                (data.total_price, self.project_id)
+            LOG.exception(msg)
+            raise exception.GringottsException(message=msg)
+
+        return models.BalanceFrozenResult(user_id=account.user_id,
+                                          project_id=account.project_id,
+                                          balance=account.balance,
+                                          frozen_balance=account.frozen_balance)
+
+
 class ProjectController(rest.RestController):
     """Manages operations on project."""
 
     _custom_actions = {
-        'billing_owner': ['PUT'],
-        'get_billing_owner': ['GET'],
         'estimate': ['GET'],
     }
 
-    def __init__(self, project_id, worker_api):
+    def __init__(self, project_id, external_client):
         self._id = project_id
-        self.worker_api = worker_api
+        self.external_client = external_client
 
     def _project(self):
         self.conn = pecan.request.db_conn
@@ -51,30 +128,16 @@ class ProjectController(rest.RestController):
             raise exception.ProjectNotFound(project_id=self._id)
         return project
 
+    @pecan.expose()
+    def _lookup(self, subpath, *remainder):
+        if subpath == 'billing_owner':
+            return (BillingOwnerController(self._id, self.external_client),
+                    remainder)
+
     @wsexpose(models.Project)
     def get(self):
         """Return this project."""
         return models.Project.from_db_model(self._project())
-
-    @wsexpose(None, wtypes.text)
-    def billing_owner(self, user_id):
-        """Change billing_owner of this project."""
-        self.conn = pecan.request.db_conn
-        self.conn.change_billing_owner(request.context,
-                                       project_id=self._id,
-                                       user_id=user_id)
-
-    @wsexpose(models.UserAccount)
-    def get_billing_owner(self):
-        self.conn = pecan.request.db_conn
-        account = self.conn.get_project_billing_owner(request.context, self._id)
-        try:
-            if cfg.CONF.external_billing.enable:
-                external_balance = self.worker_api.get_external_balance(request.context, account.user_id)['data'][0]['money']
-                account.balance = gringutils._quantize_decimal(external_balance)
-        except Exception:
-            LOG.exception("Fail to get external balance of the account: %s" % account.user_id)
-        return models.UserAccount.from_db_model(account)
 
     @wsexpose(models.Summaries, wtypes.text)
     def estimate(self, region_id=None):
@@ -130,13 +193,13 @@ class ProjectsController(rest.RestController):
     """Manages operations on the projects collection."""
 
     def __init__(self):
-        self.worker_api = worker.API(external_client())
+        self.external_client = app.external_client()
 
     @pecan.expose()
     def _lookup(self, project_id, *remainder):
         if remainder and not remainder[-1]:
             remainder = remainder[:-1]
-        return ProjectController(project_id, self.worker_api), remainder
+        return ProjectController(project_id, self.external_client), remainder
 
     @wsexpose([models.UserProject], wtypes.text, wtypes.text)
     def get_all(self, user_id=None, type=None):

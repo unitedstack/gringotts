@@ -11,11 +11,7 @@ from gringotts.api import acl
 from gringotts.api import config
 from gringotts.api import hooks
 from gringotts.api import middleware
-from gringotts.client import client
-
-from gringotts.openstack.common import log as logger
-
-LOG = logger.getLogger(__name__)
+from gringotts.client.v2 import client
 
 
 auth_opts = [

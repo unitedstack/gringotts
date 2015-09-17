@@ -6,16 +6,18 @@ UUID_RE = r"([0-9a-f]{32}|[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-
 RESOURCE_RE = r"(shares)"
 
 
-def create_resource_action(method, path_info, body):
-    if method == "POST" and re.match(r"^/%s/%s([.][^.]+)?$" % (UUID_RE, RESOURCE_RE), path_info):
-        return True
-    return False
-
-
 class ManilaBillingProtocol(base.BillingProtocol):
-    black_list  = [
-        create_resource_action,
-    ]
+
+    def __init__(self, app, conf):
+        super(ManilaBillingProtocol, self).__init__(app, conf)
+        self.resource_regex = re.compile(
+            r"^/%s/%s/%s([.][^.]+)?$" % (UUID_RE, RESOURCE_RE, UUID_RE), re.UNICODE)
+        self.create_resource_regex = re.compile(
+            r"^/%s/%s([.][^.]+)?$" % (UUID_RE, RESOURCE_RE), re.UNICODE)
+        self.position = 2
+        self.resource_regexs = [
+            self.resource_regex,
+        ]
 
 
 def filter_factory(global_conf, **local_conf):

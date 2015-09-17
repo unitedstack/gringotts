@@ -5,7 +5,6 @@ from oslo.config import cfg
 from gringotts.master import rpcapi
 from gringotts.master import service
 
-from gringotts.openstack.common import log as logging
 
 master_opts = [
     cfg.BoolOpt('use_local',
@@ -20,8 +19,6 @@ CONF = cfg.CONF
 CONF.register_group(master_group)
 CONF.register_opts(master_opts, master_group)
 
-LOG = logging.getLogger(__name__)
-
 
 class LocalAPI(object):
     """A local version of the master API that handles all requests
@@ -30,6 +27,14 @@ class LocalAPI(object):
 
     def __init__(self):
         self._service = service.MasterService()
+
+    def change_cron_job_time(self, ctxt, order_id, cron_time,
+                             clear_date_jobs=None):
+        self._service.change_cron_job_time(ctxt, order_id, cron_time,
+                                           clear_date_jobs=clear_date_jobs)
+
+    def delete_sched_jobs(self, ctxt, order_id):
+        self._service.delete_sched_jobs(ctxt, order_id)
 
     def get_apsched_jobs_count(self, ctxt):
         return self._service.get_apsched_jobs_count(ctxt)

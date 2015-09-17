@@ -1,4 +1,5 @@
 import json
+import logging as log
 import requests
 
 from oslo.config import cfg
@@ -7,11 +8,9 @@ from keystoneclient.v3 import client
 from gringotts import exception
 from gringotts.services import wrap_exception
 from gringotts.openstack.common import memorycache
-from gringotts.openstack.common import log
 
 
 LOG = log.getLogger(__name__)
-
 CACHE_SECONDS = 60 * 60 * 24
 MC = None
 
@@ -97,16 +96,26 @@ def force_v3_api(url):
 ks_client = None
 
 
+def get_auth_url():
+    ks_cfg = cfg.CONF.keystone_authtoken
+    if not ks_cfg.identity_uri:
+        identity_uri = '%s://%s:%s' % (ks_cfg.auth_protocol,
+                                       ks_cfg.auth_host,
+                                       ks_cfg.auth_port)
+    else:
+        identity_uri = ks_cfg.identity_uri.rstrip('/')
+    return '%s/v3' % identity_uri
+
+
 def get_ks_client():
     global ks_client
     if ks_client is None:
-        os_cfg = cfg.CONF.service_credentials
-        ks_client = client.Client(user_domain_name=os_cfg.user_domain_name,
-                                  username=os_cfg.os_username,
-                                  password=os_cfg.os_password,
-                                  project_domain_name=os_cfg.project_domain_name,
-                                  project_name=os_cfg.os_tenant_name,
-                                  auth_url=os_cfg.os_auth_url)
+        auth_url = get_auth_url()
+        ks_cfg = cfg.CONF.keystone_authtoken
+        ks_client = client.Client(username=ks_cfg.admin_user,
+                                  password=ks_cfg.admin_password,
+                                  project_name=ks_cfg.admin_tenant_name,
+                                  auth_url=auth_url)
         ks_client.management_url = force_v3_api(ks_client.management_url)
     return ks_client
 
@@ -172,7 +181,7 @@ def get_endpoint(region_name, service_type, endpoint_type=None, project_id=None)
         raise exception.EmptyCatalog()
 
     if not endpoint_type:
-        endpoint_type = cfg.CONF.service_credentials.os_endpoint_type
+        endpoint_type = 'admin'
 
     endpoint_type = endpoint_type.rstrip('URL')
 
@@ -275,7 +284,8 @@ def get_project(project_id):
 @wrap_exception(exc_type='get', with_raise=False)
 def get_uos_user(user_id):
 
-    internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url + '/US-INTERNAL'+ '/' + api
+    auth_url = get_auth_url()
+    internal_api = lambda api: auth_url + '/US-INTERNAL'+ '/' + api
 
     query = {'query': {'id': user_id}}
     r = requests.post(internal_api('get_user'),
@@ -311,9 +321,8 @@ def get_users_by_user_ids(user_ids=[]):
 @wrap_exception(exc_type='get', with_raise=False)
 def get_uos_user_by_name(user_name):
 
-    internal_api = \
-        lambda api: cfg.CONF.service_credentials.os_auth_url
-    internal_api += '/US-INTERNAL' + '/' + api
+    auth_url = get_auth_url()
+    internal_api = lambda api: auth_url + '/US-INTERNAL'+ '/' + api
 
     query = {'query': {'name': user_name}}
     r = requests.post(internal_api('get_user'),
@@ -327,7 +336,8 @@ def get_uos_user_by_name(user_name):
 
 def get_projects_by_project_ids(project_ids=[]):
 
-    internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url + '/US-INTERNAL'+ '/' + api
+    auth_url = get_auth_url()
+    internal_api = lambda api: auth_url + '/US-INTERNAL'+ '/' + api
 
     query = {'ids': ','.join(project_ids)}
 
@@ -340,7 +350,8 @@ def get_projects_by_project_ids(project_ids=[]):
 
 
 def get_projects_by_user(user_id):
-    url = cfg.CONF.service_credentials.os_auth_url + '/UOS-EXT/users/' + user_id + '/projects'
+    auth_url = get_auth_url()
+    url = auth_url + '/UOS-EXT/users/' + user_id + '/projects'
 
     r = requests.get(url,
                      headers={'Content-Type': 'application/json',
@@ -351,8 +362,9 @@ def get_projects_by_user(user_id):
 
 
 def get_account_type( type='user', key='id', op='eq', value=None):
+    auth_url = get_auth_url()
     url = '%s/UOS-EXT/search/?type=%s&key=%s&op=%s&value=%s' % \
-          (cfg.CONF.service_credentials.os_auth_url, type, key, op, value)
+          (auth_url, type, key, op, value)
     r = requests.get(url,
                      headers={'Content-Type': 'application/json',
                               'X-Auth-Token': get_token()})

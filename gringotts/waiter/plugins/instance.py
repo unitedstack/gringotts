@@ -186,13 +186,6 @@ class InstanceCreateEnd(ComputeNotificationBase):
                     p = gringutils._quantize_decimal(sub['unit_price'])
                     unit_price += p * sub['quantity']
                     unit = sub['unit']
-            elif ext.name.startswith('suspend'):
-                sub = ext.obj.create_subscription(message, order_id,
-                                                  type=const.STATE_SUSPEND)
-                if sub and state==const.STATE_SUSPEND:
-                    p = gringutils._quantize_decimal(sub['unit_price'])
-                    unit_price += p * sub['quantity']
-                    unit = sub['unit']
             elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)

@@ -1,4 +1,5 @@
 import functools
+import logging as log
 
 from oslo.config import cfg
 from ceilometerclient import client as cmclient
@@ -7,8 +8,6 @@ from ceilometerclient.openstack.common.apiclient.exceptions import NotFound
 from gringotts import utils
 from gringotts import constants as const
 
-from gringotts.openstack.common import log
-
 from gringotts.openstack.common import timeutils
 from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception,register
@@ -16,7 +15,6 @@ from gringotts.services import Resource
 
 
 LOG = log.getLogger(__name__)
-
 register = functools.partial(register,
                              ks_client,
                              service='metering',
@@ -39,6 +37,7 @@ class Alarm(Resource):
             'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
+
 
 def get_cmclient(region_name=None):
     endpoint = ks_client.get_endpoint(region_name, 'metering')

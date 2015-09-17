@@ -17,7 +17,9 @@ import logging
 import requests
 from urllib import urlencode
 
+from oslo.config import cfg
 from stevedore import driver
+from keystoneclient.middleware import auth_token
 
 from gringotts import exception
 from gringotts.openstack.common import jsonutils
@@ -194,3 +196,25 @@ class Client(object):
 
     def delete(self, url, **kwargs):
         return self.request(url, 'DELETE', **kwargs)
+
+
+def get_client():
+    """Only can be used after CONF is initialized
+    """
+    from gringotts.services import keystone
+    from gringotts.client.v2 import client
+    ks_cfg = cfg.CONF.keystone_authtoken
+    auth_url = keystone.get_auth_url()
+    try:
+        c = client.Client(username=ks_cfg.admin_user,
+                          password=ks_cfg.admin_password,
+                          project_name=ks_cfg.admin_tenant_name,
+                          auth_url=auth_url)
+        return c
+    except (exception.Unauthorized, exception.AuthorizationFailure):
+        self._logger.exception("Billing Authorization Failed - rejecting request")
+        raise
+    except Exception as e:
+        msg = 'Fail to initialize the billing client, for the reason: %s' % e
+        self._logger.exception(msg)
+        raise

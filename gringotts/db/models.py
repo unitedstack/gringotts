@@ -96,6 +96,7 @@ class Order(Model):
                  order_id, resource_id, resource_name, type, status,
                  unit_price, unit, total_price, cron_time, date_time,
                  user_id, project_id, region_id, domain_id, owed=None,
+                 renew=None, renew_method=None, renew_period=None,
                  charged=None, created_at=None, updated_at=None):
         Model.__init__(
             self,
@@ -115,6 +116,9 @@ class Order(Model):
             domain_id=domain_id,
             owed=owed,
             charged=charged,
+            renew=renew,
+            renew_method=renew_method,
+            renew_period=renew_period,
             created_at=created_at,
             updated_at=updated_at)
 
@@ -208,8 +212,8 @@ class Account(Model):
     """
 
     def __init__(self,
-                 user_id, domain_id, balance, consumption, level,
-                 owed=None, created_at=None, updated_at=None,
+                 user_id, domain_id, balance, frozen_balance, consumption,
+                 level, owed=None, created_at=None, updated_at=None,
                  project_id=None,
                  inviter=None, charged=None, sales_id=None, reward_value=None):
         Model.__init__(
@@ -218,6 +222,7 @@ class Account(Model):
             project_id=project_id,
             domain_id=domain_id,
             balance=balance,
+            frozen_balance=frozen_balance,
             consumption=consumption,
             level=level,
             owed=owed,

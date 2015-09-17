@@ -6,6 +6,7 @@ from eventlet.green import threading as gthreading  # noqa
 from oslo.config import cfg
 import pytz
 
+from gringotts.client import client
 from gringotts import constants as const
 from gringotts import context
 from gringotts.openstack.common import log
@@ -14,9 +15,7 @@ from gringotts.openstack.common import service as os_service
 from gringotts.openstack.common import timeutils
 from gringotts import service
 from gringotts import services
-from gringotts.services import alert
 from gringotts import utils
-from gringotts import worker
 
 
 LOG = log.getLogger(__name__)
@@ -62,7 +61,7 @@ class MasterService(rpc_service.Service):
         )
 
         self.locks = {}
-        self.worker_api = worker.API()
+        self.gclient = client.get_client()
         self.ctxt = context.get_admin_context()
 
         job_defaults = {
@@ -110,8 +109,8 @@ class MasterService(rpc_service.Service):
         for s in states:
             LOG.debug('Loading date jobs in %s state', s)
 
-            orders = self.worker_api.get_orders(self.ctxt, status=s, owed=True,
-                                                region_id=cfg.CONF.region_name)
+            orders = self.gclient.get_orders(status=s, owed=True,
+                                             region_id=cfg.CONF.region_name)
 
             for order in orders:
                 # load delete resource date job
@@ -124,7 +123,8 @@ class MasterService(rpc_service.Service):
                 danger_time = (datetime.datetime.utcnow() +
                                datetime.timedelta(seconds=30))
                 if date_time > danger_time:
-                    self._create_date_job(order['type'],
+                    self._create_date_job(order['order_id'],
+                                          order['type'],
                                           order['resource_id'],
                                           order['region_id'],
                                           order['date_time'])
@@ -139,10 +139,9 @@ class MasterService(rpc_service.Service):
 
     def load_30_days_date_jobs(self):
         # load change unit price date job
-        orders = self.worker_api.get_orders(self.ctxt,
-                                            status=const.STATE_STOPPED,
-                                            region_id=cfg.CONF.region_name,
-                                            type=const.RESOURCE_INSTANCE)
+        orders = self.gclient.get_orders(status=const.STATE_STOPPED,
+                                         region_id=cfg.CONF.region_name,
+                                         type=const.RESOURCE_INSTANCE)
         for order in orders:
             if not order['cron_time']:
                 LOG.warn('There is no cron_time for the stopped order: %s',
@@ -172,8 +171,8 @@ class MasterService(rpc_service.Service):
         for s in states:
             LOG.debug('Loading jobs in %s state', s)
 
-            orders = self.worker_api.get_orders(self.ctxt, status=s,
-                                                region_id=cfg.CONF.region_name)
+            orders = self.gclient.get_orders(status=s,
+                                             region_id=cfg.CONF.region_name)
             for order in orders:
                 if not order['cron_time']:
                     continue
@@ -203,9 +202,29 @@ class MasterService(rpc_service.Service):
                                       "System Adjust")
                 self.locks[order['order_id']] = gthreading.Lock()
 
+    def _make_30_days_job_id(self, order_id):
+        return "30-days-" + order_id
+
+    def _make_cron_job_id(self, order_id):
+        return "cron-" + order_id
+
+    def _make_date_job_id(self, order_id):
+        return "date-" + order_id
+
+    def _delete_cron_job(self, order_id):
+        job_id = self._make_cron_job_id(order_id)
+        self._delete_apsched_job(job_id)
+
+    def _delete_date_job(self, order_id):
+        job_id = self._make_date_job_id(order_id)
+        self._delete_apsched_job(job_id)
+
+    def _delete_30_days_job(self, order_id):
+        job_id = self._make_30_days_job_id(order_id)
+        self._delete_apsched_job(job_id)
+
     def _delete_apsched_job(self, job_id):
         """Delete this job from apscheduler
-
         """
         job = self.apsched.get_job(job_id)
         if job:
@@ -228,12 +247,13 @@ class MasterService(rpc_service.Service):
                 LOG.warn("Fail to delete owed resource(resource_type: %s,"
                          "resource_id: %s)", resource_type, resource_id)
 
-    def _create_date_job(self, resource_type, resource_id, region_id,
+    def _create_date_job(self, order_id, resource_type, resource_id, region_id,
                          action_time):
         """Create a date job to delete the owed resource
 
         This job will be executed once, the job id is resource_id.
         """
+        job_id = self._make_date_job_id(order_id)
         if isinstance(action_time, basestring):
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=ISO8601_UTC_TIME_FORMAT)
@@ -243,15 +263,12 @@ class MasterService(rpc_service.Service):
                              args=[resource_type,
                                    resource_id,
                                    region_id],
-                             id=resource_id,
+                             id=job_id,
                              run_date=action_time)
-        LOG.warn('create date job for resource: %s', resource_id)
+        LOG.warn('create date job for order: %s', order_id)
 
     def _change_order_unit_price(self, order_id):
-        self.worker_api.change_order(self.ctxt, order_id, const.STATE_STOPPED)
-
-    def _make_30_days_job_id(self, order_id):
-        return "30-days-" + order_id
+        self.gclient.change_order(order_id, const.STATE_STOPPED)
 
     def _create_date_job_after_30_days(self, order_id, action_time):
         """Create a date job to change order unit price after 30 days
@@ -286,6 +303,7 @@ class MasterService(rpc_service.Service):
 
         This kind of job will be executed periodically, the job id is order_id
         """
+        job_id = self._make_cron_job_id(order_id)
         if action_time:
             action_time = timeutils.parse_strtime(action_time,
                                                   fmt=TIMESTAMP_TIME_FORMAT)
@@ -294,7 +312,7 @@ class MasterService(rpc_service.Service):
         self.apsched.add_job(self._pre_deduct,
                              'interval',
                              args=[order_id],
-                             id=order_id,
+                             id=job_id,
                              hours=1,
                              start_date=start_date)
         LOG.warn('create cron job for order: %s', order_id)
@@ -314,7 +332,7 @@ class MasterService(rpc_service.Service):
         try:
             with self._get_lock(order_id):
                 # check resource and order before deduct
-                order = self.worker_api.get_order(self.ctxt, order_id)
+                order = self.gclient.get_order(order_id)
 
                 # do not deduct doctor project for now
                 if order['project_id'] in cfg.CONF.ignore_tenants:
@@ -323,10 +341,8 @@ class MasterService(rpc_service.Service):
                 method = self.RESOURCE_GET_MAP[order['type']]
                 resource = method(order['resource_id'], order['region_id'])
                 if not resource:
-                    # alert that the resource not exists
                     LOG.warn("The resource(%s|%s) has been deleted",
                              order['type'], order['resource_id'])
-                    alert.wrong_billing_order(order, 'resource_deleted')
                     return
 
                 if isinstance(order['cron_time'], basestring):
@@ -338,49 +354,48 @@ class MasterService(rpc_service.Service):
                 remarks = 'Hourly Billing'
                 now = timeutils.utcnow()
                 if now - cron_time >= datetime.timedelta(hours=1):
-                    result = self.worker_api.create_bill(self.ctxt,
-                                                         order_id,
-                                                         action_time=now,
-                                                         remarks=remarks)
+                    result = self.gclient.create_bill(order_id,
+                                                      action_time=now,
+                                                      remarks=remarks)
                 else:
-                    result = self.worker_api.create_bill(self.ctxt, order_id,
-                                                         remarks=remarks)
+                    result = self.gclient.create_bill(order_id,
+                                                      remarks=remarks)
 
                 # Order is owed
                 if result['type'] == const.BILL_ORDER_OWED:
                     self._stop_owed_resource(result['resource_type'],
                                              result['resource_id'],
                                              result['region_id'])
-                    self._create_date_job(result['resource_type'],
+                    self._create_date_job(order_id,
+                                          result['resource_type'],
                                           result['resource_id'],
                                           result['region_id'],
                                           result['date_time'])
                 # Account is charged but order is still owed
                 elif result['type'] == const.BILL_OWED_ACCOUNT_CHARGED:
-                    self._delete_apsched_job(result['resource_id'])
+                    self._delete_date_job(order_id)
         except Exception as e:
             LOG.warn("Some exceptions happen when deducting order: %s, "
                      "for reason: %s", order_id, e)
 
     def _create_bill(self, ctxt, order_id, action_time, remarks):
         # create a bill
-        result = self.worker_api.create_bill(ctxt, order_id, action_time,
-                                             remarks)
+        result = self.gclient.create_bill(order_id, action_time,
+                                          remarks)
 
         # Account is charged but order is still owed
         if result['type'] == const.BILL_OWED_ACCOUNT_CHARGED:
-            self._delete_apsched_job(result['resource_id'])
+            self._delete_date_job(order_id)
 
         self._create_cron_job(order_id, action_time=action_time)
 
     def _close_bill(self, ctxt, order_id, action_time):
-        result = self.worker_api.close_bill(ctxt, order_id, action_time)
-        self._delete_apsched_job(order_id)
+        result = self.gclient.close_bill(order_id, action_time)
+        self._delete_cron_job(order_id)
         return result
 
     def get_apsched_jobs_count(self, ctxt):
         """Get scheduled jobs number minus the clean date job
-
         """
         return len(self.apsched.get_jobs()) - 1
 
@@ -404,20 +419,19 @@ class MasterService(rpc_service.Service):
 
             # Delete date job of owed resource
             if result['resource_owed']:
-                self._delete_apsched_job(result['resource_id'])
+                self._delete_date_job(order_id)
 
             # Change order status
-            self.worker_api.change_order(ctxt, order_id, const.STATE_DELETED)
+            self.gclient.change_order(order_id, const.STATE_DELETED)
 
             # create a bill that tell people the resource has been deleted
-            self.worker_api.create_bill(ctxt, order_id,
-                                        action_time=action_time,
-                                        remarks=remarks,
-                                        end_time=action_time)
+            self.gclient.create_bill(order_id,
+                                     action_time=action_time,
+                                     remarks=remarks,
+                                     end_time=action_time)
 
             # delete the date job if the order has a 30-days date job
-            job_id = self._make_30_days_job_id(order_id)
-            self._delete_apsched_job(job_id)
+            self._delete_30_days_job(order_id)
 
             # delete order lock
             self._delete_lock(order_id)
@@ -430,21 +444,21 @@ class MasterService(rpc_service.Service):
             result = self._close_bill(ctxt, order_id, action_time)
             # Delete date job of owed resource
             if result['resource_owed']:
-                self._delete_apsched_job(result['resource_id'])
-            self.worker_api.change_order(ctxt, order_id, const.STATE_STOPPED)
+                self._delete_date_job(order_id)
+            self.gclient.change_order(order_id, const.STATE_STOPPED)
 
             # create a bill that tell people the resource has been stopped
-            self.worker_api.create_bill(ctxt, order_id,
-                                        action_time=action_time,
-                                        remarks=remarks,
-                                        end_time=action_time)
+            self.gclient.create_bill(order_id,
+                                     action_time=action_time,
+                                     remarks=remarks,
+                                     end_time=action_time)
 
     def resource_started(self, ctxt, order_id, action_time, remarks):
         with self._get_lock(order_id):
             LOG.debug('Resource created, its order_id: %s, action_time: %s',
                       order_id, action_time)
-            self.worker_api.close_bill(ctxt, order_id, action_time)
-            self.worker_api.change_order(ctxt, order_id, const.STATE_RUNNING)
+            self.gclient.close_bill(order_id, action_time)
+            self.gclient.change_order(order_id, const.STATE_RUNNING)
             self._create_bill(ctxt, order_id, action_time, remarks)
 
     def resource_changed(self, ctxt, order_id, action_time, change_to,
@@ -456,14 +470,13 @@ class MasterService(rpc_service.Service):
             self._close_bill(ctxt, order_id, action_time)
 
             # change the order's unit price and its active subscriptions
-            self.worker_api.change_order(ctxt, order_id, change_to)
+            self.gclient.change_order(order_id, change_to)
 
             # create a new bill for the updated order
             self._create_bill(ctxt, order_id, action_time, remarks)
 
             # delete the date job if the order has a 30-days date job
-            job_id = self._make_30_days_job_id(order_id)
-            self._delete_apsched_job(job_id)
+            self._delete_30_days_job(order_id)
 
     def resource_resized(self, ctxt, order_id, action_time, quantity, remarks):
         with self._get_lock(order_id):
@@ -473,12 +486,12 @@ class MasterService(rpc_service.Service):
             self._close_bill(ctxt, order_id, action_time)
 
             # change subscirption's quantity
-            self.worker_api.change_subscription(self.ctxt, order_id,
-                                                quantity, const.STATE_RUNNING)
+            self.gclient.change_subscription(order_id,
+                                             quantity, const.STATE_RUNNING)
 
             # change the order's unit price and its active subscriptions
-            self.worker_api.change_order(self.ctxt, order_id,
-                                         const.STATE_RUNNING)
+            self.gclient.change_order(order_id,
+                                      const.STATE_RUNNING)
 
             # create a new bill for the updated order
             self._create_bill(ctxt, order_id, action_time, remarks)
@@ -500,16 +513,16 @@ class MasterService(rpc_service.Service):
             cron_time = action_time + datetime.timedelta(days=30)
 
             # change the order's unit price and its active subscriptions
-            self.worker_api.change_order(ctxt, order_id,
-                                         const.STATE_STOPPED_IN_30_DAYS,
-                                         cron_time=cron_time,
-                                         first_change_to=const.STATE_STOPPED)
+            self.gclient.change_order(order_id,
+                                      const.STATE_STOPPED_IN_30_DAYS,
+                                      cron_time=cron_time,
+                                      first_change_to=const.STATE_STOPPED)
 
             # create a bill cross 30 days
-            self.worker_api.create_bill(ctxt, order_id,
-                                        action_time=action_time,
-                                        remarks="Instance Has Been Stopped",
-                                        end_time=cron_time)
+            self.gclient.create_bill(order_id,
+                                     action_time=action_time,
+                                     remarks="Instance Has Been Stopped",
+                                     end_time=cron_time)
 
             # create a date job to change order unit price after 30 days
             # let this action execute 1 hour earlier to ensure unit price
@@ -539,31 +552,45 @@ class MasterService(rpc_service.Service):
             self._close_bill(ctxt, order_id, action_time)
 
             # change subscirption's quantity
-            self.worker_api.change_flavor_subscription(self.ctxt, order_id,
-                                                       new_flavor, old_flavor,
-                                                       service, region_id,
-                                                       const.STATE_RUNNING)
+            self.gclient.change_flavor_subscription(order_id,
+                                                    new_flavor, old_flavor,
+                                                    service, region_id,
+                                                    const.STATE_RUNNING)
 
             # change the order's unit price and its active subscriptions
-            self.worker_api.change_order(self.ctxt, order_id,
-                                         const.STATE_RUNNING)
+            self.gclient.change_order(order_id,
+                                      const.STATE_RUNNING)
 
             # create a new bill for the updated order
             self._create_bill(ctxt, order_id, action_time, remarks)
 
     def clean_date_jobs(self):
         LOG.warn('Doing clean date jobs')
-        orders = self.worker_api.get_active_orders(
-            self.ctxt, charged=True, region_id=cfg.CONF.region_name)
+        orders = self.gclient.get_active_orders(
+            charged=True, region_id=cfg.CONF.region_name)
 
         order_ids = []
         for order in orders:
             order_ids.append(order['order_id'])
-            self._delete_apsched_job(order['resource_id'])
+            self._delete_date_job(order['order_id'])
 
         if order_ids:
-            self.worker_api.reset_charged_orders(self.ctxt, order_ids)
+            self.gclient.reset_charged_orders(order_ids)
 
+    def delete_sched_jobs(self, ctxt, order_id):
+        self._delete_cron_job(order_id)
+        self._delete_date_job(order_id)
+        self._delete_30_days_job(order_id)
+
+    def change_cron_job_time(self, ctxt, order_id, cron_time,
+                             clear_date_jobs=None):
+        if isinstance(cron_time, basestring):
+            cron_time = timeutils.parse_isotime(cron_time)
+        self._delete_cron_job(order_id)
+        self._create_cron_job(order_id, start_date=cron_time)
+        if clear_date_jobs:
+            self._delete_date_job(order_id)
+            self._delete_30_days_job(order_id)
 
 def master():
     service.prepare_service()

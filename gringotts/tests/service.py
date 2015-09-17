@@ -24,7 +24,7 @@ class ServiceTestCase(tests.TestCase):
 
         # Load test http client which will forward http requests
         # to test app instead of real service. This is used to
-        # replace http client used in worker HTTPAPI.
+        # replace http client used in gringotts client
         self.client = test_client.Client(self.app, 'v2')
         self.clean_attr('client')
         MockedClient = mock.MagicMock(name='MockedClient',

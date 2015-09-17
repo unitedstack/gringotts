@@ -8,8 +8,6 @@ from oslo.config import cfg
 import six
 
 from gringotts.openstack.common import log
-
-
 LOG = log.getLogger(__name__)
 
 # Import this option so every Notification plugin can use it freely.
@@ -67,6 +65,8 @@ class NotificationBase(PluginBase):
         :param notification: The notification to process.
 
         """
+        if 'month_billing' in notification.get('_context_roles', []):
+            return
         if self._handle_event_type(notification['event_type'],
                                    self.event_types):
             self.process_notification(notification)

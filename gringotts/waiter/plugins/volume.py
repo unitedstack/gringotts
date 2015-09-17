@@ -13,8 +13,8 @@ from gringotts.waiter import plugin as waiter_plugin
 from gringotts.waiter.plugin import Collection
 from gringotts.waiter.plugin import Order
 
-from gringotts import services
 from gringotts.price import pricing
+from gringotts import services
 from gringotts.services import keystone as ks_client
 
 from gringotts.openstack.common import jsonutils
@@ -68,23 +68,6 @@ class SizeItem(waiter_plugin.ProductItem):
                           resource_volume=resource_volume,
                           user_id=user_id,
                           project_id=project_id)
-
-    def get_unit_price(self, message):
-        c = self.get_collection(message)
-        product = self.worker_api.get_product(
-            context.get_admin_context(),
-            c.product_name, c.service, c.region_id)
-
-        if product:
-            if 'extra' in product:
-                price_data = pricing.get_price_data(product['extra'])
-            else:
-                price_data = None
-
-            return pricing.calculate_price(
-                c.resource_volume, product['unit_price'], price_data)
-        else:
-            return 0
 
 
 class VolumeNotificationBase(waiter_plugin.NotificationBase):

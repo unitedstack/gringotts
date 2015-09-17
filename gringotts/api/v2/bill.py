@@ -16,7 +16,6 @@ from gringotts.openstack.common import memorycache
 from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import uuidutils
 from gringotts import utils as gringutils
-from gringotts import worker
 
 
 LOG = log.getLogger(__name__)
@@ -206,7 +205,7 @@ class DetailController(rest.RestController):
 class CloseController(rest.RestController):
 
     def __init__(self):
-        self.worker_api = worker.API(app.external_client())
+        self.external_client = app.external_client()
 
     @wsme_pecan.wsexpose(models.BillResult, body=models.BillBody)
     def put(self, data):
@@ -235,8 +234,8 @@ class CloseController(rest.RestController):
                 user_id = conn.get_order(ctxt, data.order_id).user_id
 
                 # 2. get external account balance via user_id
-                external_balance = self.worker_api.get_external_balance(
-                    ctxt, user_id)['data'][0]['money']
+                external_balance = self.external_client.get_external_balance(
+                    user_id)['data'][0]['money']
 
             # 3. close the bill
             result = conn.close_bill(pecan.request.context,
@@ -253,8 +252,8 @@ class CloseController(rest.RestController):
                                region_id=result['region_id'],
                                order_id=data.order_id)
                 try:
-                    self.worker_api.deduct_external_account(
-                        ctxt, user_id,
+                    self.external_client.deduct_external_account(
+                        user_id,
                         str(result['deduct_value']),
                         type="1",
                         remark="come from ustack",
@@ -281,7 +280,7 @@ class CloseController(rest.RestController):
 class UpdateController(rest.RestController):
 
     def __init__(self):
-        self.worker_api = worker.API(app.external_client())
+        self.external_client = app.external_client()
 
     @wsme_pecan.wsexpose(models.BillResult, body=models.BillBody)
     def put(self, data):
@@ -310,8 +309,8 @@ class UpdateController(rest.RestController):
                 user_id = conn.get_order(ctxt, data.order_id).user_id
 
                 # 2. get external account balance via user_id
-                external_balance = self.worker_api.get_external_balance(
-                    ctxt, user_id)['data'][0]['money']
+                external_balance = self.external_client.get_external_balance(
+                    user_id)['data'][0]['money']
 
             # 3. update the bill
             result = conn.update_bill(ctxt, data['order_id'],
@@ -326,8 +325,8 @@ class UpdateController(rest.RestController):
                                region_id=result['region_id'],
                                order_id=data.order_id)
                 try:
-                    self.worker_api.deduct_external_account(
-                        ctxt, user_id,
+                    self.external_client.deduct_external_account(
+                        user_id,
                         str(result['deduct_value']),
                         type="1",
                         remark="come from ustack",
@@ -360,7 +359,7 @@ class BillsController(rest.RestController):
     close = CloseController()
 
     def __init__(self):
-        self.worker_api = worker.API(app.external_client())
+        self.external_client = app.external_client()
 
     @wsme_pecan.wsexpose(models.Bills, datetime.datetime, datetime.datetime,
                          wtypes.text, wtypes.text)
@@ -402,8 +401,8 @@ class BillsController(rest.RestController):
                 user_id = conn.get_order(ctxt, data.order_id).user_id
 
                 # 2. get external account balance via user_id
-                external_balance = self.worker_api.get_external_balance(
-                    ctxt, user_id)['data'][0]['money']
+                external_balance = self.external_client.get_external_balance(
+                    user_id)['data'][0]['money']
 
             # 3. create bill
             result = conn.create_bill(ctxt, data['order_id'],
@@ -421,8 +420,8 @@ class BillsController(rest.RestController):
                                region_id=result['region_id'],
                                order_id=data.order_id)
                 try:
-                    self.worker_api.deduct_external_account(
-                        ctxt, user_id,
+                    self.external_client.deduct_external_account(
+                        user_id,
                         str(result['deduct_value']),
                         type="1",
                         remark="come from ustack",

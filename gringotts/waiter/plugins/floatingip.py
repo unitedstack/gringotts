@@ -116,8 +116,7 @@ class RateLimitItem(waiter_plugin.ProductItem):
 
         product_name = generate_product_name(message)
         if product_name != const.PRODUCT_FLOATINGIP:
-            product = self.worker_api.get_product(
-                context.get_admin_context(),
+            product = self.gclient.get_product(
                 product_name, service, region_id)
             if not product:
                 product_name = const.PRODUCT_FLOATINGIP
@@ -137,8 +136,7 @@ class RateLimitItem(waiter_plugin.ProductItem):
                           resource_name=resource_name,
                           resource_type=resource_type,
                           resource_volume=resource_volume,
-                          user_id=user_id, project_id=project_id
-                          )
+                          user_id=user_id, project_id=project_id)
 
     def _get_floatingipset_collection(self, message):
         floatingipset = message['payload']['floatingipset']
@@ -161,25 +159,7 @@ class RateLimitItem(waiter_plugin.ProductItem):
                           resource_name=resource_name,
                           resource_type=resource_type,
                           resource_volume=resource_volume,
-                          user_id=user_id, project_id=project_id
-                          )
-
-    def get_unit_price(self, message):
-        c = self.get_collection(message)
-        product = self.worker_api.get_product(
-            context.get_admin_context(),
-            c.product_name, c.service, c.region_id)
-
-        if product:
-            if 'extra' in product:
-                price_data = pricing.get_price_data(product['extra'])
-            else:
-                price_data = None
-
-            return pricing.calculate_price(
-                c.resource_volume, product['unit_price'], price_data)
-        else:
-            return 0
+                          user_id=user_id, project_id=project_id)
 
 
 class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
@@ -412,7 +392,8 @@ class FloatingIpDeleteEnd(FloatingIpNotificationBase):
         # Get the order of this resource
         order = self.get_order_by_resource_id(payload['id'])
 
-        # Notify master
-        action_time = message['timestamp']
-        remarks = 'Floating IP Has Been Deleted'
-        self.resource_deleted(order['order_id'], action_time, remarks)
+        # Only handle the order billed by hour
+        if not order.get('unit') or order.get('unit') == 'hour':
+            action_time = message['timestamp']
+            remarks = 'Floating IP Has Been Deleted'
+            self.resource_deleted(order['order_id'], action_time, remarks)

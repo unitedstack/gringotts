@@ -11,8 +11,10 @@ from gringotts.api import acl
 from gringotts.api.v2 import models
 from gringotts import constants as const
 from gringotts import exception
+from gringotts import master
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import timeutils
 from gringotts.services import keystone
 from gringotts import utils as gringutils
 
@@ -24,10 +26,15 @@ class OrderController(rest.RestController):
 
     _custom_actions = {
         'order': ['GET'],
+        'close': ['PUT'],
+        'activate_auto_renew': ['PUT'],
+        'switch_auto_renew': ['PUT'],
+        'renew': ['PUT'],
     }
 
     def __init__(self, order_id):
         self._id = order_id
+        self.master_api = master.API()
 
     def _order(self, start_time=None, end_time=None,
                limit=None, offset=None):
@@ -72,6 +79,109 @@ class OrderController(rest.RestController):
     def order(self):
         conn = pecan.request.db_conn
         order = conn.get_order(request.context, self._id)
+        return models.Order.from_db_model(order)
+
+    @wsexpose(models.Order)
+    def close(self):
+        """Close this order
+
+        Close means set order's status to deleted in database, then stop
+        the cron job in apscheduler.
+        """
+        conn = pecan.request.db_conn
+        try:
+            order = conn.close_order(request.context, self._id)
+        except Exception:
+            msg = "Fail to close the order %s" % self._id
+            LOG.exception(msg)
+            raise exception.DBError(reason=msg)
+        self.master_api.delete_sched_jobs(request.context, self._id)
+        return models.Order.from_db_model(order)
+
+    def _validate_renew(self, renew):
+        err = None
+        if 'method' not in renew or 'period' not in renew:
+            err = 'Must specify method and period'
+        elif renew['method'] not in ['month', 'year']:
+            err = 'Wrong method, should be month or year'
+        elif not isinstance(renew['period'], int) or renew['period'] <= 0:
+            err = 'Wrong period, should be an integer greater than 0'
+
+        if err:
+            LOG.warn(err)
+            raise exception.InvalidParameterValue(err=err)
+
+    @wsexpose(models.Order, body=models.Renew)
+    def activate_auto_renew(self, data):
+        """Activate auto renew of this order
+        """
+        self._validate_renew(data.as_dict())
+        conn = pecan.request.db_conn
+        try:
+            order = conn.activate_auto_renew(request.context, self._id, data)
+        except exception.OrderNotFound as e:
+            LOG.warn(e)
+            raise
+        except exception.OrderRenewError as e:
+            LOG.warn(e)
+            raise
+        except Exception:
+            msg = "Fail to activate auto renew of the order %s" % self._id
+            LOG.exception(msg)
+            raise exception.DBError(reason=msg)
+        return models.Order.from_db_model(order)
+
+    @wsexpose(models.Order, body=models.SwitchRenew)
+    def switch_auto_renew(self, data):
+        """Start/Stop auto renew of this order
+        """
+        if data.action not in ['start', 'stop']:
+            err = "Wrong switch renew action, should be start or stop"
+            LOG.warn(err)
+            raise exception.InvalidParameterValue(err=err)
+
+        conn = pecan.request.db_conn
+        try:
+            order = conn.switch_auto_renew(request.context, self._id,
+                                           data.action)
+        except exception.OrderNotFound as e:
+            LOG.warn(e)
+            raise
+        except exception.OrderRenewError as e:
+            LOG.warn(e)
+            raise
+        except Exception:
+            msg = "Fail to switch auto renew of the order %s" % self._id
+            LOG.exception(msg)
+            raise exception.DBError(reason=msg)
+        return models.Order.from_db_model(order)
+
+    @wsexpose(models.Order, body=models.Renew)
+    def renew(self, data):
+        """renew the order manually
+
+        1. Caculate price needed to deduct
+        2. Change cron_time and deduct account in the same session
+        3. Change cron job in master
+        """
+        self._validate_renew(data.as_dict())
+        conn = pecan.request.db_conn
+        try:
+            order = conn.renew_order(request.context, self._id, data)
+        except exception.OrderNotFound as e:
+            LOG.warn(e)
+            raise
+        except exception.OrderRenewError as e:
+            LOG.warn(e)
+            raise
+        except Exception:
+            msg = "Fail to renew the order %s" % self._id
+            LOG.exception(msg)
+            raise exception.DBError(reason=msg)
+        self.master_api.change_cron_job_time(
+            request.context, self._id,
+            timeutils.isotime(order.cron_time),
+            clear_date_jobs=True)
         return models.Order.from_db_model(order)
 
 
@@ -269,6 +379,9 @@ class OrdersController(rest.RestController):
     stopped = StoppedOrderCountController()
     reset = ResetOrderController()
 
+    def __init__(self):
+        self.master_api = master.API()
+
     @pecan.expose()
     def _lookup(self, order_id, *remainder):
         if remainder and not remainder[-1]:
@@ -278,10 +391,10 @@ class OrdersController(rest.RestController):
 
     @wsexpose(models.Orders, wtypes.text, wtypes.text,
               datetime.datetime, datetime.datetime, int, int, wtypes.text,
-              wtypes.text, wtypes.text, bool)
+              wtypes.text, wtypes.text, wtypes.text, bool, wtypes.text)
     def get_all(self, type=None, status=None, start_time=None, end_time=None,
-                limit=None, offset=None, region_id=None, project_id=None,
-                user_id=None, owed=None):
+                limit=None, offset=None, resource_id=None, region_id=None,
+                project_id=None, user_id=None, owed=None, bill_method=None):
         """Get queried orders
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
@@ -324,6 +437,8 @@ class OrdersController(rest.RestController):
                                                  limit=limit,
                                                  offset=offset,
                                                  with_count=True,
+                                                 resource_id=resource_id,
+                                                 bill_method=bill_method,
                                                  region_id=region_id,
                                                  user_id=user_id,
                                                  project_ids=project_ids)
@@ -332,9 +447,7 @@ class OrdersController(rest.RestController):
             price = self._get_order_price(order,
                                           start_time=start_time,
                                           end_time=end_time)
-
             order.total_price = gringutils._quantize_decimal(price)
-
             orders.append(models.Order.from_db_model(order))
 
         return models.Orders.transform(total_count=total_count,

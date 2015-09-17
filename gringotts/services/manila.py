@@ -1,6 +1,7 @@
 import functools
 import time
 from oslo.config import cfg
+import logging as log
 
 from gringotts import utils
 from gringotts import constants as const
@@ -12,11 +13,9 @@ from manilaclient.exceptions import NotFound
 from gringotts.services import keystone as ks_client
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
-from gringotts.openstack.common import log
 
 
 LOG = log.getLogger(__name__)
-
 register = functools.partial(register,
                              ks_client,
                              service='share',
@@ -43,13 +42,14 @@ class Share(Resource):
 
 
 def get_manilaclient(region_name=None):
-    os_cfg = cfg.CONF.service_credentials
+    ks_cfg = cfg.CONF.keystone_authtoken
     endpoint = ks_client.get_endpoint(region_name, 'share')
     auth_token = ks_client.get_token()
-    c = manila_client.Client(os_cfg.os_username,
-                             os_cfg.os_password,
+    auth_url = ks_client.get_auth_url()
+    c = manila_client.Client(ks_cfg.admin_user,
+                             ks_cfg.admin_password,
                              None,
-                             auth_url=os_cfg.os_auth_url)
+                             auth_url=auth_url)
     c.client.auth_token = auth_token
     c.client.management_url = endpoint
     return c

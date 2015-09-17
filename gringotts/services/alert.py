@@ -1,14 +1,13 @@
 import os
 import json
+import logging as log
 import requests
 
 from oslo.config import cfg
 from gringotts.services import wrap_exception
-from gringotts.openstack.common import log
 
 
 LOG = log.getLogger(__name__)
-
 
 OPTS = [
     cfg.StrOpt('alert_url',

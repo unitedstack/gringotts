@@ -6,6 +6,7 @@ from oslo.config import cfg  # noqa
 import pytz
 
 from gringotts.checker import notifier
+from gringotts.client import client
 from gringotts import constants as const
 from gringotts import context
 from gringotts import coordination
@@ -19,7 +20,6 @@ from gringotts import services
 from gringotts.services import alert
 from gringotts.services import keystone
 from gringotts import utils
-from gringotts import worker
 
 
 LOG = log.getLogger(__name__)
@@ -132,7 +132,7 @@ class CheckerService(os_service.Service):
 
     def __init__(self, *args, **kwargs):
         self.region_name = cfg.CONF.region_name
-        self.worker_api = worker.API()
+        self.gclient = client.get_client()
         self.master_api = master.API()
         self.ctxt = context.get_admin_context()
         self.notifier = notifier.NotifierService(
@@ -301,8 +301,7 @@ class CheckerService(os_service.Service):
             charge = 0
             coupon = 0
             bonus = 0
-            charges = self.worker_api.get_charges(self.ctxt,
-                                                  account['user_id'])
+            charges = self.gclient.get_charges(account['user_id'])
             for one in charges:
                 if one['type'] == 'bonus':
                     bonus += float(one['value'])
@@ -317,8 +316,7 @@ class CheckerService(os_service.Service):
             balance = round(float(account['balance']), 4)
 
             # get consumption in a period, the period is a month for the moment
-            period_consumption = self.worker_api.get_orders_summary(
-                self.ctxt,
+            period_consumption = self.gclient.get_orders_summary(
                 account['user_id'],
                 period_start_time,
                 period_end_time)
@@ -326,8 +324,7 @@ class CheckerService(os_service.Service):
                 float(period_consumption['total_price']), 4)
 
             # predict the consumption per day
-            predict_day_consumption = self.worker_api.get_consumption_per_day(
-                self.ctxt,
+            predict_day_consumption = self.gclient.get_consumption_per_day(
                 account['user_id'])
             predict_day_consumption = round(
                 float(predict_day_consumption['price_per_day']), 4)
@@ -406,7 +403,7 @@ class CheckerService(os_service.Service):
                                    if hasattr(resource, 'admin_state')
                                    else resource.status)
                 unit_price = (
-                    self.RESOURCE_CREATE_MAP[resource.resource_type].
+                    self.RESOURCE_CREATE_MAP[resource.resource_type].\
                     get_unit_price(resource.to_message(),
                                    resource_status,
                                    cron_time=order['cron_time']))
@@ -436,8 +433,7 @@ class CheckerService(os_service.Service):
                 continue
             # Get all active orders
             resource_to_order = {}
-            orders = self.worker_api.get_active_orders(
-                self.ctxt,
+            orders = self.gclient.get_active_orders(
                 region_id=self.region_name,
                 project_id=project.id)
             for order in orders:
@@ -592,8 +588,7 @@ class CheckerService(os_service.Service):
                                                    should_delete_resources,
                                                    projects):
         for project in projects:
-            orders = list(self.worker_api.get_active_orders(
-                self.ctxt,
+            orders = list(self.gclient.get_active_orders(
                 region_id=self.region_name,
                 project_id=project.id,
                 owed=True))
@@ -696,13 +691,12 @@ class CheckerService(os_service.Service):
         """
         LOG.warn('[%s] Checking if cronjobs match with orders', self.member_id)
         try:
-            active_order_count = self.worker_api.get_active_order_count(
-                self.ctxt,
+            active_order_count = self.gclient.get_active_order_count(
                 self.region_name)
-            owed_order_count = self.worker_api.get_active_order_count(
-                self.ctxt, self.region_name, owed=True)
-            stopped_order_count = self.worker_api.get_stopped_order_count(
-                self.ctxt, self.region_name, type=const.RESOURCE_INSTANCE)
+            owed_order_count = self.gclient.get_active_order_count(
+                self.region_name, owed=True)
+            stopped_order_count = self.gclient.get_stopped_order_count(
+                self.region_name, type=const.RESOURCE_INSTANCE)
 
             job_count = self.master_api.get_apsched_jobs_count(self.ctxt)
             order_count = (active_order_count + owed_order_count +
@@ -722,7 +716,7 @@ class CheckerService(os_service.Service):
                           "cron jobs match with orders or not")
 
     def _assigned_accounts(self):
-        accounts = list(self.worker_api.get_accounts(self.ctxt))
+        accounts = list(self.gclient.get_accounts())
         return self.partition_coordinator.extract_my_subset(
             self.PARTITIONING_GROUP_NAME, accounts)
 
@@ -749,8 +743,7 @@ class CheckerService(os_service.Service):
 
                 if account['owed']:
                     orders = list(
-                        self.worker_api.get_active_orders(
-                            self.ctxt,
+                        self.gclient.get_active_orders(
                             user_id=account['user_id'],
                             owed=True)
                     )
@@ -758,8 +751,7 @@ class CheckerService(os_service.Service):
                         continue
 
                     contact = keystone.get_uos_user(account['user_id'])
-                    _projects = self.worker_api.get_projects(
-                        self.ctxt,
+                    _projects = self.gclient.get_projects(
                         user_id=account['user_id'],
                         type='simple')
 
@@ -829,14 +821,13 @@ class CheckerService(os_service.Service):
                     self.notifier.notify_has_owed(self.ctxt, account, contact,
                                                   projects, language=language)
                 else:
-                    orders = self.worker_api.get_active_orders(
-                        self.ctxt,
+                    orders = self.gclient.get_active_orders(
                         user_id=account['user_id'])
                     if not orders:
                         continue
 
-                    _projects = self.worker_api.get_projects(
-                        self.ctxt, user_id=account['user_id'], type='simple')
+                    _projects = self.gclient.get_projects(
+                        user_id=account['user_id'], type='simple')
 
                     estimation = {}
                     for project in _projects:
@@ -918,7 +909,7 @@ class CheckerService(os_service.Service):
         return ab
 
     def _check_user_to_account(self):
-        accounts = sorted(self.worker_api.get_accounts(self.ctxt),
+        accounts = sorted(self.gclient.get_accounts(),
                           key=lambda account: account['user_id'])
         users = sorted(keystone.get_user_list(), key=lambda user: user.id)
 
@@ -955,7 +946,7 @@ class CheckerService(os_service.Service):
 
     def _check_project_to_project(self):
         _k_projects = keystone.get_projects_by_project_ids()
-        _g_projects = self.worker_api.get_projects(self.ctxt, type='simple')
+        _g_projects = self.gclient.get_projects(type='simple')
 
         k_projects = []
         g_projects = []
@@ -979,7 +970,7 @@ class CheckerService(os_service.Service):
         deleting_projects = []
         _deleted_projects = list(set(g_projects) - set(k_projects))
         for p in _deleted_projects:
-            if self.worker_api.get_resources(self.ctxt, p.project_id):
+            if self.gclient.get_resources(p.project_id):
                 deleting_projects.append(p)
 
         # projects whose billing owner is not equal to each other
@@ -1038,7 +1029,7 @@ class CheckerService(os_service.Service):
                      self.member_id, p.project_id)
             if cfg.CONF.try_to_fix:
                 try:
-                    self.worker_api.delete_resources(self.ctxt, p.project_id)
+                    self.gclient.delete_resources(p.project_id)
                 except Exception:
                     LOG.exception("Fail to delete all resources of project %s",
                                   p.project_id)
@@ -1050,9 +1041,8 @@ class CheckerService(os_service.Service):
                      self.member_id, p.project_id, p.billing_owner_id)
             if cfg.CONF.try_to_fix and p.billing_owner_id:
                 try:
-                    self.worker_api.change_billing_owner(self.ctxt,
-                                                         p.project_id,
-                                                         p.billing_owner_id)
+                    self.gclient.change_billing_owner(p.project_id,
+                                                      p.billing_owner_id)
                 except Exception:
                     LOG.exception("Fail to change billing owner of project "
                                   "%s to user %s",

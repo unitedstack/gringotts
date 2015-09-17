@@ -9,10 +9,9 @@ from wsmeext.pecan import wsexpose
 from oslo.config import cfg
 
 from gringotts.api import acl
-from gringotts.api.app import external_client
+from gringotts.api import app
 from gringotts.policy import check_policy
 from gringotts import exception
-from gringotts import worker
 from gringotts import utils as gringutils
 from gringotts.api.v2 import models
 from gringotts.db import models as db_models
@@ -93,7 +92,7 @@ class AccountController(rest.RestController):
 
     def __init__(self, user_id):
         self._id = user_id
-        self.worker_api = worker.API(external_client())
+        self.external_client = app.external_client()
 
     def _account(self, user_id=None):
         self.conn = pecan.request.db_conn
@@ -101,8 +100,8 @@ class AccountController(rest.RestController):
         try:
             account = self.conn.get_account(request.context, _id)
             if cfg.CONF.external_billing.enable:
-                external_balance = self.worker_api.get_external_balance(
-                    request.context, _id)['data'][0]['money']
+                external_balance = self.external_client.get_external_balance(
+                    _id)['data'][0]['money']
                 external_balance = gringutils._quantize_decimal(
                     external_balance)
                 account.balance = external_balance
@@ -472,7 +471,7 @@ class TransferMoneyController(rest.RestController):
 class DetailController(rest.RestController):
 
     def __init__(self):
-        self.worker_api = worker.API(external_client())
+        self.external_client = app.external_client()
 
     @wsexpose(models.AdminAccountsInDetail, wtypes.text, bool, int, int,
               wtypes.text, wtypes.text)
@@ -516,8 +515,7 @@ class DetailController(rest.RestController):
             if cfg.CONF.external_billing.enable:
                 try:
                     external_balance = \
-                        self.worker_api.get_external_balance(
-                            request.context,
+                        self.external_client.get_external_balance(
                             account.user_id)['data'][0]['money']
                     external_balance = \
                         gringutils._quantize_decimal(

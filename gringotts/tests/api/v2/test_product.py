@@ -430,11 +430,11 @@ class ProductPriceTestCase(rest.RestfulTestCase):
         extra = {'price': self.price_data}
         return self.update_product_in_db(product.product_id, extra=extra)
 
-    def build_price_query_url(self, purchases):
-        query_vars = []
+    def build_price_query_url(self, purchases, bill_method='hour'):
+        query_vars = ['purchase.bill_method=%s' % bill_method]
         for i, p in enumerate(purchases):
             for k, v in six.iteritems(p):
-                query_vars.append('purchases[%d].%s=%s' % (i, k, v))
+                query_vars.append('purchase.purchases[%d].%s=%s' % (i, k, v))
 
         query_parts = '&'.join(query_vars)
         LOG.debug(query_parts)
@@ -461,11 +461,11 @@ class ProductPriceTestCase(rest.RestfulTestCase):
 
         price_ref = self.query_price(product, 1)
         hourly_price = pricing.calculate_price(1, product.unit_price)
-        self.assertDecimalEqual(hourly_price, price_ref['hourly_price'])
+        self.assertDecimalEqual(hourly_price, price_ref['unit_price'])
 
         price_ref = self.query_price(product, 10)
         hourly_price = pricing.calculate_price(10, product.unit_price)
-        self.assertDecimalEqual(hourly_price, price_ref['hourly_price'])
+        self.assertDecimalEqual(hourly_price, price_ref['unit_price'])
 
     def test_get_price_of_floatingip_with_segmented_price(self):
         product = self.product_fixture.ip_products[0]
@@ -474,12 +474,12 @@ class ProductPriceTestCase(rest.RestfulTestCase):
         price_ref = self.query_price(product, 1)
         hourly_price = pricing.calculate_price(
             1, product.unit_price, self.price_data)
-        self.assertDecimalEqual(hourly_price, price_ref['hourly_price'])
+        self.assertDecimalEqual(hourly_price, price_ref['unit_price'])
 
         price_ref = self.query_price(product, 10)
         hourly_price = pricing.calculate_price(
             10, product.unit_price, self.price_data)
-        self.assertDecimalEqual(hourly_price, price_ref['hourly_price'])
+        self.assertDecimalEqual(hourly_price, price_ref['unit_price'])
 
     def test_get_price_of_nonexist_product_failed(self):
         product = self.product_fixture.ip_products[0]
@@ -495,9 +495,9 @@ class ProductPriceTestCase(rest.RestfulTestCase):
         purchase = self.build_purchase(
             product.name, product.service, product.region_id, quantity)
         price = pricing.calculate_price(quantity, product.unit_price)
-        query_vars = []
+        query_vars = ['purchase.bill_method=hour']
         for k, v in six.iteritems(purchase):
-            query_vars.append('purchases[1].%s=%s' % (k, v))
+            query_vars.append('purchase.purchases[1].%s=%s' % (k, v))
 
         query_parts = '&'.join(query_vars)
         LOG.debug(query_parts)
@@ -505,7 +505,7 @@ class ProductPriceTestCase(rest.RestfulTestCase):
         resp = self.get(query_url, headers=self.admin_headers)
         price_ref = resp.json_body
         LOG.debug(price_ref)
-        self.assertDecimalEqual(price, price_ref['hourly_price'])
+        self.assertDecimalEqual(price, price_ref['unit_price'])
 
     def test_get_price_of_two_products(self):
         quantity = 1
@@ -520,4 +520,4 @@ class ProductPriceTestCase(rest.RestfulTestCase):
         query_url = self.build_price_query_url([purchase1, purchase2])
         resp = self.get(query_url, headers=self.admin_headers)
         price_ref = resp.json_body
-        self.assertDecimalEqual(price1 + price2, price_ref['hourly_price'])
+        self.assertDecimalEqual(price1 + price2, price_ref['unit_price'])

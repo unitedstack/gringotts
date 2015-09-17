@@ -10,6 +10,8 @@
 *.so
 
 # Packages/installer info
+*.egg
+*.egg-info
 dist
 build
 eggs

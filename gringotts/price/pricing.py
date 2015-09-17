@@ -139,12 +139,17 @@ def validate_price_data(price_data):
     return new_price_data
 
 
-def get_price_data(extra):
+def get_price_data(extra, method=None):
     if not extra:
         return None
 
     extra_data = jsonutils.loads(extra)
-    return extra_data.get('price', None)
+    if not method or method == 'hour':
+        return extra_data.get('price', None)
+    elif method == 'month':
+        return extra_data.get('monthly_price', None)
+    elif method == 'year':
+        return extra_data.get('yearly_price', None)
 
 
 def rate_limit_to_unit(rate_limit):

@@ -13,31 +13,26 @@
 # under the License.
 
 import copy
+import json
 import sys
 
 from keystoneclient import access
-from gringotts.services import keystone as ks_client
 from troveclient.v1 import client as trove_client
 from oslo.config import cfg
-import json
 
-from gringotts.openstack.common.gettextutils import _
-from gringotts.openstack.common import log as logging
+from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception
 
 
-LOG = logging.getLogger(__name__)
-
-
-def troveclient(project_id, region_name=None):
-    os_cfg = cfg.CONF.service_credentials
+def troveclient(region_name=None):
+    ks_cfg = cfg.CONF.keystone_authtoken
     endpoint = ks_client.get_endpoint(region_name, 'database')
     auth_token = ks_client.get_token()
+    auth_url = ks_client.get_auth_url()
 
-    tc = trove_client.Client(os_cfg.os_username,
-                             os_cfg.os_password,
-                             project_id=project_id,
-                             auth_url=os_cfg.os_auth_url)
+    tc = trove_client.Client(ks_cfg.admin_user,
+                             ks_cfg.admin_password,
+                             auth_url=auth_url)
 
     tc.client.auth_token = auth_token
     tc.client.management_url = endpoint
@@ -45,10 +40,11 @@ def troveclient(project_id, region_name=None):
 
 @wrap_exception(exc_type='get', with_raise=False)
 def quota_get(project_id, region_name=None):
-    client = troveclient(project_id, region_name)
+    client = troveclient(region_name)
     return client.mgmt_quota.show(project_id)
 
 
 @wrap_exception(exc_type='put', with_raise=False)
 def quota_update(project_id, region_name=None, **kwargs):
-    troveclient(project_id, region_name).mgmt_quota.update(project_id, json.dumps(kwargs))
+    client = troveclient(region_name)
+    client.mgmt_quota.update(project_id, json.dumps(kwargs))

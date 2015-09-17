@@ -1,10 +1,10 @@
 import functools
 import time
 from oslo.config import cfg
+import logging as log
 
 from gringotts import utils
 from gringotts import constants as const
-
 from gringotts.services import wrap_exception,register
 from gringotts.services import Resource
 from cinderclient.v1 import client as cinder_client
@@ -12,11 +12,9 @@ from cinderclient.exceptions import NotFound
 from gringotts.services import keystone as ks_client
 from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
-from gringotts.openstack.common import log
 
 
 LOG = log.getLogger(__name__)
-
 register = functools.partial(register,
                              ks_client,
                              service='volume',
@@ -57,16 +55,18 @@ class Snapshot(Resource):
 
 
 def get_cinderclient(region_name=None):
-    os_cfg = cfg.CONF.service_credentials
+    ks_cfg = cfg.CONF.keystone_authtoken
     endpoint = ks_client.get_endpoint(region_name, 'volume')
     auth_token = ks_client.get_token()
-    c = cinder_client.Client(os_cfg.os_username,
-                             os_cfg.os_password,
+    auth_url = ks_client.get_auth_url()
+    c = cinder_client.Client(ks_cfg.admin_user,
+                             ks_cfg.admin_password,
                              None,
-                             auth_url=os_cfg.os_auth_url)
+                             auth_url=auth_url)
     c.client.auth_token = auth_token
     c.client.management_url = endpoint
     return c
+
 
 @register(mtype='get')
 @wrap_exception(exc_type='get')
@@ -252,16 +252,19 @@ def delete_volume(volume_id, region_name=None):
 def stop_volume(volume_id, region_name=None):
     return True
 
+
 @register(resource=const.RESOURCE_SNAPSHOT, mtype='delete')
 @wrap_exception(exc_type='delete')
 def delete_snapshot(snap_id, region_name=None):
     client = get_cinderclient(region_name)
     client.volume_snapshots.delete(snap_id)
 
+
 @register(resource=const.RESOURCE_SNAPSHOT, mtype='stop')
 @wrap_exception(exc_type='stop')
 def stop_snapshot(snap_id, region_id=None):
     return True
+
 
 @wrap_exception(exc_type='put')
 def quota_update(project_id, user_id=None, region_name=None, **kwargs):

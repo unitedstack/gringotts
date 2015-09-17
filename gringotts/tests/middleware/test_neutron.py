@@ -18,69 +18,77 @@ class NeutronMiddlewareTestCase(tests.MiddlewareTestCase):
 
     def create_ok(self, path):
         owner_info = self.build_billing_owner(balance='1')
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
         self.post_json(path)
 
     def create_failed(self, path):
         owner_info = self.build_billing_owner()
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
         self.post_json(path, status=402)
 
     def test_create_floatingip(self):
         owner_info = self.build_billing_owner(
             balance=int(CONF.billing.min_balance_fip) + 1)
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
         self.post_json('/floatingips')
 
     def test_create_floatingip_without_enough_balance_failed(self):
         owner_info = self.build_billing_owner(
             balance=CONF.billing.min_balance_fip)
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
         self.post_json('/floatingips', status=402)
 
     def test_create_floatingip_with_owed_and_level9_account(self):
         owner_info = self.build_billing_owner(level=9, balance='-9.9')
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
         self.post_json('/floatingips')
 
     def test_update_floatingip_ratelimit(self):
         owner_info = self.build_billing_owner(balance='1')
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
+        order = self.build_order(unit='hour')
+        self.mocked_client.get_order_by_resource_id.return_value = order
         self.put_json('/uos_resources/%s/update_floatingip_ratelimit' % (
             self.new_uuid4()))
 
     def test_update_floatingip_ratelimit_without_enough_balance_failed(self):
         owner_info = self.build_billing_owner()
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
+        order = self.build_order(unit='hour')
+        self.mocked_client.get_order_by_resource_id.return_value = order
         self.put_json('/uos_resources/%s/update_floatingip_ratelimit' % (
             self.new_uuid4()), status=402)
 
     def test_create_fipset(self):
         owner_info = self.build_billing_owner(
             balance=(CONF.billing.min_balance_fip + '1'))
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
         self.post_json('/floatingipsets')
 
     def test_create_fipset_without_enough_balance_failed(self):
         owner_info = self.build_billing_owner(
             balance=CONF.billing.min_balance_fip)
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
         self.post_json('/floatingipsets', status=402)
 
     def test_create_fipset_with_owed_and_level9_account(self):
         owner_info = self.build_billing_owner(level=9, balance='-9.9')
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
         self.post_json('/floatingiipsets')
 
     def test_update_fipset_ratelimit(self):
         owner_info = self.build_billing_owner(balance='1')
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
+        order = self.build_order(unit='hour')
+        self.mocked_client.get_order_by_resource_id.return_value = order
         self.put_json('/uos_resources/%s/update_floatingipset_ratelimit' % (
             self.new_uuid4()))
 
     def test_update_fipset_ratelimit_without_enough_balance_failed(self):
         owner_info = self.build_billing_owner()
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
+        order = self.build_order(unit='hour')
+        self.mocked_client.get_order_by_resource_id.return_value = order
         self.put_json('/uos_resources/%s/update_floatingipset_ratelimit' % (
             self.new_uuid4()), status=402)
 
@@ -98,7 +106,9 @@ class NeutronMiddlewareTestCase(tests.MiddlewareTestCase):
 
     def test_update_lbaas(self):
         owner_info = self.build_billing_owner(balance='1')
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
+        order = self.build_order(unit='hour')
+        self.mocked_client.get_order_by_resource_id.return_value = order
         body = {
             'listener': {
                 'connection_limit': 10,
@@ -109,7 +119,9 @@ class NeutronMiddlewareTestCase(tests.MiddlewareTestCase):
 
     def test_update_lbaas_without_enough_balance_failed(self):
         owner_info = self.build_billing_owner()
-        self.mocked_client.get.return_value = (None, owner_info)
+        self.mocked_client.get_billing_owner.return_value = owner_info
+        order = self.build_order(unit='hour')
+        self.mocked_client.get_order_by_resource_id.return_value = order
         body = {
             'listener': {
                 'connection_limit': 10,

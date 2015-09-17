@@ -4,24 +4,21 @@ from gringotts.middleware import base
 
 UUID_RE = r"([0-9a-f]{32}|[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12})"
 API_VERSION = r"(v1|v2)"
-
-def create_image_action_api(method, path_info, body):
-    if method == "POST" and re.match(r"^/%s/images([.][^.]+)?$" % API_VERSION, path_info):
-        return True
-    return False
-
-
-def create_image_action_registry(method, path_info, body):
-    if method == "POST" and re.match(r"^/images([.][^.]+)?$", path_info):
-        return True
-    return False
+RESOURCE_RE = r"(images)"
 
 
 class GlanceBillingProtocol(base.BillingProtocol):
-    black_list  = [
-        create_image_action_api,
-        create_image_action_registry,
-    ]
+
+    def __init__(self, app, conf):
+        super(GlanceBillingProtocol, self).__init__(app, conf)
+        self.resource_regex = re.compile(
+            r"^/%s/%s/%s([.][^.]+)?$" % (API_VERSION, RESOURCE_RE, UUID_RE), re.UNICODE)
+        self.create_resource_regex = re.compile(
+            r"^/%s/%s([.][^.]+)?$" % (API_VERSION, RESOURCE_RE), re.UNICODE)
+        self.position = 2
+        self.resource_regexs = [
+            self.resource_regex,
+        ]
 
 
 def filter_factory(global_conf, **local_conf):

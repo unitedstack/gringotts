@@ -139,9 +139,14 @@ class TokenAuthPlugin(BaseAuthPlugin):
         }
         resp, body = self.get_raw_token_from_identity_service(**kwargs)
 
-        self._expires_at = timeutils.parse_isotime(body['token']['expires_at'])
+        try:
+            resp_data = body['token']
+        except (KeyError, ValueError):
+            raise exception.AuthorizationFailure(body)
+
+        self._expires_at = timeutils.parse_isotime(resp_data['expires_at'])
         self.auth_token = resp.headers['X-Subject-Token']
-        self._management_url = self._get_endpoint(body['token']['catalog'],
+        self._management_url = self._get_endpoint(resp_data['catalog'],
                                                   version=self.version,
                                                   service_type=self.service_type)
         return True
@@ -155,7 +160,7 @@ class TokenAuthPlugin(BaseAuthPlugin):
                     return utils.version_api(endpoint['url'],
                                              version=version)
 
-    def get_raw_token_from_identity_service(self,
+    def get_raw_token_from_identity_service(self, auth_url=None,
                                             user_id=None,
                                             username=None,
                                             user_domain_id=None,
@@ -164,39 +169,7 @@ class TokenAuthPlugin(BaseAuthPlugin):
                                             project_name=None,
                                             project_domain_id=None,
                                             project_domain_name=None,
-                                            password=None,
-                                            auth_url=None):
-        """Authenticate against the Identity API and get a token.
-        """
-        try:
-            return self._do_auth(
-                auth_url=auth_url,
-                user_id=user_id,
-                username=username,
-                user_domain_id=user_domain_id,
-                user_domain_name=user_domain_name,
-                project_id=project_id,
-                project_name=project_name,
-                project_domain_id=project_domain_id,
-                project_domain_name=project_domain_name,
-                password=password)
-        except (exception.AuthorizationFailure, exception.Unauthorized):
-            _logger.debug('Authorization failed.')
-            raise
-        except Exception as e:
-            raise exception.AuthorizationFailure('Authorization failed: %s' % e)
-
-    def _do_auth(self,
-                 auth_url=None,
-                 user_id=None,
-                 username=None,
-                 user_domain_id=None,
-                 user_domain_name=None,
-                 project_id=None,
-                 project_name=None,
-                 project_domain_id=None,
-                 project_domain_name=None,
-                 password=None):
+                                            password=None):
         # headers
         headers = {'Content-Type': 'application/json'}
 
@@ -242,8 +215,17 @@ class TokenAuthPlugin(BaseAuthPlugin):
                     scope['project']['domain']['id'] = project_domain_id
                 elif project_domain_name:
                     scope['project']['domain']['name'] = project_domain_name
-
-        resp = requests.post(url,
-                             data=jsonutils.dumps(body),
-                             headers=headers)
+        try:
+            resp = requests.post(url,
+                                 data=jsonutils.dumps(body),
+                                 headers=headers)
+        except requests.exceptions.SSLError:
+            msg = 'SSL exception connecting to %s' % url
+            raise exception.SSLError(msg)
+        except requests.exceptions.Timeout:
+            msg = 'Request to %s timed out' % url
+            raise exception.Timeout(msg)
+        except requests.exceptions.ConnectionError:
+            msg = 'Unable to establish connection to %s' % url
+            raise exception.ConnectionError(message=msg)
         return resp, self._decode_body(resp)

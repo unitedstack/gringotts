@@ -151,16 +151,20 @@ class ProductController(rest.RestController):
 class PriceController(rest.RestController):
     """Process price of product."""
 
-    @wsexpose(models.Price, [models.Purchase])
-    def get_all(self, purchases=[]):
+    @wsexpose(models.Price, models.Purchase)
+    def get_all(self, purchase):
         """Get price of a group of products."""
+
+        if purchase.bill_method not in ['hour', 'month', 'year']:
+            err = 'Should specify bill_method among hour, month and year'
+            raise exception.InvalidParameterValue(err=err)
+
         conn = pecan.request.db_conn
 
         unit_price = quantize_decimal(0)
-        hourly_price = quantize_decimal(0)
-        unit = None
+        unit = purchase.bill_method
 
-        for p in purchases:
+        for p in purchase.purchases:
             if all([p.product_name, p.service, p.region_id, p.quantity]):
                 filters = dict(name=p.product_name,
                                service=p.service,
@@ -170,34 +174,29 @@ class PriceController(rest.RestController):
                 if len(products) == 0:
                     LOG.error('Product %s of region %s not found',
                               p.product_name, p.region_id)
-                    raise exception.ProductNameNotFound()
+                    raise exception.ProductNameNotFound(
+                        product_name=p.product_name)
 
                 try:
                     product = products[0]
                     if product.extra:
                         extra = jsonutils.loads(product.extra)
-                        price_data = extra.get('price', None)
+                        price_data = extra.get('price', unit)
                     else:
                         price_data = None
 
-                    hourly_price += pricing.calculate_price(
+                    unit_price += pricing.calculate_price(
                         p.quantity, product.unit_price, price_data)
-                    unit_price += quantize_decimal(product.unit_price)
-                    unit = product.unit
                 except (Exception) as e:
                     LOG.error('Calculate price of product %s failed, %s',
                               p.product_name, e)
                     raise e
             else:
-                raise exception.MissingRequiredParams()
-
-        unit_price = quantize_decimal(unit_price)
-        hourly_price = quantize_decimal(hourly_price)
-        monthly_price = quantize_decimal(hourly_price * 24 * 30)
+                err = "Every purchase item should specify product_name, "\
+                      "service, region_id and quantity"
+                raise exception.MissingRequiredParams(reason=err)
 
         return models.Price.transform(unit_price=unit_price,
-                                      hourly_price=hourly_price,
-                                      monthly_price=monthly_price,
                                       unit=unit)
 
 

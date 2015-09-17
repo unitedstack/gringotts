@@ -1,13 +1,12 @@
 import functools
 import inspect
+import logging as log
 
 from decimal import Decimal
 from oslo.config import cfg
 
+from gringotts.client import client
 from gringotts.exception import GringottsException
-from gringotts import context
-from gringotts import worker
-from gringotts.openstack.common import log
 
 
 LOG = log.getLogger(__name__)
@@ -27,18 +26,19 @@ def wrap_exception(exc_type=None, with_raise=True):
         def wrapped(uuid, *args, **kwargs):
             try:
                 if exc_type == 'delete' or exc_type == 'stop':
-                    worker_api = worker.API()
-                    order = worker_api.get_order_by_resource_id(context.get_admin_context(),
-                                                                uuid)
-                    account = worker_api.get_account(context.get_admin_context(),
-                                                     order['user_id'])
-                    if order['owed'] and account['owed'] and Decimal(str(account['balance'])) < 0 and int(account['level']) != 9:
-                        LOG.warn('The resource: %s is indeed owed, can be execute the action: %s' % \
-                                (uuid, f.__name__))
+                    gclient = client.get_client()
+                    order = gclient.get_order_by_resource_id(uuid)
+                    account = gclient.get_account(order['user_id'])
+                    if (order['owed'] and
+                        account['owed'] and
+                        Decimal(str(account['balance'])) < 0 and
+                        int(account['level']) != 9):
+                        LOG.warn("The resource: %s is indeed owed, can be execute"
+                                 "the action: %s", (uuid, f.__name__))
                         return f(uuid, *args, **kwargs)
                     else:
-                        LOG.warn('The resource: %s is not owed, should not execute the action: %s' % \
-                                (uuid, f.__name__))
+                        LOG.warn("The resource: %s is not owed, should not execute"
+                                 "the action: %s", (uuid, f.__name__))
                 else:
                     return f(uuid, *args, **kwargs)
             except Exception as e:

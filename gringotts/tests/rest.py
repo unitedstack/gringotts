@@ -205,7 +205,7 @@ class RestfulTestCase(tests.TestCase,
         return ref
 
     def new_account_ref(self, user_id, project_id, domain_id, level=3,
-                        owed=False, balance=0, consumption=0,
+                        owed=False, balance=0, frozen_balance=0, consumption=0,
                         inviter=None, sales_id=None):
         ref = {}
         ref['user_id'] = user_id
@@ -214,6 +214,7 @@ class RestfulTestCase(tests.TestCase,
         ref['level'] = level
         ref['owed'] = owed
         ref['balance'] = balance
+        ref['frozen_balance'] = frozen_balance
         ref['consumption'] = consumption
         if inviter:
             ref['inviter'] = inviter

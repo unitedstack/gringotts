@@ -1,5 +1,6 @@
 import functools
 from oslo.config import cfg
+import logging as log
 
 from gringotts import utils
 from gringotts import constants as const
@@ -7,7 +8,6 @@ from gringotts import constants as const
 from novaclient.v1_1 import client as nova_client
 from novaclient.exceptions import NotFound
 
-from gringotts.openstack.common import log
 from gringotts.openstack.common import timeutils
 
 from gringotts.services import keystone as ks_client
@@ -16,7 +16,6 @@ from gringotts.services import Resource
 
 
 LOG = log.getLogger(__name__)
-
 register = functools.partial(register,
                              ks_client,
                              service='compute',
@@ -46,16 +45,17 @@ class Server(Resource):
 
 
 def get_novaclient(region_name=None):
-    os_cfg = cfg.CONF.service_credentials
+    ks_cfg = cfg.CONF.keystone_authtoken
     endpoint = ks_client.get_endpoint(region_name, 'compute')
     auth_token = ks_client.get_token()
+    auth_url = ks_client.get_auth_url()
 
     # Actually, there is no need to give any params to novaclient,
     # but it requires parameters.
-    c = nova_client.Client(os_cfg.os_username,
-                           os_cfg.os_password,
+    c = nova_client.Client(ks_cfg.admin_user,
+                           ks_cfg.admin_password,
                            None, # project_id is not required
-                           auth_url=os_cfg.os_auth_url)
+                           auth_url=auth_url)
 
     # Give auth_token and management_url directly to avoid authenticate again.
     c.client.auth_token = auth_token
@@ -92,6 +92,12 @@ def server_get(instance_id, region_name=None):
                   status=status,
                   original_status=server.status,
                   resource_type=const.RESOURCE_INSTANCE)
+
+
+def server_list_by_resv_id(resv_id, region_name=None, detailed=False):
+    search_opts = {'reservation_id': resv_id,
+                   'all_tenants': 1}
+    return get_novaclient(region_name).servers.list(detailed, search_opts)
 
 
 @register(mtype='list')

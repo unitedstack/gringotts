@@ -3,15 +3,15 @@ import copy
 
 from oslo.config import cfg
 
-from gringotts import utils as gringutils
-from gringotts import constants as const
+from gringotts.client import client
 from gringotts import context
+from gringotts import constants as const
 from gringotts import db
-from gringotts import plugin
-from gringotts import worker
 from gringotts import master
-
 from gringotts.openstack.common import log
+from gringotts import plugin
+from gringotts.price import pricing
+from gringotts import utils as gringutils
 
 
 LOG = log.getLogger(__name__)
@@ -43,7 +43,7 @@ class ProductItem(plugin.PluginBase):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self):
-        self.worker_api = worker.API()
+        self.gclient = client.get_client()
 
     @abc.abstractmethod
     def get_collection(self, message):
@@ -57,22 +57,27 @@ class ProductItem(plugin.PluginBase):
 
         LOG.debug('Create subscription for order: %s' % order_id)
 
-        result = self.worker_api.create_subscription(context.get_admin_context(),
-                                                     order_id,
-                                                     type=type,
-                                                     **collection.as_dict())
+        result = self.gclient.create_subscription(order_id,
+                                                  type=type,
+                                                  **collection.as_dict())
         return result
 
     def get_unit_price(self, message):
         """Get product unit price"""
-        collection = self.get_collection(message)
-        product = self.worker_api.get_product(context.get_admin_context(),
-                                              collection.product_name,
-                                              collection.service,
-                                              collection.region_id)
+        c = self.get_collection(message)
+        product = self.gclient.get_product(
+            c.product_name, c.service, c.region_id)
+
         if product:
-            return collection.resource_volume * gringutils._quantize_decimal(product['unit_price'])
-        return 0
+            if 'extra' in product:
+                price_data = pricing.get_price_data(product['extra'])
+            else:
+                price_data = None
+
+            return pricing.calculate_price(
+                c.resource_volume, product['unit_price'], price_data)
+        else:
+            return 0
 
 
 class Order(object):
@@ -95,7 +100,7 @@ class Order(object):
 class NotificationBase(plugin.NotificationBase):
 
     def __init__(self):
-        self.worker_api = worker.API()
+        self.gclient = client.get_client()
         self.master_api = master.API()
 
     @abc.abstractmethod
@@ -112,24 +117,23 @@ class NotificationBase(plugin.NotificationBase):
     def change_order_unit_price(self, order_id, quantity, status):
         """Change the order's subscriptions and unit price"""
         # change subscirption's quantity
-        self.worker_api.change_subscription(context.get_admin_context(),
-                                            order_id, quantity, status)
+        self.gclient.change_subscription(order_id, quantity, status)
 
         # change the order's unit price
-        self.worker_api.change_order(context.get_admin_context(), order_id, status)
+        self.gclient.change_order(order_id, status)
 
-    def change_flavor_unit_price(self, order_id, new_flavor, service, region_id, status):
+    def change_flavor_unit_price(self, order_id, new_flavor,
+                                 service, region_id, status):
         """Change the order's flavor subscription and unit price"""
         if status == const.STATE_RUNNING:
             # change subscirption's quantity
-            self.worker_api.change_flavor_subscription(context.get_admin_context(),
-                                                       order_id,
-                                                       new_flavor, None,
-                                                       service, region_id,
-                                                       const.STATE_RUNNING)
+            self.gclient.change_flavor_subscription(order_id,
+                                                    new_flavor, None,
+                                                    service, region_id,
+                                                    const.STATE_RUNNING)
 
         # change the order's unit price
-        self.worker_api.change_order(context.get_admin_context(), order_id, status)
+        self.gclient.change_order(order_id, status)
 
     def create_order(self, order_id, unit_price, unit, message, state=None):
         """Create an order for resource created
@@ -138,22 +142,19 @@ class NotificationBase(plugin.NotificationBase):
 
         LOG.debug('Create order for order_id: %s' % order_id)
 
-        self.worker_api.create_order(context.get_admin_context(),
-                                     order_id,
-                                     cfg.CONF.region_name,
-                                     unit_price,
-                                     unit,
-                                     **order.as_dict())
+        self.gclient.create_order(order_id,
+                                  cfg.CONF.region_name,
+                                  unit_price,
+                                  unit,
+                                  **order.as_dict())
 
     def get_order_by_resource_id(self, resource_id):
-        return self.worker_api.get_order_by_resource_id(context.get_admin_context(),
-                                                        resource_id)
+        return self.gclient.get_order_by_resource_id(resource_id)
 
     def create_account(self, user_id, domain_id, balance, consumption, level,
                        **kwargs):
-        self.worker_api.create_account(context.get_admin_context(),
-                                       user_id, domain_id, balance, consumption, level,
-                                       **kwargs)
+        self.gclient.create_account(user_id, domain_id, balance,
+                                    consumption, level, **kwargs)
 
     def resource_created(self, order_id, action_time, remarks):
         """Notify master that resource has been created
@@ -219,33 +220,29 @@ class NotificationBase(plugin.NotificationBase):
         """Notify master that instance has been resized
         """
         # change subscirption's product
-        self.worker_api.change_flavor_subscription(context.get_admin_context(),
-                                                   order_id,
-                                                   new_flavor, old_flavor,
-                                                   service, region_id,
-                                                   const.STATE_RUNNING)
+        self.gclient.change_flavor_subscription(order_id,
+                                                new_flavor, old_flavor,
+                                                service, region_id,
+                                                const.STATE_RUNNING)
 
     def charge_account(self, user_id, value, type, come_from):
         """Charge the account
         """
-        self.worker_api.charge_account(context.get_admin_context(),
-                                       user_id, value, type, come_from)
+        self.gclient.charge_account(user_id, value, type, come_from)
 
     def create_project(self, user_id, project_id, domain_id, consumption):
         """Create a project whose project owner is user_id
         """
-        self.worker_api.create_project(context.get_admin_context(),
-                                       user_id, project_id, domain_id, consumption)
+        self.gclient.create_project(user_id, project_id, domain_id, consumption)
 
     def delete_resources(self, project_id):
         """Delete all resources of project"""
-        self.worker_api.delete_resources(context.get_admin_context(), project_id)
+        self.gclient.delete_resources(project_id)
 
     def change_billing_owner(self, project_id, user_id):
         """Change billing owner"""
-        self.worker_api.change_billing_owner(context.get_admin_context(), project_id, user_id)
+        self.gclient.change_billing_owner(project_id, user_id)
 
     def get_subscriptions(self, order_id=None, type=None):
         """Get subscription of specific order"""
-        return self.worker_api.get_subscriptions(context.get_admin_context(),
-                                                 order_id=order_id, type=type)
+        return self.gclient.get_subscriptions(order_id=order_id, type=type)

@@ -1,13 +1,11 @@
 from oslo.config import cfg
 
-from gringotts.openstack.common import log
 from gringotts.openstack.common.rpc import proxy
 
 
-LOG = log.getLogger(__name__)
-
 cfg.CONF.import_opt('master_topic', 'gringotts.master.service',
                     group='master')
+
 
 class MasterAPI(proxy.RpcProxy):
     BASE_RPC_VERSION = '1.0'
@@ -16,6 +14,19 @@ class MasterAPI(proxy.RpcProxy):
         super(MasterAPI, self).__init__(
             topic=cfg.CONF.master.master_topic,
             default_version=self.BASE_RPC_VERSION)
+
+    def change_cron_job_time(self, ctxt, order_id, cron_time,
+                             clear_date_jobs=None):
+        return self.cast(ctxt,
+                         self.make_msg('change_cron_job_time',
+                                       order_id=order_id,
+                                       cron_time=cron_time,
+                                       clear_date_jobs=clear_date_jobs))
+
+    def delete_sched_jobs(self, ctxt, order_id):
+        return self.cast(ctxt,
+                         self.make_msg('delete_sched_jobs',
+                                       order_id=order_id))
 
     def get_apsched_jobs_count(self, ctxt):
         return self.call(ctxt,

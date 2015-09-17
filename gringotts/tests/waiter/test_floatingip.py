@@ -252,6 +252,7 @@ class FloatingIpTestCase(test_service.WaiterServiceTestCase):
         fip = neutron.FloatingIp(
             id=payload['id'], name=payload['uos:name'],
             size=payload['rate_limit'], project_id=payload['tenant_id'],
+            providers=payload['uos:service_provider'],
             resource_type=gring_const.RESOURCE_FLOATINGIP,
             status=payload['status'], is_reserved=True)
         message = fip.to_message()
@@ -285,6 +286,7 @@ class FloatingIpTestCase(test_service.WaiterServiceTestCase):
         fip = neutron.FloatingIp(
             id=payload['id'], name=payload['uos:name'],
             size=payload['rate_limit'], project_id=payload['tenant_id'],
+            providers=payload['uos:service_provider'],
             resource_type=gring_const.RESOURCE_FLOATINGIP,
             status=payload['status'], is_reserved=True)
         message = fip.to_message()
