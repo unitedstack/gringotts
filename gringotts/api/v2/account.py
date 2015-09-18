@@ -533,13 +533,14 @@ class DetailController(rest.RestController):
             elif not user_id:
                 return {}
 
-        try:
-            user = keystone.get_uos_user(user_id)
-        except (exception.NotFound):
+        user = keystone.get_uos_user(user_id)
+
+        if not user:
             msg = _('Could not find %s %s from keystone' %
                     (user_type, user_id))
             LOG.warn(msg)
             return
+
         user_info = dict(
             user_id=user_id,
             user_name=user['name'],

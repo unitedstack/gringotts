@@ -70,7 +70,7 @@ class AccountTestCase(rest.RestfulTestCase):
 
     def test_get_all_accounts_in_detail_no_user(self):
         with mock.patch.object(keystone, 'get_uos_user',
-                               side_effect=exception.NotFound()):
+                               return_value=None):
             resp = self.get(self.account_detail_path,
                             headers=self.admin_headers)
         self.assertEqual(0, resp.json_body['total_count'])
