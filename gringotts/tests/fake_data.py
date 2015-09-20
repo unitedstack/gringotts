@@ -1,4 +1,7 @@
 
+from gringotts import constants as gring_const
+
+
 def product_instance(name, unit_price):
     product = {
         'name': name,
@@ -36,6 +39,14 @@ PRODUCT_IP_FLOATING_CHINAMOBILE_CHINAUNICOM = dict(
     name='ip.floating.CHINAMOBILE-CHINAUNICOM', service='network',
     description='some desc', unit_price=0.050, unit='hour')
 
+PRODUCT_SATA_VOLUME_SIZE = dict(
+    name='sata.volume.size', service='block_storage',
+    description='sata volume', unit_price=0.006, unit='hour')
+
+PRODUCT_VOLUME_SIZE = dict(
+    name='volume.size', service='block_storage',
+    description='ssd volume', unit_price=0.02, unit='hour')
+
 instance_products = [
     PRODUCT_INSTANCE_MICRO1,
     PRODUCT_INSTANCE_MICRO2,
@@ -59,4 +70,9 @@ instance_products = [
 ip_products = [
     PRODUCT_IP_FLOATING,
     PRODUCT_IP_FLOATING_CHINAMOBILE_CHINAUNICOM,
+]
+
+volume_products = [
+    PRODUCT_SATA_VOLUME_SIZE,
+    PRODUCT_VOLUME_SIZE
 ]

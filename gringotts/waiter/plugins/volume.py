@@ -5,6 +5,7 @@ from oslo.config import cfg
 from stevedore import extension
 
 from gringotts import constants as const
+from gringotts import context
 from gringotts import utils as gringutils
 from gringotts import exception
 from gringotts import plugin
@@ -13,8 +14,10 @@ from gringotts.waiter.plugin import Collection
 from gringotts.waiter.plugin import Order
 
 from gringotts import services
+from gringotts.price import pricing
 from gringotts.services import keystone as ks_client
 
+from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
 
@@ -65,6 +68,23 @@ class SizeItem(waiter_plugin.ProductItem):
                           resource_volume=resource_volume,
                           user_id=user_id,
                           project_id=project_id)
+
+    def get_unit_price(self, message):
+        c = self.get_collection(message)
+        product = self.worker_api.get_product(
+            context.get_admin_context(),
+            c.product_name, c.service, c.region_id)
+
+        if product:
+            if 'extra' in product:
+                price_data = pricing.get_price_data(product['extra'])
+            else:
+                price_data = None
+
+            return pricing.calculate_price(
+                c.resource_volume, product['unit_price'], price_data)
+        else:
+            return 0
 
 
 class VolumeNotificationBase(waiter_plugin.NotificationBase):
@@ -127,15 +147,31 @@ class VolumeCreateEnd(VolumeNotificationBase):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_SUSPEND)
                 if sub and state==const.STATE_SUSPEND:
-                    p = gringutils._quantize_decimal(sub['unit_price'])
-                    unit_price += p * sub['quantity']
+                    price_data = None
+                    if 'extra' in sub and sub['extra']:
+                        try:
+                            extra_data = jsonutils.loads(sub['extra'])
+                            price_data = extra_data.get('price', None)
+                        except (Exception):
+                            LOG.warning('Decode subscription["extra"] failed')
+
+                    unit_price += pricing.calculate_price(
+                        sub['quantity'], sub['unit_price'], price_data)
                     unit = sub['unit']
             elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
                 if sub and (not state or state==const.STATE_RUNNING):
-                    p = gringutils._quantize_decimal(sub['unit_price'])
-                    unit_price += p * sub['quantity']
+                    price_data = None
+                    if 'extra' in sub and sub['extra']:
+                        try:
+                            extra_data = jsonutils.loads(sub['extra'])
+                            price_data = extra_data.get('price', None)
+                        except (Exception):
+                            LOG.warning('Decode subscription["extra"] failed')
+
+                    unit_price += pricing.calculate_price(
+                        sub['quantity'], sub['unit_price'], price_data)
                     unit = sub['unit']
 
         # Create an order for this volume

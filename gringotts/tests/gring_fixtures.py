@@ -116,8 +116,12 @@ class ProductTableData(fixtures.Fixture):
         self.instance_products = self._generate_products(
             test_data.instance_products)
         self.ip_products = self._generate_products(test_data.ip_products)
+        self.volume_products = self._generate_products(
+            test_data.volume_products)
 
-        self.total = len(self.ip_products) + len(self.instance_products)
+        self.total = len(self.ip_products) +\
+            len(self.instance_products) +\
+            len(self.volume_products)
 
         self.addCleanup(delete_all_rows, sql_models.Product)
 

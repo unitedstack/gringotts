@@ -141,3 +141,20 @@ class WaiterServiceTestCase(ServiceTestCase,
         }
 
         return {'floatingipset': floatingipset}
+
+    def build_volume_payload(self, volume_type, size, project_id, **kwargs):
+        volume = {
+            'volume_type': volume_type,
+            'size': size,  # unit:(G)
+            'tenant_id': project_id,
+            'user_id': self.admin_account.user_id,
+
+            # auto genarated data
+            'created_at': kwargs.get(
+                'created_at', self.datetime_to_isotime_str(self.utcnow())),
+            'volume_id': kwargs.get('volume_id', self.new_resource_id()),
+            'status': kwargs.get('status', 'available'),
+            'display_name': kwargs.get('display_name', self.new_uuid())
+        }
+
+        return volume
