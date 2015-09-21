@@ -118,7 +118,7 @@ class WaiterServiceTestCase(ServiceTestCase,
             'status': kwargs.get('status', 'UP'),
             'uos:name': kwargs.get('uos_name', self.new_uuid()),
             'uos:registerno': kwargs.get('uos_registerno', ''),
-            'uos.service_provider': kwargs.get('uos_service_provider', ''),
+            'uos:service_provider': kwargs.get('uos_service_provider', ''),
         }
 
         return {'floatingip': floatingip}

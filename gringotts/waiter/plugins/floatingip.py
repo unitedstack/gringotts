@@ -68,7 +68,10 @@ def generate_ip_str(message):
     event_type = message['event_type']
     payload = get_payload(message)
     if event_type in EVENT_FLOATINGIP:
+        provider = payload.get('uos:service_provider')
         fip = payload['floating_ip_address']
+        if provider:
+            fip = '%s:%s' % (provider, fip)
     elif event_type in EVENT_FLOATINGIPSET:
         fip_list = []
         for provider, addr_list in six.iteritems(
@@ -85,7 +88,12 @@ def generate_product_name(message):
     event_type = message['event_type']
     payload = get_payload(message)
     if event_type in EVENT_FLOATINGIP:
-        return const.PRODUCT_FLOATINGIP
+        provider = payload.get('uos:service_provider')
+        result = const.PRODUCT_FLOATINGIP
+        if provider:
+            result = '%s.%s' % (result,
+                                provider)
+        return result
     elif event_type in EVENT_FLOATINGIPSET:
         providers = sorted(payload['uos:service_provider'])
         return 'ip.floating.%s' % ('-'.join(providers))
@@ -103,10 +111,17 @@ class RateLimitItem(waiter_plugin.ProductItem):
 
     def _get_floatingip_collection(self, message):
         floatingip = message['payload']['floatingip']
-
-        product_name = generate_product_name(message)
         service = const.SERVICE_NETWORK
         region_id = cfg.CONF.region_name
+
+        product_name = generate_product_name(message)
+        if product_name != const.PRODUCT_FLOATINGIP:
+            product = self.worker_api.get_product(
+                context.get_admin_context(),
+                product_name, service, region_id)
+            if not product:
+                product_name = const.PRODUCT_FLOATINGIP
+
         resource_id = floatingip['id']
         resource_name = floatingip['uos:name']
         resource_type = const.RESOURCE_FLOATINGIP
