@@ -315,3 +315,17 @@ class RestfulTestCase(tests.TestCase,
             # let it be wsme.Unset if remarks is None
             precharge_ref['remarks'] = remarks
         return precharge_ref
+
+    def check_invalid_limit_or_offset(self, path):
+        def _check_invalid_limit_or_offset(offset, limit, path):
+            query_url = "%s?limit=%s&offset=%s" % (path, limit, offset)
+            self.get(query_url, headers=self.build_admin_http_headers(),
+                     expected_status=400)
+            if limit < 0:
+                self.assertLogging(r'WARNING.*Invalid limit')
+            if offset < 0:
+                self.assertLogging(r'WARNING.*Invalid offset')
+
+        _check_invalid_limit_or_offset(-1, 0, path)
+        _check_invalid_limit_or_offset(0, -1, path)
+        _check_invalid_limit_or_offset(-1, -1, path)

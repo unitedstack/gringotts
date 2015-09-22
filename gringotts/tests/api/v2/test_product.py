@@ -407,6 +407,14 @@ class ProductTestCase(rest.RestfulTestCase):
             self.assertEqual(extra, jsonutils.loads(sub.extra))
         self.assertDecimalEqual(expected_price, order.unit_price)
 
+    def test_get_product_detail_with_negative_limit_or_offset(self):
+        path = "%s/%s" % (self.product_path, 'detail')
+        self.check_invalid_limit_or_offset(path)
+
+    def test_get_all_products_with_negative_limit_or_offset(self):
+        path = self.product_path
+        self.check_invalid_limit_or_offset(path)
+
 
 class ProductPriceTestCase(rest.RestfulTestCase):
 

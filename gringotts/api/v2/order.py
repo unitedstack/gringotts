@@ -31,6 +31,7 @@ class OrderController(rest.RestController):
 
     def _order(self, start_time=None, end_time=None,
                limit=None, offset=None):
+
         self.conn = pecan.request.db_conn
         try:
             bills = self.conn.get_bills_by_order_id(request.context,
@@ -47,6 +48,12 @@ class OrderController(rest.RestController):
     @wsexpose(models.Bills, datetime.datetime, datetime.datetime, int, int)
     def get(self, start_time=None, end_time=None, limit=None, offset=None):
         """Get this order's detail."""
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         bills = self._order(start_time=start_time, end_time=end_time,
                             limit=limit, offset=offset)
         bills_list = []
@@ -220,6 +227,12 @@ class ActiveController(rest.RestController):
     def get_all(self, type=None, limit=None, offset=None,
                 region_id=None, user_id=None, project_id=None,
                 owed=None, charged=None):
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         conn = pecan.request.db_conn
         orders = conn.get_active_orders(request.context,
                                         type=type,
@@ -273,6 +286,12 @@ class OrdersController(rest.RestController):
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         limit_user_id = acl.get_limited_to_user(
             request.headers, 'uos_support_staff')
 

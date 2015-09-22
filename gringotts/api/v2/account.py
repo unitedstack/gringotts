@@ -124,6 +124,12 @@ class AccountController(rest.RestController):
     @wsexpose(models.Invitees, int, int)
     def invitees(self, limit=None, offset=None):
         """Get invitees of the inviter."""
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         inviter = acl.get_limited_to_user(
             request.headers, 'uos_admin') or self._id
 
@@ -279,6 +285,12 @@ class AccountController(rest.RestController):
     def charges(self, type=None, start_time=None,
                 end_time=None, limit=None, offset=None):
         """Get this account's charge records."""
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         user_id = acl.get_limited_to_user(
             request.headers, 'uos_support_staff') or self._id
 
@@ -397,7 +409,13 @@ class ChargeController(rest.RestController):
     def get(self, user_id=None, type=None, start_time=None,
             end_time=None, limit=None, offset=None):
         """Get all charges of all account."""
+
         check_policy(request.context, "charges:all")
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
 
         users = {}
 
@@ -461,6 +479,11 @@ class DetailController(rest.RestController):
     def get_all(self, user_id=None, owed=None, limit=None, offset=None,
                 sort_key='created_at', sort_dir='desc'):
         check_policy(request.context, "account:all")
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
 
         self.conn = pecan.request.db_conn
 
@@ -583,7 +606,13 @@ class AccountsController(rest.RestController):
     @wsexpose(models.AdminAccounts, bool, int, int)
     def get_all(self, owed=None, limit=None, offset=None):
         """Get all accounts."""
+
         check_policy(request.context, "account:all")
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
 
         self.conn = pecan.request.db_conn
 

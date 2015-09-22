@@ -181,7 +181,6 @@ class BillTestCase(rest.RestfulTestCase):
         self.assertEqual(gring_const.BILL_PAYED, bill.status)
         self.assertPriceEqual(total_price, bill.total_price)
 
-
     def test_get_bills(self):
         pass
 
@@ -196,3 +195,7 @@ class BillTestCase(rest.RestfulTestCase):
 
     def test_get_bill_trends(self):
         pass
+
+    def test_get_bill_detail_with_negative_limit_or_offset(self):
+        path = "%s/%s" % (self.bill_path, 'detail')
+        self.check_invalid_limit_or_offset(path)

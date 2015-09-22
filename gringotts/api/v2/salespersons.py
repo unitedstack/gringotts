@@ -25,6 +25,11 @@ class SalesPersonAccountsController(rest.RestController):
         if not acl.limit_to_sales(context, self.sales_id):
             raise exception.NotAuthorized()
 
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         conn = pecan.request.db_conn
         accounts_number, sales_amount = conn.get_salesperson_amount(
             context, self.sales_id)

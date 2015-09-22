@@ -252,3 +252,7 @@ class PrechargesTestCase(rest.RestfulTestCase):
         results = resp.json_body
         self.assertEqual(results['total_count'], number)
         self.assertEqual(len(results['precharges']), limit)
+
+    def test_get_all_precharges_with_negative_limit_or_offset(self):
+        path = self.precharge_path
+        self.check_invalid_limit_or_offset(path)

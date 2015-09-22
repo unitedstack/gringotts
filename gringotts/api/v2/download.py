@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import pecan
-import wsme
 import datetime
 import tablib
 
@@ -16,9 +15,7 @@ from oslo.config import cfg
 from gringotts import exception
 from gringotts.api import acl
 from gringotts.api.wsmeext_pecan import wsexpose
-from gringotts import utils as gringutils
 from gringotts.api.v2 import models
-from gringotts.db import models as db_models
 from gringotts.services import keystone
 from gringotts.openstack.common import log
 from gringotts.openstack.common import timeutils
@@ -30,10 +27,10 @@ LOG = log.getLogger(__name__)
 
 class ChargesController(rest.RestController):
 
-
     @wsexpose(None, wtypes.text, wtypes.text, datetime.datetime,
               datetime.datetime, int, int, status=204)
-    def get(self, output_format='xlsx', user_id=None, start_time=None, end_time=None,
+    def get(self, output_format='xlsx', user_id=None,
+            start_time=None, end_time=None,
             limit=None, offset=None):
         """Export all charges of special user, output formats supported:
            * Excel (Sets + Books)
@@ -46,6 +43,11 @@ class ChargesController(rest.RestController):
         if output_format.lower() not in ["xls", "xlsx", "csv", "json", "yaml"]:
             raise exception.InvalidOutputFormat(output_format=output_format)
 
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
 
         if limit_user_id:
@@ -56,6 +58,7 @@ class ChargesController(rest.RestController):
         data = []
 
         users = {}
+
         def _get_user(user_id):
             user = users.get(user_id)
             if user:
@@ -78,10 +81,12 @@ class ChargesController(rest.RestController):
             acharge = models.Charge.from_db_model(charge)
             acharge.actor = _get_user(charge.operator)
             acharge.target = _get_user(charge.user_id)
-            charge_time = timeutils.strtime(charge.charge_time, fmt=OUTPUT_TIME_FORMAT)
+            charge_time = \
+                timeutils.strtime(charge.charge_time, fmt=OUTPUT_TIME_FORMAT)
 
-            adata = (acharge.charge_id, acharge.target.user_name, acharge.target.user_id,
-                     str(acharge.value), acharge.type, acharge.come_from,
+            adata = (acharge.charge_id, acharge.target.user_name,
+                     acharge.target.user_id, str(acharge.value),
+                     acharge.type, acharge.come_from,
                      acharge.actor.user_id, acharge.actor.user_name,
                      charge_time, u"正常")
             data.append(adata)
@@ -89,7 +94,8 @@ class ChargesController(rest.RestController):
         data = tablib.Dataset(*data, headers=headers)
 
         response.content_type = "application/binary; charset=UTF-8"
-        response.content_disposition = "attachment; filename=charges.%s" % output_format
+        response.content_disposition = \
+            "attachment; filename=charges.%s" % output_format
         content = getattr(data, output_format)
         if output_format == 'csv':
             content = content.decode("utf-8").encode("gb2312")
@@ -103,26 +109,32 @@ class OrdersController(rest.RestController):
     @wsexpose(None, wtypes.text, wtypes.text, wtypes.text,
               datetime.datetime, datetime.datetime, int, int, wtypes.text,
               wtypes.text, wtypes.text, bool)
-    def get_all(self, output_format='xlsx', type=None, status=None, start_time=None, end_time=None,
-                limit=None, offset=None, region_id=None, project_id=None, user_id=None, owed=None):
+    def get_all(self, output_format='xlsx', type=None, status=None,
+                start_time=None, end_time=None, limit=None, offset=None,
+                region_id=None, project_id=None, user_id=None, owed=None):
         """Get queried orders
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
         limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
 
-        if limit_user_id: # normal user
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
+        if limit_user_id:  # normal user
             user_id = None
             projects = keystone.get_projects_by_user(limit_user_id)
             _project_ids = [project['id'] for project in projects]
-            if project_id:
-                project_ids = [project_id] if project_id in _project_ids else _project_ids
+            if project_id and project_id in _project_ids:
+                project_ids = [project_id]
             else:
                 project_ids = _project_ids
-        else: # accountant
-            if project_id: # look up specified project
+        else:  # accountant
+            if project_id:  # look up specified project
                 project_ids = [project_id]
-            else: # look up all projects
+            else:  # look up all projects
                 project_ids = []
 
         if project_ids:
@@ -147,8 +159,10 @@ class OrdersController(rest.RestController):
                 return project
             project = keystone.get_project(project_id)
             project_name = project.name if project else None
-            projects[project_id] = models.SimpleProject(project_id=project_id,
-                                                        project_name=project_name)
+            projects[project_id] = models.SimpleProject(
+                project_id=project_id,
+                project_name=project_name
+            )
             return projects[project_id]
 
         MAP = [
@@ -166,8 +180,10 @@ class OrdersController(rest.RestController):
              "alarm": u"监控报警"},
         ]
 
-        headers = (u"资源ID", u"资源名称", u"资源类型", u"资源状态", u"单价(元/小时)", u"金额(元)", u"区域",
-                   u"用户ID", u"用户名称", u"项目ID", u"项目名称", u"创建时间")
+        headers = (u"资源ID", u"资源名称", u"资源类型",
+                   u"资源状态", u"单价(元/小时)", u"金额(元)",
+                   u"区域", u"用户ID", u"用户名称", u"项目ID",
+                   u"项目名称", u"创建时间")
         data = []
 
         adata = (u"过滤条件: 资源类型: %s, 资源状态: %s，用户ID: %s, 项目ID: %s, 区域: %s, 起始时间: %s,  结束时间: %s" %
@@ -188,7 +204,6 @@ class OrdersController(rest.RestController):
                                                  region_id=region_id,
                                                  user_id=user_id,
                                                  project_ids=project_ids)
-        orders = []
         for order in orders_db:
             price = self._get_order_price(order,
                                           start_time=start_time,
@@ -196,9 +211,11 @@ class OrdersController(rest.RestController):
             user = _get_user(order.user_id)
             project = _get_project(order.project_id)
             order.created_at += datetime.timedelta(hours=8)
-            created_at = timeutils.strtime(order.created_at, fmt=OUTPUT_TIME_FORMAT)
-            adata = (order.resource_id, order.resource_name, MAP[1][order.type],
-                     MAP[0][order.status], order.unit_price, price, order.region_id,
+            created_at = \
+                timeutils.strtime(order.created_at, fmt=OUTPUT_TIME_FORMAT)
+            adata = (order.resource_id, order.resource_name,
+                     MAP[1][order.type], MAP[0][order.status],
+                     order.unit_price, price, order.region_id,
                      user.user_id, user.user_name,
                      project.project_id, project.project_name,
                      created_at)
@@ -207,7 +224,8 @@ class OrdersController(rest.RestController):
         data = tablib.Dataset(*data, headers=headers)
 
         response.content_type = "application/binary; charset=UTF-8"
-        response.content_disposition = "attachment; filename=orders.%s" % output_format
+        response.content_disposition = \
+            "attachment; filename=orders.%s" % output_format
         content = getattr(data, output_format)
         if output_format == 'csv':
             content = content.decode("utf-8").encode("gb2312")

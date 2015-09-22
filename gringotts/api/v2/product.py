@@ -205,11 +205,17 @@ class DetailController(rest.RestController):
     """Detail of products."""
 
     @wsexpose(models.Products, wtypes.text, wtypes.text, wtypes.text,
-              int, wtypes.text, wtypes.text, wtypes.text)
+              int, int, wtypes.text, wtypes.text)
     def get_all(self, name=None, service=None, region_id=None,
                 limit=None, offset=None,
                 sort_key='created_at', sort_dir='desc'):
         """Get all product."""
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         filters = {}
         if name:
             filters.update(name=name)
@@ -297,11 +303,17 @@ class ProductsController(rest.RestController):
         return models.Product.from_db_model(product)
 
     @wsexpose([models.SimpleProduct], wtypes.text, wtypes.text, wtypes.text,
-              int, wtypes.text, wtypes.text, wtypes.text)
+              int, int, wtypes.text, wtypes.text)
     def get_all(self, name=None, service=None, region_id=None,
                 limit=None, offset=None,
                 sort_key='created_at', sort_dir='desc'):
         """Get all product."""
+
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         filters = {}
         if name:
             filters.update(name=name)

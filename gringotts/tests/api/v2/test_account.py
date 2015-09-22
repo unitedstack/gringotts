@@ -43,7 +43,8 @@ class AccountTestCase(rest.RestfulTestCase):
 
     def build_account_query_url(self, user_id, custom=None,
                                 offset=None, limit=None):
-        return self.build_query_url(self.account_path, user_id, custom)
+        return self.build_query_url(self.account_path, user_id, custom,
+                                    offset, limit)
 
     def test_get_all_accounts(self):
         resp = self.get(self.account_path, headers=self.admin_headers)
@@ -150,6 +151,28 @@ class AccountTestCase(rest.RestfulTestCase):
         demo_account = self.demo_account
         query_url = self.build_account_query_url(demo_account.user_id)
         self.delete(query_url, headers=self.demo_headers, expected_status=403)
+
+    def test_get_account_invitees_with_negative_limit_or_offset(self):
+        user_id = self.new_user_id()
+        path = "%s/%s/%s" % (self.account_path, user_id, 'invitees')
+        self.check_invalid_limit_or_offset(path)
+
+    def test_get_account_charges_with_negative_limit_or_offset(self):
+        user_id = self.new_user_id()
+        path = "%s/%s/%s" % (self.account_path, user_id, 'charges')
+        self.check_invalid_limit_or_offset(path)
+
+    def test_get_all_charges_with_negative_limit_or_offset(self):
+        path = "%s/%s" % (self.account_path, 'charges')
+        self.check_invalid_limit_or_offset(path)
+
+    def test_get_account_detail_with_negative_limit_or_offset(self):
+        path = "%s/%s" % (self.account_path, 'detail')
+        self.check_invalid_limit_or_offset(path)
+
+    def test_get_all_accounts_with_negative_limit_or_offset(self):
+        path = self.account_path
+        self.check_invalid_limit_or_offset(path)
 
 
 class ExternalAccountTestCase(rest.RestfulTestCase):

@@ -163,3 +163,16 @@ class OrderTestCase(rest.RestfulTestCase):
             gring_const.RESOURCE_FLOATINGIP, summary_ref)
         self.assertEqual(2, fip_ref['total_count'])
         self.assertDecimalEqual(total_price, fip_ref['total_price'])
+
+    def test_get_order_detail_with_negative_limit_or_offset(self):
+        order_id = self.new_order_id()
+        path = "%s/%s" % (self.order_path, order_id)
+        self.check_invalid_limit_or_offset(path)
+
+    def test_get_all_orders_with_negative_limit_or_offset(self):
+        path = self.order_path
+        self.check_invalid_limit_or_offset(path)
+
+    def test_get_active_orders_with_negative_limit_or_offset(self):
+        path = "%s/%s" % (self.order_path, 'active')
+        self.check_invalid_limit_or_offset(path)

@@ -268,6 +268,11 @@ class PrechargesController(rest.RestController):
         conn = pecan.request.db_conn
         check_policy(context, "account:precharge")
 
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         try:
             precharges = conn.get_precharges(context,
                                              user_id=user_id,

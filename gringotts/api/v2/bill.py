@@ -171,6 +171,11 @@ class DetailController(rest.RestController):
     def get_all(self, start_time=None, end_time=None, type=None,
                 project_id=None, limit=None, offset=None):
 
+        if limit and limit < 0:
+            raise exception.InvalidParameterValue(err="Invalid limit")
+        if offset and offset < 0:
+            raise exception.InvalidParameterValue(err="Invalid offset")
+
         conn = pecan.request.db_conn
 
         bills_db = list(conn.get_bills(pecan.request.context,
