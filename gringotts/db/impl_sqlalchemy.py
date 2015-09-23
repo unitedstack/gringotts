@@ -1982,24 +1982,13 @@ class Connection(base.Connection):
             if precharge.expired_at < now:
                 raise exception.PreChargeHasExpired(precharge_code=code)
 
-            # Update account
-            if project_id:
-                try:
-                    account = model_query(
-                        context, sa_models.Account, session=session).\
-                        filter_by(project_id=project_id).\
-                        with_lockmode('update').one()
-                except NoResultFound:
-                    raise exception.AccountByProjectNotFound(
-                        project_id=project_id)
-            else:
-                try:
-                    account = model_query(
-                        context, sa_models.Account, session=session).\
-                        filter_by(user_id=user_id).\
-                        with_lockmode('update').one()
-                except NoResultFound:
-                    raise exception.AccountNotFound(user_id=user_id)
+            try:
+                account = model_query(
+                    context, sa_models.Account, session=session).\
+                    filter_by(user_id=user_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                raise exception.AccountNotFound(user_id=user_id)
 
             account.balance += precharge.price
             if account.balance >= 0:
