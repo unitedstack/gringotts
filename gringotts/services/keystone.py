@@ -289,8 +289,8 @@ def get_uos_user(user_id):
 
 def get_users_by_user_ids(user_ids=[]):
 
-    internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url
-    internal_api += '/US-INTERNAL' + '/' + api
+    url = cfg.CONF.service_credentials.os_auth_url
+    internal_api = lambda api: url + '/US-INTERNAL' + '/' + api
 
     query = {'query': {'user_ids': user_ids}}
 
