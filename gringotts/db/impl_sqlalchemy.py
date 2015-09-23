@@ -1063,12 +1063,16 @@ class Connection(base.Connection):
         return (self._row_to_db_account_model(r) for r in result), total_count
 
     @require_domain_context
-    def get_accounts(self, context, owed=None, limit=None, offset=None,
+    def get_accounts(self, context, user_id=None,
+                     owed=None, limit=None, offset=None,
                      sort_key=None, sort_dir=None):
         query = model_query(context, sa_models.Account)
 
         if owed:
             query = query.filter_by(owed=owed)
+
+        if user_id:
+            query = query.filter_by(user_id=user_id)
 
         result = paginate_query(context, sa_models.Account,
                                 limit=limit, offset=offset,
@@ -1078,12 +1082,16 @@ class Connection(base.Connection):
         return (self._row_to_db_account_model(r) for r in result)
 
     @require_domain_context
-    def get_accounts_count(self, context, owed=None):
+    def get_accounts_count(self, context,
+                           user_id=None, owed=None):
         query = model_query(context, sa_models.Account,
                             func.count(sa_models.Account.id).label('count'))
 
         if owed:
             query = query.filter_by(owed=owed)
+
+        if user_id:
+            query = query.filter_by(user_id=user_id)
 
         return query.one().count or 0
 

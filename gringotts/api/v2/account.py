@@ -456,22 +456,25 @@ class DetailController(rest.RestController):
     def __init__(self):
         self.worker_api = worker.API(external_client())
 
-    @wsexpose(models.AdminAccountsInDetail, bool, int, int,
+    @wsexpose(models.AdminAccountsInDetail, wtypes.text, bool, int, int,
               wtypes.text, wtypes.text)
-    def get_all(self, owed=None, limit=None, offset=None,
+    def get_all(self, user_id=None, owed=None, limit=None, offset=None,
                 sort_key='created_at', sort_dir='desc'):
-        visited_salesperson = {}
-
         check_policy(request.context, "account:all")
 
         self.conn = pecan.request.db_conn
 
         try:
-            accounts = self.conn.get_accounts(request.context, owed=owed,
-                                              limit=limit, offset=offset,
+            accounts = self.conn.get_accounts(request.context,
+                                              user_id=user_id,
+                                              owed=owed,
+                                              limit=limit,
+                                              offset=offset,
                                               sort_key=sort_key,
                                               sort_dir=sort_dir)
-            count = self.conn.get_accounts_count(request.context, owed=owed)
+            count = self.conn.get_accounts_count(request.context,
+                                                 owed=owed,
+                                                 user_id=user_id)
             pecan.response.headers['X-Total-Count'] = str(count)
         except exception.NotAuthorized as e:
             LOG.exception('Failed to get all accounts')
@@ -481,84 +484,66 @@ class DetailController(rest.RestController):
             raise exception.DBError(reason=e)
 
         results = []
+        user_ids = []
         for account in accounts:
-            user = self._get_user('user', account.user_id, visited_salesperson)
+            user_ids.append(account.user_id)
+
+            if cfg.CONF.external_billing.enable:
+                try:
+                    external_balance = \
+                        self.worker_api.get_external_balance(
+                            request.context,
+                            account.user_id)['data'][0]['money']
+                    external_balance = \
+                        gringutils._quantize_decimal(
+                            external_balance)
+                    account.balance = external_balance
+                except exception.GetExternalBalanceFailed:
+                    msg = _('Fail to get %s\'s external balance' %
+                            (account.user_id))
+                    LOG.warn(msg)
+
+            price_per_day, remaining_day = \
+                self._estimate_per_day(account.user_id,
+                                       account.balance)
+
+            result = models.AdminAccountInDetail(
+                user=None,
+                user_id=account.user_id,
+                salesperson=None,
+                sales_id=account.sales_id,
+                balance=account.balance,
+                consumption=account.consumption,
+                level=account.level,
+                project_id=account.project_id,
+                domain_id=account.domain_id,
+                owed=owed,
+                inviter=account.inviter,
+                created_at=account.created_at,
+                price_per_day=price_per_day,
+                remaining_day=remaining_day
+            )
+            results.append(result)
+
+        users = keystone.get_users_by_user_ids(user_ids)
+        for result in results:
+            user = users.get(result.user_id)
+            salesperson = users.get(result.sales_id)
             if user:
-                sales_user = self._get_user('salesperson',
-                                            account.sales_id,
-                                            visited_salesperson)
+                result.user = \
+                    {'user': models.UserInDetail(**user)}
+            if salesperson:
+                    result.salesperson = \
+                        {'salesperson': models.UserInDetail(**salesperson)}
 
-                if cfg.CONF.external_billing.enable:
-                    try:
-                        external_balance = \
-                            self.worker_api.get_external_balance(
-                                request.context,
-                                account.user_id)['data'][0]['money']
-                        external_balance = \
-                            gringutils._quantize_decimal(
-                                external_balance)
-                        account.balance = external_balance
-                    except exception.GetExternalBalanceFailed:
-                        msg = _('Fail to get %s\'s external balance' %
-                                (account.user_id))
-                        LOG.warn(msg)
-
-                price_per_day, remaining_day = \
-                    self._estimate_per_day(account)
-
-                result = models.AdminAccountInDetail(
-                    user=user,
-                    salesperson=sales_user,
-                    balance=account.balance,
-                    consumption=account.consumption,
-                    level=account.level,
-                    project_id=account.project_id,
-                    domain_id=account.domain_id,
-                    owed=owed,
-                    inviter=account.inviter,
-                    created_at=account.created_at,
-                    price_per_day=price_per_day,
-                    remaining_day=remaining_day
-                )
-                results.append(result)
-            else:
-                count -= 1
         return models.AdminAccountsInDetail(total_count=count,
                                             accounts=results)
 
-    def _get_user(self, user_type, user_id, visited_salesperson):
-        if user_type == 'salesperson':
-            if user_id in visited_salesperson:
-                return visited_salesperson[user_id]
-            elif not user_id:
-                return {}
-
-        user = keystone.get_uos_user(user_id)
-
-        if not user:
-            msg = _('Could not find %s %s from keystone' %
-                    (user_type, user_id))
-            LOG.warn(msg)
-            return
-
-        user_info = dict(
-            user_id=user_id,
-            user_name=user['name'],
-            user_email=user.get('email', ''),
-            real_name=user.get('real_name', ''),
-            mobile_number=user.get('mobile_number', ''),
-            company=user.get('company', '')
-        )
-        if user_type == 'salesperson':
-            visited_salesperson[user_id] = user_info
-        return user_info
-
-    def _estimate_per_day(self, account):
+    def _estimate_per_day(self, user_id, balance):
         """Get the price per day and the remaining days that the
         balance can support.
         """
         self.conn = pecan.request.db_conn
-        user_id = account.user_id
 
         orders = self.conn.get_active_orders(request.context,
                                              user_id=user_id,
@@ -576,7 +561,7 @@ class DetailController(rest.RestController):
             return (price_per_day, remaining_day)
 
         price_per_day = price_per_hour * 24
-        remaining_day = int(account.balance / price_per_day)
+        remaining_day = int(balance / price_per_day)
 
         return (price_per_day, remaining_day)
 

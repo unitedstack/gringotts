@@ -287,10 +287,33 @@ def get_uos_user(user_id):
     return r.json()['user']
 
 
+def get_users_by_user_ids(user_ids=[]):
+
+    internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url
+    internal_api += '/US-INTERNAL' + '/' + api
+
+    query = {'query': {'user_ids': user_ids}}
+
+    r = requests.post(internal_api('get_users'),
+                      data=json.dumps(query),
+                      headers={'Content-Type': 'application/json'})
+    if r.status_code == 404:
+        LOG.info("Can't not find users by ids from keystone")
+        return {}
+
+    result = {}
+    for user in r.json()['users']:
+        if user:
+            result[user['id']] = user
+    return result
+
+
 @wrap_exception(exc_type='get', with_raise=False)
 def get_uos_user_by_name(user_name):
 
-    internal_api = lambda api: cfg.CONF.service_credentials.os_auth_url + '/US-INTERNAL'+ '/' + api
+    internal_api = \
+        lambda api: cfg.CONF.service_credentials.os_auth_url
+    internal_api += '/US-INTERNAL' + '/' + api
 
     query = {'query': {'name': user_name}}
     r = requests.post(internal_api('get_user'),

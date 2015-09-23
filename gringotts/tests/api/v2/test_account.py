@@ -22,18 +22,20 @@ class AccountTestCase(rest.RestfulTestCase):
         self.demo_headers = self.build_demo_http_headers()
 
     def load_account_sample_data(self):
+        self.new_sales_id = self.new_user_id()
         sales_account = self.useFixture(
             gring_fixtures.AccountAndProjectData(
                 self.dbconn, self.admin_req_context,
-                self.new_user_id(), self.new_project_id(),
+                self.new_sales_id, self.new_project_id(),
                 self.demo_domain_id, 3
             )
         )
 
+        self.new_user_id = self.new_user_id()
         self.useFixture(
             gring_fixtures.AccountAndProjectData(
                 self.dbconn, self.admin_req_context,
-                self.new_user_id(), self.new_project_id(),
+                self.new_user_id, self.new_project_id(),
                 self.demo_domain_id, 3,
                 sales_id=sales_account.user_id
             )
@@ -51,10 +53,17 @@ class AccountTestCase(rest.RestfulTestCase):
     def test_get_all_accounts_in_detail(self):
         self.load_account_sample_data()
 
-        user_info = self.build_uos_user_info_from_keystone(
-            user_id='test', name='test')
-        with mock.patch.object(keystone, 'get_uos_user',
-                               return_value=user_info):
+        users_info = {}
+
+        users_info[self.new_sales_id] = \
+            self.build_uos_user_info_from_keystone(
+                user_id=self.new_sales_id, name='test_sales')
+        users_info[self.new_sales_id] = \
+            self.build_uos_user_info_from_keystone(
+                user_id=self.new_user_id, name='test_user')
+
+        with mock.patch.object(keystone, 'get_users_by_user_ids',
+                               return_value=users_info):
             resp = self.get(self.account_detail_path,
                             headers=self.admin_headers)
         self.assertEqual(4, resp.json_body['total_count'])
@@ -63,18 +72,10 @@ class AccountTestCase(rest.RestfulTestCase):
         for account in resp.json_body['accounts']:
             self.assertTrue('user' in account)
             self.assertTrue('salesperson' in account)
-            self.assertFalse('user_id' in account)
-            self.assertFalse('sales_id' in account)
+            self.assertTrue('user_id' in account)
+            self.assertTrue('sales_id' in account)
             self.assertTrue('price_per_day' in account)
             self.assertTrue('remaining_day' in account)
-
-    def test_get_all_accounts_in_detail_no_user(self):
-        with mock.patch.object(keystone, 'get_uos_user',
-                               return_value=None):
-            resp = self.get(self.account_detail_path,
-                            headers=self.admin_headers)
-        self.assertEqual(0, resp.json_body['total_count'])
-        self.assertEqual(0, len(resp.json_body['accounts']))
 
     def test_get_account_by_user_id(self):
         admin_account = self.admin_account

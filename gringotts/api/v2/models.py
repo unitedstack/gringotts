@@ -379,13 +379,31 @@ class AdminAccounts(APIBase):
     accounts = [AdminAccount]
 
 
+class UserInDetail(APIBase):
+    name = wtypes.text
+    domain_id = wtypes.text
+    company = wtypes.text
+    id = wtypes.text
+    mobile_number = wtypes.text
+    description = wtypes.text
+    created_at = wtypes.text
+    enabled = bool
+    real_name = wtypes.text
+    referral_code = wtypes.text
+    email = wtypes.text
+    default_project_id = wtypes.text
+    country_code = wtypes.text
+
+
 class AdminAccountInDetail(APIBase):
     """Account in detail for a tenant."""
     balance = decimal.Decimal
     consumption = decimal.Decimal
     level = int
-    user = {wtypes.text: wtypes.text}
-    salesperson = {wtypes.text: wtypes.text}
+    user = {wtypes.text: UserInDetail}
+    salesperson = {wtypes.text: UserInDetail}
+    user_id = wtypes.text
+    sales_id = wtypes.text
     project_id = wtypes.text
     domain_id = wtypes.text
     owed = bool
