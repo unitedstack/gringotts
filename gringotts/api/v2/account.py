@@ -530,11 +530,9 @@ class DetailController(rest.RestController):
             user = users.get(result.user_id)
             salesperson = users.get(result.sales_id)
             if user:
-                result.user = \
-                    {'user': models.UserInDetail(**user)}
+                result.user = models.UserInDetail(**user)
             if salesperson:
-                    result.salesperson = \
-                        {'salesperson': models.UserInDetail(**salesperson)}
+                result.salesperson = models.UserInDetail(**salesperson)
 
         return models.AdminAccountsInDetail(total_count=count,
                                             accounts=results)

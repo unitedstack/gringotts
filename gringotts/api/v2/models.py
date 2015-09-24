@@ -393,6 +393,7 @@ class UserInDetail(APIBase):
     email = wtypes.text
     default_project_id = wtypes.text
     country_code = wtypes.text
+    is_domain_owner = bool
 
 
 class AdminAccountInDetail(APIBase):
@@ -400,8 +401,8 @@ class AdminAccountInDetail(APIBase):
     balance = decimal.Decimal
     consumption = decimal.Decimal
     level = int
-    user = {wtypes.text: UserInDetail}
-    salesperson = {wtypes.text: UserInDetail}
+    user = UserInDetail
+    salesperson = UserInDetail
     user_id = wtypes.text
     sales_id = wtypes.text
     project_id = wtypes.text
