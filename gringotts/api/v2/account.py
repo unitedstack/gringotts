@@ -487,6 +487,8 @@ class DetailController(rest.RestController):
         user_ids = []
         for account in accounts:
             user_ids.append(account.user_id)
+            if account.sales_id:
+                user_ids.append(account.sales_id)
 
             if cfg.CONF.external_billing.enable:
                 try:
