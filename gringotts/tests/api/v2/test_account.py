@@ -59,7 +59,7 @@ class AccountTestCase(rest.RestfulTestCase):
         users_info[self.new_sales_id] = \
             self.build_uos_user_info_from_keystone(
                 user_id=self.new_sales_id, name='test_sales')
-        users_info[self.new_sales_id] = \
+        users_info[self.new_user_id] = \
             self.build_uos_user_info_from_keystone(
                 user_id=self.new_user_id, name='test_user')
 
@@ -77,6 +77,42 @@ class AccountTestCase(rest.RestfulTestCase):
             self.assertTrue('sales_id' in account)
             self.assertTrue('price_per_day' in account)
             self.assertTrue('remaining_day' in account)
+
+    def test_get_accounts_detail_limit_and_offset(self):
+        """Test accounts in detail with limit and offset.
+
+        Test getting accounts in detail with limit and
+        offset.The first account has sales_id and its
+        related salesperson's account is the second
+        account.So when the limit=1 and offset=0 test
+        whether getting the salesperson's account.
+        """
+        self.load_account_sample_data()
+
+        users_info = {}
+
+        users_info[self.new_sales_id] = \
+            self.build_uos_user_info_from_keystone(
+                user_id=self.new_sales_id, name='test_sales')
+        users_info[self.new_user_id] = \
+            self.build_uos_user_info_from_keystone(
+                user_id=self.new_user_id, name='test_user')
+
+        query_url = "%s?limit=%s&offset=%s" % (self.account_detail_path,
+                                               '1', '0')
+
+        with mock.patch.object(keystone, 'get_users_by_user_ids',
+                               return_value=users_info):
+            resp = self.get(query_url,
+                            headers=self.admin_headers)
+
+        self.assertEqual(4, resp.json_body['total_count'])
+        self.assertEqual(1, len(resp.json_body['accounts']))
+
+        salesperson = resp.json_body['accounts'][0]['salesperson']
+        self.assertFalse(salesperson is None)
+        self.assertEqual(self.new_sales_id, salesperson['id'])
+        self.assertEqual('test_sales', salesperson['name'])
 
     def test_get_account_by_user_id(self):
         admin_account = self.admin_account
