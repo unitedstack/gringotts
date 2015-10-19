@@ -422,10 +422,18 @@ class ChargeController(rest.RestController):
             user = users.get(user_id)
             if user:
                 return user
-            contact = keystone.get_uos_user(user_id)
-            user_name = contact['name'] if contact else None
+            contact = keystone.get_uos_user(user_id) or {}
+            user_name = contact.get('name')
+            email = contact.get('email')
+            real_name = contact.get('real_name') or 'unknown'
+            mobile = contact.get('mobile_number') or 'unknown'
+            company = contact.get('company') or 'unknown'
             users[user_id] = models.User(user_id=user_id,
-                                         user_name=user_name)
+                                         user_name=user_name,
+                                         email=email,
+                                         real_name=real_name,
+                                         mobile=mobile,
+                                         company=company)
             return users[user_id]
 
         self.conn = pecan.request.db_conn

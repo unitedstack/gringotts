@@ -53,8 +53,9 @@ class ChargesController(rest.RestController):
         if limit_user_id:
             user_id = limit_user_id
 
-        headers = (u"UUID", u"充值对象", u"充值对象ID", u"充值金额", u"充值类型", u"充值来源",
-                   u"充值人员", u"充值人员ID", u"充值时间", u"状态")
+        headers = (u"UUID", u"充值对象用户名", u"充值对象ID", u"充值对象真实姓名",
+                   u"充值对象邮箱", u"充值对象公司", u"充值金额", u"充值类型",
+                   u"充值来源", u"充值人员ID", u"充值人员用户名", u"充值时间", u"状态")
         data = []
 
         users = {}
@@ -63,10 +64,18 @@ class ChargesController(rest.RestController):
             user = users.get(user_id)
             if user:
                 return user
-            contact = keystone.get_uos_user(user_id)
-            user_name = contact['name'] if contact else None
+            contact = keystone.get_uos_user(user_id) or {}
+            user_name = contact.get('name')
+            email = contact.get('email')
+            real_name = contact.get('real_name') or 'unknown'
+            mobile = contact.get('mobile_number') or 'unknown'
+            company = contact.get('company') or 'unknown'
             users[user_id] = models.User(user_id=user_id,
-                                         user_name=user_name)
+                                         user_name=user_name,
+                                         email=email,
+                                         real_name=real_name,
+                                         mobile=mobile,
+                                         company=company)
             return users[user_id]
 
         self.conn = pecan.request.db_conn
@@ -85,8 +94,9 @@ class ChargesController(rest.RestController):
                 timeutils.strtime(charge.charge_time, fmt=OUTPUT_TIME_FORMAT)
 
             adata = (acharge.charge_id, acharge.target.user_name,
-                     acharge.target.user_id, str(acharge.value),
-                     acharge.type, acharge.come_from,
+                     acharge.target.user_id, acharge.target.real_name,
+                     acharge.target.email, acharge.target.company,
+                     str(acharge.value), acharge.type, acharge.come_from,
                      acharge.actor.user_id, acharge.actor.user_name,
                      charge_time, u"正常")
             data.append(adata)

@@ -495,6 +495,10 @@ class User(APIBase):
     """UOS user model."""
     user_id = wtypes.text
     user_name = wtypes.text
+    email = wtypes.text
+    real_name = wtypes.text
+    mobile = wtypes.text
+    company = wtypes.text
 
 
 class SimpleProject(APIBase):

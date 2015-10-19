@@ -260,7 +260,6 @@ class BillingProtocol(object):
             project_id = env['HTTP_X_AUTH_PROJECT_ID']
 
         if self.delete_resource_action(request_method, path_info, body):
-            return self.app(env ,start_response)
             resource_id = self.get_resource_id(path_info, self.position)
 
             # FIXME(suo): If there is not order, the resource should also
@@ -372,7 +371,9 @@ class BillingProtocol(object):
                 if not success:
                     return result
                 return self.app(env ,start_response)
-            else:
+            # normal user can't change resoruces billed by month/year
+            admin_roles = ['admin', 'uos_admin']
+            if not any(role in admin_roles for role in roles):
                 return self._reject_request_403(env, start_response)
 
     def check_if_in_blacklist(self, method, path_info, body):
