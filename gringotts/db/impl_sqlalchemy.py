@@ -657,7 +657,6 @@ class Connection(base.Connection):
                     with_lockmode('update').one()
             except NoResultFound:
                 raise exception.OrderNotFound(order_id=order_id)
-            order.cron_time = None
             order.unit_price = quantize('0.0000')
             order.status = const.STATE_DELETED
             order.updated_at = datetime.datetime.utcnow()
@@ -692,7 +691,7 @@ class Connection(base.Connection):
                    status=None, limit=None, offset=None, sort_key=None,
                    sort_dir=None, with_count=False, region_id=None,
                    user_id=None, project_ids=None, owed=None, resource_id=None,
-                   bill_method=None, read_deleted=True):
+                   bill_methods=None, read_deleted=True):
         """Get orders that have bills during start_time and end_time.
         If start_time is None or end_time is None, will ignore the datetime
         range, and return all orders
@@ -705,8 +704,8 @@ class Connection(base.Connection):
             query = query.filter_by(status=status)
         if resource_id:
             query = query.filter_by(resource_id=resource_id)
-        if bill_method:
-            query = query.filter_by(unit=bill_method)
+        if bill_methods:
+            query = query.filter(sa_models.Order.unit.in_(bill_methods))
         if region_id:
             query = query.filter_by(region_id=region_id)
         if user_id:
@@ -1943,7 +1942,6 @@ class Connection(base.Connection):
 
             # Update the order
             order.total_price -= more_fee
-            order.cron_time = None
             order.status = const.STATE_CHANGING
             order.updated_at = datetime.datetime.utcnow()
 
@@ -2245,7 +2243,6 @@ class Connection(base.Connection):
 
             more_fee = quantize('0')
             add_new_bill = True
-            cron_time = None
 
             for bill in bills:
                 if bill.total_price == quantize('0.0020') or \

@@ -22,10 +22,13 @@ import gringotts.client.v2.client
 from gringotts.client.auth import token as token_auth_plugin
 import gringotts.context
 from gringotts.db import models as db_models
+from gringotts.master import rpcapi as master_rpcapi
+from gringotts.master import service as master_service
 from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import timeutils
 import gringotts.policy
 from gringotts.tests import gring_fixtures
+from gringotts.tests import client as test_client
 from gringotts import utils as gring_utils
 
 
@@ -95,6 +98,7 @@ class TestCase(BaseTestCase):
 
         # setup test app
         self.mock_token_auth_plugin()
+        #self.mock_master_api()
         self.app_config, self.app = self.load_test_app()
         self.clean_attr(['app_config', 'app'])
 
@@ -139,6 +143,19 @@ class TestCase(BaseTestCase):
         self.useFixture(mockpatch.PatchObject(
             token_auth_plugin, 'TokenAuthPlugin', self.token_auth_plugin
         ))
+
+    def mock_master_api(self):
+        self.master_service = master_service.MasterService()
+
+        # Load test master rpcapi which will directly call api of
+        # master service. This is used to replace rpcapi used by
+        # waiter plugins
+        self.master_api = test_client.MasterApi(self.master_service)
+        self.clean_attr('master_api')
+        MockedRpcApi = mock.MagicMock(name='MockedRpcApi',
+                                      return_value=self.master_api)
+        self.useFixture(mockpatch.PatchObject(
+            master_rpcapi, 'MasterAPI', MockedRpcApi))
 
     def load_test_app(self, enable_acl=False):
         app_config = {

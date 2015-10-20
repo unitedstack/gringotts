@@ -54,9 +54,9 @@ class WaiterServiceTestCase(ServiceTestCase,
                                                     'gringotts.waiter')
         self.master_service = master_service.MasterService()
 
-        # Load test master rpcapi which will directly call api of
-        # master service. This is used to replace rpcapi used by
-        # waiter plugins
+        ## Load test master rpcapi which will directly call api of
+        ## master service. This is used to replace rpcapi used by
+        ## waiter plugins
         self.master_api = test_client.MasterApi(self.master_service)
         self.clean_attr('master_api')
         MockedRpcApi = mock.MagicMock(name='MockedRpcApi',

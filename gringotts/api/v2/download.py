@@ -53,7 +53,7 @@ class ChargesController(rest.RestController):
         if limit_user_id:
             user_id = limit_user_id
 
-        headers = (u"UUID", u"充值对象用户名", u"充值对象ID", u"充值对象真实姓名",
+        headers = (u"充值记录ID", u"充值对象用户名", u"充值对象ID", u"充值对象真实姓名",
                    u"充值对象邮箱", u"充值对象公司", u"充值金额", u"充值类型",
                    u"充值来源", u"充值人员ID", u"充值人员用户名", u"充值时间", u"状态")
         data = []

@@ -212,9 +212,9 @@ def get_client():
                           auth_url=auth_url)
         return c
     except (exception.Unauthorized, exception.AuthorizationFailure):
-        self._logger.exception("Billing Authorization Failed - rejecting request")
+        _logger.exception("Billing Authorization Failed - rejecting request")
         raise
     except Exception as e:
         msg = 'Fail to initialize the billing client, for the reason: %s' % e
-        self._logger.exception(msg)
+        _logger.exception(msg)
         raise

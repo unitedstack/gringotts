@@ -28,10 +28,13 @@ class LocalAPI(object):
     def __init__(self):
         self._service = service.MasterService()
 
-    def change_cron_job_time(self, ctxt, order_id, cron_time,
-                             clear_date_jobs=None):
-        self._service.change_cron_job_time(ctxt, order_id, cron_time,
-                                           clear_date_jobs=clear_date_jobs)
+    def create_monthly_job(self, ctxt, order_id, run_date):
+        self._service.create_monthly_job(ctxt, order_id, run_date)
+
+    def change_monthly_job_time(self, ctxt, order_id, run_date,
+                                clear_date_jobs=None):
+        self._service.change_monthly_job_time(ctxt, order_id, run_date,
+                                              clear_date_jobs=clear_date_jobs)
 
     def delete_sched_jobs(self, ctxt, order_id):
         self._service.delete_sched_jobs(ctxt, order_id)

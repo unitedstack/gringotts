@@ -168,6 +168,10 @@ class OrderController(rest.RestController):
         conn = pecan.request.db_conn
         try:
             order = conn.renew_order(request.context, self._id, data)
+            self.master_api.change_monthly_job_time(
+                request.context, self._id,
+                timeutils.isotime(order.cron_time),
+                clear_date_jobs=True)
         except exception.OrderNotFound as e:
             LOG.warn(e)
             raise
@@ -178,10 +182,6 @@ class OrderController(rest.RestController):
             msg = "Fail to renew the order %s" % self._id
             LOG.exception(msg)
             raise exception.DBError(reason=msg)
-        self.master_api.change_cron_job_time(
-            request.context, self._id,
-            timeutils.isotime(order.cron_time),
-            clear_date_jobs=True)
         return models.Order.from_db_model(order)
 
 
@@ -391,10 +391,10 @@ class OrdersController(rest.RestController):
 
     @wsexpose(models.Orders, wtypes.text, wtypes.text,
               datetime.datetime, datetime.datetime, int, int, wtypes.text,
-              wtypes.text, wtypes.text, wtypes.text, bool, wtypes.text)
+              wtypes.text, wtypes.text, wtypes.text, bool, [wtypes.text])
     def get_all(self, type=None, status=None, start_time=None, end_time=None,
                 limit=None, offset=None, resource_id=None, region_id=None,
-                project_id=None, user_id=None, owed=None, bill_method=None):
+                project_id=None, user_id=None, owed=None, bill_methods=None):
         """Get queried orders
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
@@ -438,7 +438,7 @@ class OrdersController(rest.RestController):
                                                  offset=offset,
                                                  with_count=True,
                                                  resource_id=resource_id,
-                                                 bill_method=bill_method,
+                                                 bill_methods=bill_methods,
                                                  region_id=region_id,
                                                  user_id=user_id,
                                                  project_ids=project_ids)
@@ -468,7 +468,10 @@ class OrdersController(rest.RestController):
     def post(self, data):
         conn = pecan.request.db_conn
         try:
-            conn.create_order(request.context, **data.as_dict())
+            order = conn.create_order(request.context, **data.as_dict())
+            #self.master_api.create_monthly_job(
+            #    request.context, order.order_id,
+            #    timeutils.isotime(order.cron_time))
         except Exception as e:
             LOG.exception('Fail to create order: %s, for reason %s' %
                           (data.as_dict(), e))

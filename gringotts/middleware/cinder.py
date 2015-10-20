@@ -11,7 +11,7 @@ class CinderBillingProtocol(base.BillingProtocol):
 
     def __init__(self, app, conf):
         super(CinderBillingProtocol, self).__init__(app, conf)
-        self.resource_rex = re.compile(
+        self.resource_regex = re.compile(
             r"^/%s/%s/%s([.][^.]+)?$" % (UUID_RE, RESOURCE_RE, UUID_RE), re.UNICODE)
         self.create_resource_regex = re.compile(
             r"^/%s/%s([.][^.]+)?$" % (UUID_RE, RESOURCE_RE), re.UNICODE)
@@ -19,7 +19,7 @@ class CinderBillingProtocol(base.BillingProtocol):
             r"^/%s/(volumes)/%s/action$" % (UUID_RE, UUID_RE))
         self.position = 2
         self.black_list += [
-            attach_volume_action,
+            self.attach_volume_action,
         ]
         self.resource_regexs = [
             self.resource_regex,

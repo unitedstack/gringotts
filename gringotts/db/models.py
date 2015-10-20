@@ -212,9 +212,9 @@ class Account(Model):
     """
 
     def __init__(self,
-                 user_id, domain_id, balance, frozen_balance, consumption,
+                 user_id, domain_id, balance, consumption,
                  level, owed=None, created_at=None, updated_at=None,
-                 project_id=None,
+                 project_id=None, frozen_balance=None,
                  inviter=None, charged=None, sales_id=None, reward_value=None):
         Model.__init__(
             self,

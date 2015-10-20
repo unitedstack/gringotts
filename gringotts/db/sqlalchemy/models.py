@@ -274,7 +274,7 @@ class Account(Base):
     project_id = Column(String(255))
     domain_id = Column(String(255))
     balance = Column(DECIMAL(20, 4))
-    frozen_balance = Column(DECIMAL(20, 4))
+    frozen_balance = Column(DECIMAL(20, 4), default=0)
     consumption = Column(DECIMAL(20, 4))
     level = Column(Integer)
     owed = Column(Boolean, default=False)

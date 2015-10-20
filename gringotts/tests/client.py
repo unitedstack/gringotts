@@ -106,14 +106,17 @@ class MasterApi(object):
     def __init__(self, service):
         self.service = service
 
-    def get_cronjob_count(self, *args, **kwargs):
-        return self.service.get_cronjob_count(*args, **kwargs)
+    def create_monthly_job(self, *args, **kwargs):
+        return self.service.create_monthly_job(*args, **kwargs)
 
-    def get_datejob_count(self, *args, **kwargs):
-        return self.service.get_datejob_count(*args, **kwargs)
+    def change_monthly_job_time(self, *args, **kwargs):
+        return self.service.change_monthly_job_time(*args, **kwargs)
 
-    def get_datejob_count_30_days(self, *args, **kwargs):
-        return self.service.get_datejob_count_30_days(*args, **kwargs)
+    def delete_sched_jobs(self, *args, **kwargs):
+        return self.service.delete_sched_jobs(*args, **kwargs)
+
+    def get_apsched_jobs_count(self, *args, **kwargs):
+        return self.service.get_apsched_jobs_count(*args, **kwargs)
 
     def resource_created(self, *args, **kwargs):
         return self.service.resource_created(*args, **kwargs)

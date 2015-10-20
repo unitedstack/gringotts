@@ -1,4 +1,3 @@
-
 from gringotts import constants as gring_const
 from gringotts.openstack.common import log as logging
 from gringotts.tests import rest

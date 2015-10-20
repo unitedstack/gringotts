@@ -15,12 +15,18 @@ class MasterAPI(proxy.RpcProxy):
             topic=cfg.CONF.master.master_topic,
             default_version=self.BASE_RPC_VERSION)
 
-    def change_cron_job_time(self, ctxt, order_id, cron_time,
-                             clear_date_jobs=None):
+    def create_monthly_job(self, ctxt, order_id, run_date):
         return self.cast(ctxt,
-                         self.make_msg('change_cron_job_time',
+                         self.make_msg('create_monthly_job',
                                        order_id=order_id,
-                                       cron_time=cron_time,
+                                       run_date=run_date))
+
+    def change_monthly_job_time(self, ctxt, order_id, run_date,
+                                clear_date_jobs=None):
+        return self.cast(ctxt,
+                         self.make_msg('change_monthly_job_time',
+                                       order_id=order_id,
+                                       run_date=run_date,
                                        clear_date_jobs=clear_date_jobs))
 
     def delete_sched_jobs(self, ctxt, order_id):

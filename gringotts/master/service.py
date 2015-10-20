@@ -211,6 +211,9 @@ class MasterService(rpc_service.Service):
     def _make_date_job_id(self, order_id):
         return "date-" + order_id
 
+    def _make_monthly_job_id(self, order_id):
+        return "monthly-" + order_id
+
     def _delete_cron_job(self, order_id):
         job_id = self._make_cron_job_id(order_id)
         self._delete_apsched_job(job_id)
@@ -221,6 +224,10 @@ class MasterService(rpc_service.Service):
 
     def _delete_30_days_job(self, order_id):
         job_id = self._make_30_days_job_id(order_id)
+        self._delete_apsched_job(job_id)
+
+    def _delete_monthly_job(self, order_id):
+        job_id = self._make_monthly_job_id(order_id)
         self._delete_apsched_job(job_id)
 
     def _delete_apsched_job(self, job_id):
@@ -317,6 +324,18 @@ class MasterService(rpc_service.Service):
                              start_date=start_date)
         LOG.warn('create cron job for order: %s', order_id)
 
+    def _create_monthly_job(self, order_id, run_date):
+        job_id = self._make_monthly_job_id(order_id)
+        if isinstance(run_date, basestring):
+            run_date = timeutils.parse_isotime(run_date)
+
+        self.apsched.add_job(self._handle_monthly_order,
+                             'date',
+                             args=[order_id],
+                             id=job_id,
+                             run_date=run_date)
+        LOG.warn('create monthly job for order: %s', order_id)
+
     def _get_lock(self, order_id):
         if order_id not in self.locks:
             self.locks[order_id] = gthreading.Lock()
@@ -374,6 +393,57 @@ class MasterService(rpc_service.Service):
                 # Account is charged but order is still owed
                 elif result['type'] == const.BILL_OWED_ACCOUNT_CHARGED:
                     self._delete_date_job(order_id)
+        except Exception as e:
+            LOG.warn("Some exceptions happen when deducting order: %s, "
+                     "for reason: %s", order_id, e)
+
+    def _handle_monthly_order(self, order_id):
+        LOG.warn("Handle monthly billing order: %s", order_id)
+        try:
+            with self._get_lock(order_id):
+                # check resource and order before deduct
+                order = self.gclient.get_order(order_id)
+
+                # do not deduct doctor project for now
+                if order['project_id'] in cfg.CONF.ignore_tenants:
+                    return
+
+                method = self.RESOURCE_GET_MAP[order['type']]
+                resource = method(order['resource_id'], order['region_id'])
+                if not resource:
+                    LOG.warn("The resource(%s|%s) has been deleted",
+                             order['type'], order['resource_id'])
+                    return
+
+                if isinstance(order['cron_time'], basestring):
+                    cron_time = timeutils.parse_strtime(
+                        order['cron_time'], fmt=ISO8601_UTC_TIME_FORMAT)
+                else:
+                    cron_time = order['cron_time']
+
+                #remarks = 'Hourly Billing'
+                #now = timeutils.utcnow()
+                #if now - cron_time >= datetime.timedelta(hours=1):
+                #    result = self.gclient.create_bill(order_id,
+                #                                      action_time=now,
+                #                                      remarks=remarks)
+                #else:
+                #    result = self.gclient.create_bill(order_id,
+                #                                      remarks=remarks)
+
+                ## Order is owed
+                #if result['type'] == const.BILL_ORDER_OWED:
+                #    self._stop_owed_resource(result['resource_type'],
+                #                             result['resource_id'],
+                #                             result['region_id'])
+                #    self._create_date_job(order_id,
+                #                          result['resource_type'],
+                #                          result['resource_id'],
+                #                          result['region_id'],
+                #                          result['date_time'])
+                ## Account is charged but order is still owed
+                #elif result['type'] == const.BILL_OWED_ACCOUNT_CHARGED:
+                #    self._delete_date_job(order_id)
         except Exception as e:
             LOG.warn("Some exceptions happen when deducting order: %s, "
                      "for reason: %s", order_id, e)
@@ -579,18 +649,27 @@ class MasterService(rpc_service.Service):
 
     def delete_sched_jobs(self, ctxt, order_id):
         self._delete_cron_job(order_id)
+        self._delete_monthly_job(order_id)
         self._delete_date_job(order_id)
         self._delete_30_days_job(order_id)
 
-    def change_cron_job_time(self, ctxt, order_id, cron_time,
-                             clear_date_jobs=None):
-        if isinstance(cron_time, basestring):
-            cron_time = timeutils.parse_isotime(cron_time)
-        self._delete_cron_job(order_id)
-        self._create_cron_job(order_id, start_date=cron_time)
+    def change_monthly_job_time(self, ctxt, order_id, run_date,
+                                clear_date_jobs=None):
+        if isinstance(run_date, basestring):
+            run_date = timeutils.parse_isotime(run_date)
+        self._delete_monthly_job(order_id)
+        self._create_monthly_job(order_id, run_date)
         if clear_date_jobs:
             self._delete_date_job(order_id)
             self._delete_30_days_job(order_id)
+
+    def create_monthly_job(self, ctxt, order_id, run_date):
+        """Create a date job for monthly/yearly billing order
+        """
+        if isinstance(run_date, basestring):
+            run_date = timeutils.parse_isotime(run_date)
+        self._create_monthly_job(order_id, run_date)
+
 
 def master():
     service.prepare_service()

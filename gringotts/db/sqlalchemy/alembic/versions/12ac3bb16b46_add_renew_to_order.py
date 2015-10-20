@@ -1,4 +1,4 @@
-"""add renew table
+"""add renew to order
 
 Revision ID: 12ac3bb16b46
 Revises: 1ba1181ec5ae
