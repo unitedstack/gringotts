@@ -197,6 +197,17 @@ class ProductTestCase(rest.RestfulTestCase):
         self.assertProductEqual(product_ref, product_new_ref)
         self.assertEqual(extra, jsonutils.loads(product_new_ref['extra']))
 
+    def test_create_product_segmented_price_with_zero_price(self):
+        price_data = self.build_segmented_price_data('5.0000', [[0, '0']])
+        extra = {'price': price_data}
+        product_ref = self.new_product_ref(
+            'network', '0.1', 'hour', extra=extra)
+        resp = self.post(self.product_path, headers=self.admin_headers,
+                         body=product_ref, expected_status=200)
+        product_new_ref = resp.json_body
+        self.assertProductEqual(product_ref, product_new_ref)
+        self.assertEqual(extra, jsonutils.loads(product_new_ref['extra']))
+
     def test_update_product_to_segmented_price(self):
         product = self.product_fixture.ip_products[0]
         price_data = self.build_segmented_price_data(
@@ -236,10 +247,6 @@ class ProductTestCase(rest.RestfulTestCase):
     def test_create_product_segmented_price_negative_price_failed(self):
         self._create_product_with_price_data_failed(
             price_list=[[0, '-0.1']], restr=self.invalid_price_item_restr)
-
-    def test_create_product_segmented_price_zero_price_failed(self):
-        self._create_product_with_price_data_failed(
-            price_list=[[0, '0']], restr=self.invalid_price_item_restr)
 
     def test_create_product_segmented_price_duplicate_items_failed(self):
         price_list = [[0, '0.1'], [0, '0.2']]
@@ -314,12 +321,6 @@ class ProductTestCase(rest.RestfulTestCase):
         product = self.product_fixture.ip_products[0]
         self._update_product_with_price_data_failed(
             product, price_list=[[0, '-0.1']],
-            restr=self.invalid_price_item_restr)
-
-    def test_update_product_segmented_price_zero_price_failed(self):
-        product = self.product_fixture.ip_products[0]
-        self._update_product_with_price_data_failed(
-            product, price_list=[[0, '0']],
             restr=self.invalid_price_item_restr)
 
     def test_update_product_segmented_price_duplicate_items_failed(self):

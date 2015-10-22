@@ -469,9 +469,9 @@ class OrdersController(rest.RestController):
         conn = pecan.request.db_conn
         try:
             order = conn.create_order(request.context, **data.as_dict())
-            #self.master_api.create_monthly_job(
-            #    request.context, order.order_id,
-            #    timeutils.isotime(order.cron_time))
+            self.master_api.create_monthly_job(
+                request.context, order.order_id,
+                timeutils.isotime(order.cron_time))
         except Exception as e:
             LOG.exception('Fail to create order: %s, for reason %s' %
                           (data.as_dict(), e))

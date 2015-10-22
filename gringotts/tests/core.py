@@ -1,5 +1,5 @@
 
-from datetime import datetime
+import datetime
 import logging
 import os.path
 import re
@@ -18,17 +18,15 @@ import webtest
 import webtest.debugapp
 
 from gringotts.api.v2 import models as api_models
-import gringotts.client.v2.client
 from gringotts.client.auth import token as token_auth_plugin
+import gringotts.client.v2.client
 import gringotts.context
 from gringotts.db import models as db_models
 from gringotts.master import rpcapi as master_rpcapi
-from gringotts.master import service as master_service
 from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import timeutils
 import gringotts.policy
 from gringotts.tests import gring_fixtures
-from gringotts.tests import client as test_client
 from gringotts import utils as gring_utils
 
 
@@ -96,12 +94,6 @@ class TestCase(BaseTestCase):
         self.admin_req_context = self.build_admin_req_context()
         self.clean_attr('admin_req_context')
 
-        # setup test app
-        self.mock_token_auth_plugin()
-        #self.mock_master_api()
-        self.app_config, self.app = self.load_test_app()
-        self.clean_attr(['app_config', 'app'])
-
         # setup sample data
         self.load_account_info()
         self.load_sample_data()
@@ -119,6 +111,38 @@ class TestCase(BaseTestCase):
                                         'etc/gringotts/policy.json')
         self.config_fixture.config(policy_file=policy_file_path)
 
+    def mock_token_auth_plugin(self):
+        """Mock the TokenAuthPlugin.
+
+        Mock the TokenAuthPlugin to get rid of keystone server.
+        """
+        self.token_auth_plugin = mock.MagicMock(name='token_auth_plugin')
+        self.useFixture(mockpatch.PatchObject(
+            token_auth_plugin, 'TokenAuthPlugin', self.token_auth_plugin
+        ))
+
+    def load_test_app(self, enable_acl=False):
+        """Create test app."""
+        # mocks the master rpc api to skip the master service action in app
+        MockedMasterRPCAPI = mock.MagicMock(name='MockedMasterRPCAPI')
+        self.useFixture(mockpatch.PatchObject(
+            master_rpcapi, 'MasterAPI', MockedMasterRPCAPI))
+
+        app_config = {
+            'app': {
+                'root': 'gringotts.api.root.RootController',
+                'modules': ['gringotts.api'],
+                'static_root': '%s/public' % self.root_path,
+                'template_path': '%s/templates' % self.root_path,
+                'enable_acl': enable_acl,
+            },
+            'wsme': {
+                'debug': True,
+            },
+        }
+
+        return pecan.testing.load_test_app(app_config)
+
     def load_account_info(self):
         self.admin_user_id = self.new_user_id()
         self.admin_user_name = 'admin'
@@ -133,45 +157,6 @@ class TestCase(BaseTestCase):
         self.demo_project_id = self.new_project_id()
         self.clean_attr(['default_domain_id', 'demo_domain_id',
                          'default_project_id', 'demo_project_id'])
-
-    def mock_token_auth_plugin(self):
-        """Mock the TokenAuthPlugin.
-
-        Mock the TokenAuthPlugin to get rid of keystone server.
-        """
-        self.token_auth_plugin = mock.MagicMock(name='token_auth_plugin')
-        self.useFixture(mockpatch.PatchObject(
-            token_auth_plugin, 'TokenAuthPlugin', self.token_auth_plugin
-        ))
-
-    def mock_master_api(self):
-        self.master_service = master_service.MasterService()
-
-        # Load test master rpcapi which will directly call api of
-        # master service. This is used to replace rpcapi used by
-        # waiter plugins
-        self.master_api = test_client.MasterApi(self.master_service)
-        self.clean_attr('master_api')
-        MockedRpcApi = mock.MagicMock(name='MockedRpcApi',
-                                      return_value=self.master_api)
-        self.useFixture(mockpatch.PatchObject(
-            master_rpcapi, 'MasterAPI', MockedRpcApi))
-
-    def load_test_app(self, enable_acl=False):
-        app_config = {
-            'app': {
-                'root': 'gringotts.api.root.RootController',
-                'modules': ['gringotts.api'],
-                'static_root': '%s/public' % self.root_path,
-                'template_path': '%s/templates' % self.root_path,
-                'enable_acl': enable_acl,
-            },
-            'wsme': {
-                'debug': True,
-            },
-        }
-
-        return app_config, pecan.testing.load_test_app(app_config)
 
     def load_database(self):
         self.config_fixture.config(
@@ -216,7 +201,7 @@ class TestCase(BaseTestCase):
     def build_http_headers(self, auth_token=None, user_id=None,
                            user_name=None, project_id=None, domain_id=None,
                            roles=None):
-        """Build HTTP headers sent from HTTP client"""
+        """Build HTTP headers sent from HTTP client."""
         headers = {}
         if not auth_token:
             auth_token = self.new_uuid4()
@@ -277,7 +262,7 @@ class TestCase(BaseTestCase):
         return self.new_uuid()
 
     def utcnow(self):
-        return datetime.utcnow()
+        return datetime.datetime.utcnow()
 
     def date_to_str(self, dt):
         return dt.strftime(self.DATE_FORMAT)
@@ -289,7 +274,7 @@ class TestCase(BaseTestCase):
         return dt.strftime(self.ISOTIME_FORMAT)
 
     def datetime_from_str(self, dt_str):
-        return datetime.strptime(dt_str, self.TIMESTAMP_FORMAT)
+        return datetime.datetime.strptime(dt_str, self.TIMESTAMP_FORMAT)
 
     def datetime_from_isotime_str(self, isotime_str):
         return timeutils.parse_isotime(isotime_str)
@@ -385,6 +370,11 @@ class MiddlewareTestCase(BaseTestCase):
         return webtest.TestApp(app_factory(webtest.debugapp.debug_app))
 
     def mock_gringotts_client(self):
+        """Mock gringotts client
+
+        We only test logic in middlewares, gringclient logic will be
+        tested in gringotts test suites
+        """
         self.mocked_client = mock.MagicMock(name='gringotts.client')
         self.useFixture(mockpatch.PatchObject(
             gringotts.client.v2.client, 'Client',

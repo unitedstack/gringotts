@@ -75,7 +75,7 @@ def validate_segmented_price(price_data):
         ((len(p) == 2) and (
             isinstance(p[0], int) and (
                 isinstance(p[1], six.text_type) and (
-                    quantize_decimal(p[1]) > 0
+                    quantize_decimal(p[1]) >= 0
                 )
             )
         )) for p in price_list

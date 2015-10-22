@@ -1,4 +1,3 @@
-
 from oslo_config import cfg
 import six
 
@@ -18,6 +17,7 @@ class RestfulTestCase(tests.TestCase,
 
     def setUp(self):
         super(RestfulTestCase, self).setUp()
+        self.app = self.load_test_app()
 
     def load_sample_data(self):
         super(RestfulTestCase, self).load_sample_data()
@@ -39,7 +39,7 @@ class RestfulTestCase(tests.TestCase,
         return path
 
     def assertResponseStatus(self, response, expected_status):
-        """Assert a specific status code on the response"""
+        """Assert a specific status code on the response."""
         self.assertEqual(
             expected_status, response.status_code,
             'Status code %s is not %s, as expected\n\n%s' %

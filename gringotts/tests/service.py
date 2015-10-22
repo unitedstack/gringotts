@@ -22,11 +22,12 @@ class ServiceTestCase(tests.TestCase):
     def setUp(self):
         super(ServiceTestCase, self).setUp()
 
+        self.app = self.load_test_app()
+        self.mock_token_auth_plugin()
+
         # Load test http client which will forward http requests
-        # to test app instead of real service. This is used to
-        # replace http client used in gringotts client
+        # to test app instead of real service.
         self.client = test_client.Client(self.app, 'v2')
-        self.clean_attr('client')
         MockedClient = mock.MagicMock(name='MockedClient',
                                       return_value=self.client)
         self.useFixture(mockpatch.PatchObject(client, 'Client',
@@ -52,18 +53,16 @@ class WaiterServiceTestCase(ServiceTestCase,
 
         self.service = waiter_service.WaiterService(CONF.host,
                                                     'gringotts.waiter')
-        self.master_service = master_service.MasterService()
 
-        ## Load test master rpcapi which will directly call api of
-        ## master service. This is used to replace rpcapi used by
-        ## waiter plugins
+        # mock master rpc api forwards request to the real master service
+        self.master_service = master_service.MasterService()
         self.master_api = test_client.MasterApi(self.master_service)
-        self.clean_attr('master_api')
         MockedRpcApi = mock.MagicMock(name='MockedRpcApi',
                                       return_value=self.master_api)
         self.useFixture(mockpatch.PatchObject(
             master_rpcapi, 'MasterAPI', MockedRpcApi))
 
+        # mock get_auth_headers
         http_headers = self.build_admin_http_headers()
         mocked_get_auth_headers = mock.MagicMock(return_value=http_headers)
         self.useFixture(mockpatch.PatchObject(
