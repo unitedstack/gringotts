@@ -1787,15 +1787,47 @@ class Connection(base.Connection):
                 LOG.error('Could not find the project: %s', order.project_id)
                 raise exception.ProjectNotFound(project_id=order.project_id)
 
+            # get account
+            try:
+                account = model_query(
+                    context, sa_models.Account, session=session).\
+                    filter_by(user_id=project.user_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                LOG.error('Could not find the account: %s', project.user_id)
+                raise exception.AccountNotFound(user_id=project.user_id)
+
+            # override account balance before deducting
+            if external_balance is not None:
+                external_balance = quantize(external_balance)
+                account.balance = external_balance
+
+            if not order.unit or order.unit == 'hour':
+                next_cron_time = end_time or \
+                    action_time + datetime.timedelta(hours=1)
+                total_price = order.unit_price
+            else:
+                if not order.renew:
+                    return result
+
+                months = gringutils.to_months(order.renew_method,
+                                              order.renew_period)
+                next_cron_time = gringutils.add_months(action_time, months)
+                total_price = order.unit_price * order.renew_period
+
+                if account.balance < total_price and account.level != 9:
+                    result['type'] = const.BILL_ACCOUNT_NOT_OWE_ENOUGH
+                    return result
+
             bill = sa_models.Bill(
                 bill_id=uuidutils.generate_uuid(),
                 start_time=action_time,
-                end_time=end_time or action_time + datetime.timedelta(hours=1),
+                end_time=next_cron_time,
                 type=order.type,
                 status=const.BILL_PAYED,
                 unit_price=order.unit_price,
                 unit=order.unit,
-                total_price=order.unit_price,
+                total_price=total_price,
                 order_id=order.order_id,
                 resource_id=order.resource_id,
                 remarks=remarks,
@@ -1806,15 +1838,14 @@ class Connection(base.Connection):
             session.add(bill)
 
             # if end_time is specified, it means the action is stopping
-            # the instance, so there is no need to update account, creating
+            # the instance, so there is no need to deduct account, creating
             # a new bill is enough.
             if end_time:
                 return result
 
             # Update order
-            cron_time = action_time + datetime.timedelta(hours=1)
-            order.total_price += order.unit_price
-            order.cron_time = cron_time
+            order.total_price += total_price
+            order.cron_time = next_cron_time
             order.updated_at = datetime.datetime.utcnow()
 
             # Update project and user_project
@@ -1831,28 +1862,14 @@ class Connection(base.Connection):
                 raise exception.UserProjectNotFound(
                     user_id=project.user_id,
                     project_id=order.project_id)
-            project.consumption += order.unit_price
+            project.consumption += total_price
             project.updated_at = datetime.datetime.utcnow()
-            user_project.consumption += order.unit_price
+            user_project.consumption += total_price
             user_project.updated_at = datetime.datetime.utcnow()
 
             # Update account
-            try:
-                account = model_query(
-                    context, sa_models.Account, session=session).\
-                    filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
-            except NoResultFound:
-                LOG.error('Could not find the account: %s', project.user_id)
-                raise exception.AccountNotFound(user_id=project.user_id)
-
-            # override account balance before deducting
-            if external_balance is not None:
-                external_balance = quantize(external_balance)
-                account.balance = external_balance
-
-            account.balance -= order.unit_price
-            account.consumption += order.unit_price
+            account.balance -= total_price
+            account.consumption += total_price
             account.updated_at = datetime.datetime.utcnow()
 
             result['user_id'] = account.user_id
@@ -1861,10 +1878,13 @@ class Connection(base.Connection):
             result['resource_name'] = order.resource_name
             result['resource_id'] = order.resource_id
             result['region_id'] = order.region_id
-            result['deduct_value'] = order.unit_price
+            result['deduct_value'] = total_price
             result['type'] = const.BILL_NORMAL
 
             if not cfg.CONF.enable_owe:
+                return result
+
+            if order.unit in ['month', 'year']:
                 return result
 
             # Account is owed
@@ -2392,6 +2412,16 @@ class Connection(base.Connection):
             return ()
 
     def activate_auto_renew(self, context, order_id, renew):
+        """Activate or update auto renew
+
+        We should ensure unit, unit_price, renew_method and renew_period
+        is consistent, for example, if unit is month, then unit_price is
+        must be the one month's price, not one year, and renew_method is
+        also must be month, and renew_period actually specifies the how
+        many months.
+
+        So we must re-caculate the unit_price if the renew_method is changed.
+        """
         session = db_session.get_session()
         with session.begin():
             try:
@@ -2414,6 +2444,22 @@ class Connection(base.Connection):
             order.renew_method = renew.method
             order.renew_period = renew.period
             order.updated_at = datetime.datetime.utcnow()
+
+            if renew.method != order.unit:
+                new_unit_price = 0
+                subs = model_query(
+                    context, sa_models.Subscription, session=session).\
+                    filter_by(order_id=order_id).\
+                    filter_by(type=const.STATE_RUNNING).\
+                    with_lockmode('read').all()
+                for sub in subs:
+                    price_data = pricing.get_price_data(
+                        sub.extra, order.renew_method)
+                    new_unit_price += pricing.calculate_price(
+                        sub.quantity, sub.unit_price, price_data)
+                order.unit = renew.method
+                order.unit_price = new_unit_price
+
         return self._row_to_db_order_model(order)
 
     def switch_auto_renew(self, context, order_id, action):
@@ -2468,21 +2514,103 @@ class Connection(base.Connection):
             if not order.cron_time:
                 raise exception.OrderRenewError(err="Order cron_time is None")
 
-            months = gringutils.to_months(renew.method, renew.period)
+            # get project
+            try:
+                project = model_query(
+                    context, sa_models.Project, session=session).\
+                    filter_by(project_id=order.project_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                LOG.error('Could not find the project: %s', order.project_id)
+                raise exception.ProjectNotFound(project_id=order.project_id)
 
-            # Get subs of this order
-            subs = model_query(
-                context, sa_models.Subscription, session=session).\
-                filter_by(order_id=order_id).\
-                filter_by(type=order.status).\
-                with_lockmode('read').all()
+            # get account
+            try:
+                account = model_query(
+                    context, sa_models.Account, session=session).\
+                    filter_by(user_id=project.user_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                LOG.error('Could not find the account: %s', project.user_id)
+                raise exception.AccountNotFound(user_id=project.user_id)
+
+            # calculate unit price
+            if renew.method != order.unit:
+                subs = model_query(
+                    context, sa_models.Subscription, session=session).\
+                    filter_by(order_id=order_id).\
+                    filter_by(type=const.STATE_RUNNING).\
+                    with_lockmode('read').all()
+                unit_price = 0
+                for sub in subs:
+                    price_data = pricing.get_price_data(
+                        sub.extra, renew.method)
+                    unit_price += pricing.calculate_price(
+                        sub.quantity, sub.unit_price, price_data)
+            else:
+                unit_price = order.unit_price
+
+            total_price = unit_price * renew.period
+
+            if account.balance < total_price and account.level != 9:
+                raise exception.NotSufficientFund(user_id=project.user_id,
+                                                  project_id=project_id)
+
+            # create bill
+            months = gringutils.to_months(renew.method, renew.period)
+            end_time = gringutils.add_months(order.cron_time, months)
+            bill = sa_models.Bill(
+                bill_id=uuidutils.generate_uuid(),
+                start_time=order.cron_time,
+                end_time=end_time,
+                type=order.type,
+                status=const.BILL_PAYED,
+                unit_price=unit_price,
+                unit=renew.method,
+                total_price=total_price,
+                order_id=order.order_id,
+                resource_id=order.resource_id,
+                remarks=remarks,
+                user_id=project.user_id,
+                project_id=order.project_id,
+                region_id=order.region_id,
+                domain_id=order.domain_id)
+            session.add(bill)
 
             if renew.auto:
                 order.renew = True
                 order.renew_method = renew.method
                 order.renew_period = renew.period
+                order.unit = renew.method
+                order.unit_price = unit_price
 
-            order.cron_time = gringutils.add_months(order.cron_time, months)
+            order.total_price += total_price
+            order.cron_time = end_time
             order.date_time = None
             order.updated_at = datetime.datetime.utcnow()
+
+            # Update project and user_project
+            try:
+                user_project = model_query(
+                    context, sa_models.UserProject, session=session).\
+                    filter_by(project_id=order.project_id).\
+                    filter_by(user_id=project.user_id).\
+                    with_lockmode('update').one()
+            except NoResultFound:
+                LOG.error('Could not find the relationship between user(%s) '
+                          'and project(%s)',
+                          project.user_id, order.project_id)
+                raise exception.UserProjectNotFound(
+                    user_id=project.user_id,
+                    project_id=order.project_id)
+            project.consumption += total_price
+            project.updated_at = datetime.datetime.utcnow()
+            user_project.consumption += total_price
+            user_project.updated_at = datetime.datetime.utcnow()
+
+            # Update account
+            account.balance -= total_price
+            account.consumption += total_price
+            account.updated_at = datetime.datetime.utcnow()
+
         return self._row_to_db_order_model(order)

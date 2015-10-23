@@ -424,6 +424,8 @@ class MasterService(rpc_service.Service):
                     remarks = "Renew for %s %s" % \
                             (order['period'], order['unit'])
 
+                if order['renew']:
+                    result = self.gclient.create_bill(order_id)
                 # 1.1. if deduct successfully, create another monthly job.
                 # 1.2. if deduct failed because of not sufficient balance,
                 #      stop the resource, an create a date job to delete
