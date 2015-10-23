@@ -244,7 +244,8 @@ class Charge(Model):
 
     def __init__(self, charge_id, user_id, project_id, domain_id,
                  value, charge_time,
-                 type=None, come_from=None, operator=None, remarks=None,
+                 type=None, come_from=None, trading_number=None,
+                 operator=None, remarks=None,
                  created_at=None, updated_at=None):
         Model.__init__(
             self,
@@ -255,6 +256,7 @@ class Charge(Model):
             value=value,
             type=type,
             come_from=come_from,
+            trading_number=trading_number,
             operator=operator,
             remarks=remarks,
             charge_time=charge_time,

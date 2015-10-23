@@ -305,6 +305,7 @@ class Connection(base.Connection):
                                 value=row.value,
                                 type=row.type,
                                 come_from=row.come_from,
+                                trading_number=row.trading_number,
                                 operator=row.operator,
                                 remarks=row.remarks,
                                 charge_time=row.charge_time,
@@ -1272,6 +1273,8 @@ class Connection(base.Connection):
                                       value=data['value'],
                                       type=data.get('type'),
                                       come_from=data.get('come_from'),
+                                      trading_number=data.get(
+                                          'trading_number'),
                                       charge_time=charge_time,
                                       operator=operator,
                                       remarks=data.get('remarks'))

@@ -1,6 +1,7 @@
 
 import mock
 
+from decimal import Decimal
 from gringotts.client.v2 import client
 from gringotts import exception
 from gringotts.openstack.common import log as logging
@@ -165,7 +166,90 @@ class AccountTestCase(rest.RestfulTestCase):
     def test_get_account_estimate_per_day(self):
         pass
 
-    def test_account_charge(self):
+    def test_account_charge_without_bonus(self):
+        demo_account = self.demo_account
+        query_url = self.build_account_query_url(demo_account.user_id)
+
+        trading_number = self.new_uuid()
+        body = {'value': 100,
+                'type': 'money',
+                'come_from': 'third-party',
+                'trading_number': trading_number}
+
+        resp = self.get(query_url, headers=self.admin_headers)
+        account = resp.json_body
+        pre_balance = Decimal(account['balance'])
+
+        resp = self.put(query_url, headers=self.admin_headers,
+                        body=body, expected_status=200)
+        charge_re = resp.json_body
+
+        # test the response
+        self.assertEqual(u'100', charge_re['value'])
+        self.assertEqual('money', charge_re['type'])
+        self.assertEqual('third-party', charge_re['come_from'])
+        self.assertEqual(trading_number, charge_re['trading_number'])
+        self.assertTrue('charge_time' in charge_re)
+        self.assertTrue('remarks' in charge_re)
+
+        # test the account's balance
+        resp = self.get(query_url, headers=self.admin_headers)
+        account = resp.json_body
+        new_balance = Decimal(account['balance'])
+        self.assertEqual(Decimal(body['value']),
+                         new_balance - pre_balance)
+
+    def test_account_charge_with_discount(self):
+        """Test charging account with the default discount.
+
+        If the enable_bonus in the configuration is True,
+        the account which is charging will have two charge
+        records. The scond one is for the discount bonus.
+        """
+        self.config_fixture.config(enable_bonus=True)
+
+        demo_account = self.demo_account
+        query_url = self.build_account_query_url(demo_account.user_id)
+
+        resp = self.get(query_url, headers=self.admin_headers)
+        account = resp.json_body
+        pre_balance = Decimal(account['balance'])
+
+        trading_number = self.new_uuid()
+        body = {'value': 100,
+                'type': 'money',
+                'come_from': 'third-party',
+                'trading_number': trading_number}
+
+        resp = self.put(query_url, headers=self.admin_headers,
+                        body=body, expected_status=200)
+        charge_re = resp.json_body
+
+        # test the response
+        self.assertEqual(u'100', charge_re['value'])
+        self.assertEqual('money', charge_re['type'])
+        self.assertEqual('third-party', charge_re['come_from'])
+        self.assertEqual(trading_number, charge_re['trading_number'])
+        self.assertTrue('charge_time' in charge_re)
+        self.assertTrue('remarks' in charge_re)
+
+        # test the second charge with bonus
+        url = query_url + '/charges'
+        charges = self.get(url).json_body
+        self.assertEqual(2, charges['total_count'])
+        charges = charges['charges']
+        self.assertTrue('bonus' in charges[0]['type'] or \
+                        'bonus' in charges[1]['type'])
+
+        # test the account balance
+        resp = self.get(query_url, headers=self.admin_headers)
+        account = resp.json_body
+        new_balance = Decimal(account['balance'])
+
+        self.assertTrue(new_balance - pre_balance > \
+                        Decimal(body['value']))
+
+    def test_account_charge_with_inviter_successed(self):
         pass
 
     def test_account_charge_with_negative_value_failed(self):

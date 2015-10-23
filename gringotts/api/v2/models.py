@@ -515,6 +515,7 @@ class Charge(APIBase):
     value = decimal.Decimal
     type = wtypes.text
     come_from = wtypes.text
+    trading_number = wtypes.text
     charge_time = wtypes.text
     target = User
     actor = User

@@ -218,6 +218,7 @@ class Charge(Base):
     value = Column(DECIMAL(20, 4))
     type = Column(String(64))
     come_from = Column(String(255))
+    trading_number = Column(String(255))
     charge_time = Column(DateTime)
     operator = Column(String(64))
     remarks = Column(String(255))
