@@ -128,6 +128,7 @@ class SimpleProduct(APIBase):
 
 class PurchaseItem(APIBase):
     """A purchase."""
+    product_id = wtypes.text
     product_name = wtypes.text
     service = wtypes.text
     region_id = wtypes.text
@@ -178,6 +179,7 @@ class Subscription(APIBase):
     unit_price = decimal.Decimal
     quantity = int
     unit = wtypes.text
+    product_id = wtypes.text
     total_price = decimal.Decimal
     user_id = wtypes.text
     project_id = wtypes.text

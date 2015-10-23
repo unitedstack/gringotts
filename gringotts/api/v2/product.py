@@ -165,7 +165,13 @@ class PriceController(rest.RestController):
         unit = purchase.bill_method
 
         for p in purchase.purchases:
-            if all([p.product_name, p.service, p.region_id, p.quantity]):
+            if all([p.product_id, p.quantity]):
+                try:
+                    product = conn.get_product(request.context, p.product_id)
+                except exception.ProductIdNotFound:
+                    LOG.warn("Product %s not found" % p.product_id)
+                    raise
+            elif all([p.product_name, p.service, p.region_id, p.quantity]):
                 filters = dict(name=p.product_name,
                                service=p.service,
                                region_id=p.region_id)
@@ -176,26 +182,25 @@ class PriceController(rest.RestController):
                               p.product_name, p.region_id)
                     raise exception.ProductNameNotFound(
                         product_name=p.product_name)
-
-                try:
-                    product = products[0]
-                    if product.extra:
-                        extra = jsonutils.loads(product.extra)
-                        price_data = extra.get('price', unit)
-                    else:
-                        price_data = None
-
-                    unit_price += pricing.calculate_price(
-                        p.quantity, product.unit_price, price_data)
-                except (Exception) as e:
-                    LOG.error('Calculate price of product %s failed, %s',
-                              p.product_name, e)
-                    raise e
+                product = products[0]
             else:
                 err = "Every purchase item should specify product_name, "\
-                      "service, region_id and quantity"
+                      "service, region_id and quantity or "\
+                      "product_id and quantity."
                 raise exception.MissingRequiredParams(reason=err)
+            try:
+                if product.extra:
+                    extra = jsonutils.loads(product.extra)
+                    price_data = extra.get('price', unit)
+                else:
+                    price_data = None
 
+                unit_price += pricing.calculate_price(
+                    p.quantity, product.unit_price, price_data)
+            except (Exception) as e:
+                LOG.error('Calculate price of product %s failed, %s',
+                          p.product_name, e)
+                raise e
         return models.Price.transform(unit_price=unit_price,
                                       unit=unit)
 

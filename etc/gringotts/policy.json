@@ -33,6 +33,8 @@
     "charges:all": "role:uos_bill_charges_get or rule:uos_admin",
     "account:delete": "role:uos_bill_account_delete or rule:uos_admin",
 
+    "subs:all": "role:uos_bill_subs_get or rule:uos_admin",
+
     "deduct:account_pay": "rule:uos_admin",
     "deduct:account_get": "rule:uos_admin",
     "deduct:check_req": "rule:uos_admin"

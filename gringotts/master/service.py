@@ -415,6 +415,22 @@ class MasterService(rpc_service.Service):
                              order['type'], order['resource_id'])
                     return
 
+                # 1. if order's renew is activated, we will try to deduct
+                #    the order.
+                if order['period'] > 1:
+                    remarks = "Renew for %s %ss" % \
+                            (order['period'], order['unit'])
+                else:
+                    remarks = "Renew for %s %s" % \
+                            (order['period'], order['unit'])
+
+                # 1.1. if deduct successfully, create another monthly job.
+                # 1.2. if deduct failed because of not sufficient balance,
+                #      stop the resource, an create a date job to delete
+                #      the resoruce.
+                # 2. if order's renew is not activated, we will stop the
+                #    resource, and create a date job to delete the resource.
+
                 if isinstance(order['cron_time'], basestring):
                     cron_time = timeutils.parse_strtime(
                         order['cron_time'], fmt=ISO8601_UTC_TIME_FORMAT)

@@ -941,11 +941,14 @@ class Connection(base.Connection):
             sub.product_id = new_product.product_id
 
     @require_context
-    def get_subscriptions_by_order_id(self, context, order_id, type=None):
+    def get_subscriptions_by_order_id(self, context, order_id, user_id=None,
+                                      type=None):
         query = model_query(context, sa_models.Subscription).\
             filter_by(order_id=order_id)
         if type:
             query = query.filter_by(type=type)
+        if user_id:
+            query = query.filter_by(user_id=user_id)
         ref = query.all()
         return (self._row_to_db_subscription_model(r) for r in ref)
 
