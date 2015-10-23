@@ -69,7 +69,7 @@ class TrendsController(rest.RestController):
         :param type: month, day
         """
         limit_user_id = acl.get_limited_to_user(pecan.request.headers,
-                                                'uos_staff')
+                                                'trends_get')
         if limit_user_id:
             user_id = limit_user_id
         # accountant can look up any user, if not sepcify, look up itself

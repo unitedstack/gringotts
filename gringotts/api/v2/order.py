@@ -195,7 +195,7 @@ class SummaryController(rest.RestController):
             user_id=None, project_id=None, read_deleted=None):
         """Get summary of all kinds of orders."""
         limit_user_id = acl.get_limited_to_user(
-            request.headers, 'uos_support_staff')
+            request.headers, 'order_summary')
 
         if limit_user_id:  # normal user
             user_id = None
@@ -406,7 +406,7 @@ class OrdersController(rest.RestController):
             raise exception.InvalidParameterValue(err="Invalid offset")
 
         limit_user_id = acl.get_limited_to_user(
-            request.headers, 'uos_support_staff')
+            request.headers, 'order_get')
 
         if limit_user_id:  # normal user
             user_id = None

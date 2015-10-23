@@ -41,7 +41,7 @@ class ResourcesController(rest.RestController):
     def get_all(self, project_id, region_name=None):
         """ Get all resources of specified project_id in the region specified by
         the region_name or the regions in conf file."""
-        project_id = acl.get_limited_to_project(request.headers, 'uos_staff') or project_id
+        project_id = acl.get_limited_to_project(request.headers, 'project_resource_get') or project_id
         if project_id is None:
             project_id = request.headers.get('X-Project-Id')
 

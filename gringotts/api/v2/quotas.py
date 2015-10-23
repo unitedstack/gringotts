@@ -30,7 +30,8 @@ class QuotasController(rest.RestController):
         from gringotts.services import nova
         from gringotts.services import trove
 
-        project_id = acl.get_limited_to_project(request.headers, 'uos_support_staff')
+        project_id = acl.get_limited_to_project(request.headers,
+                                                'quota_update')
         if project_id:
             raise exception.NotAuthorized
 
@@ -64,7 +65,7 @@ class QuotasController(rest.RestController):
         from gringotts.services import nova
         from gringotts.services import trove
 
-        _project_id = acl.get_limited_to_project(request.headers, 'uos_support_staff')
+        _project_id = acl.get_limited_to_project(request.headers, 'quota_get')
         if _project_id:
             raise exception.NotAuthorized
 

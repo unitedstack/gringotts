@@ -130,7 +130,7 @@ class AccountController(rest.RestController):
             raise exception.InvalidParameterValue(err="Invalid offset")
 
         inviter = acl.get_limited_to_user(
-            request.headers, 'uos_admin') or self._id
+            request.headers, 'referees_get') or self._id
 
         self.conn = pecan.request.db_conn
         try:
@@ -183,7 +183,7 @@ class AccountController(rest.RestController):
     def get(self):
         """Get this account."""
         user_id = acl.get_limited_to_user(
-            request.headers, 'uos_staff') or self._id
+            request.headers, 'account_get') or self._id
         return models.UserAccount.from_db_model(self._account(user_id=user_id))
 
     @wsexpose(models.Charge, wtypes.text, body=models.Charge)
@@ -191,8 +191,8 @@ class AccountController(rest.RestController):
         """Charge the account."""
         check_policy(request.context, "account:charge")
 
-        # check support staff charge value
-        if "uos_support_staff" in request.context.roles:
+        # check uos_bill_account_charge_limited charge value
+        if "uos_bill_account_charge_limited" in request.context.roles:
             lscv = int(cfg.CONF.limited_support_charge_value)
             if data.value < -lscv or data.value > lscv:
                 raise exception.InvalidChargeValue(value=data.value)
@@ -291,7 +291,7 @@ class AccountController(rest.RestController):
             raise exception.InvalidParameterValue(err="Invalid offset")
 
         user_id = acl.get_limited_to_user(
-            request.headers, 'uos_support_staff') or self._id
+            request.headers, 'account_charge') or self._id
 
         self.conn = pecan.request.db_conn
         charges = self.conn.get_charges(request.context,
@@ -322,7 +322,7 @@ class AccountController(rest.RestController):
             return -1
 
         user_id = acl.get_limited_to_user(
-            request.headers, 'uos_staff') or self._id
+            request.headers, 'account_estimate') or self._id
 
         account = self._account(user_id=user_id)
         if account.balance < 0:
@@ -357,7 +357,7 @@ class AccountController(rest.RestController):
         """
         self.conn = pecan.request.db_conn
         user_id = acl.get_limited_to_user(
-            request.headers, 'uos_staff') or self._id
+            request.headers, 'account_estimate') or self._id
 
         account = self._account(user_id=user_id)
         orders = self.conn.get_active_orders(request.context,

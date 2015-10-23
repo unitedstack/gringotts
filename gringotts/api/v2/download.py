@@ -48,7 +48,8 @@ class ChargesController(rest.RestController):
         if offset and offset < 0:
             raise exception.InvalidParameterValue(err="Invalid offset")
 
-        limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
+        limit_user_id = acl.get_limited_to_user(request.headers,
+                                                'export_charges')
 
         if limit_user_id:
             user_id = limit_user_id
@@ -126,7 +127,8 @@ class OrdersController(rest.RestController):
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
-        limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
+        limit_user_id = acl.get_limited_to_user(request.headers,
+                                                'export_orders')
 
         if limit and limit < 0:
             raise exception.InvalidParameterValue(err="Invalid limit")

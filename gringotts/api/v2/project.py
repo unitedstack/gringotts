@@ -142,7 +142,8 @@ class ProjectController(rest.RestController):
     @wsexpose(models.Summaries, wtypes.text)
     def estimate(self, region_id=None):
         """Get estimation of specified project and region."""
-        limit_user_id = acl.get_limited_to_user(request.headers, 'uos_staff')
+        limit_user_id = acl.get_limited_to_user(request.headers,
+                                                'project_estimate')
 
         if limit_user_id: # normal user
             projects = keystone.get_projects_by_user(limit_user_id)
@@ -204,7 +205,7 @@ class ProjectsController(rest.RestController):
     @wsexpose([models.UserProject], wtypes.text, wtypes.text)
     def get_all(self, user_id=None, type=None):
         """Get all projects."""
-        user_id = acl.get_limited_to_user(request.headers, 'uos_staff') or user_id
+        user_id = acl.get_limited_to_user(request.headers, 'projects_get') or user_id
 
         self.conn = pecan.request.db_conn
         result = []
