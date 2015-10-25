@@ -399,7 +399,6 @@ class OrdersController(rest.RestController):
         If start_time and end_time is not None, will get orders that have bills
         during start_time and end_time, or return all orders directly.
         """
-
         if limit and limit < 0:
             raise exception.InvalidParameterValue(err="Invalid limit")
         if offset and offset < 0:

@@ -203,6 +203,9 @@ class VolumeResizeEnd(VolumeNotificationBase):
         resource_id = message['payload']['volume_id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         quantity = message['payload']['size']
         action_time = message['timestamp']
@@ -223,6 +226,9 @@ class VolumeDeleteEnd(VolumeNotificationBase):
         # Get the order of this resource
         resource_id = message['payload']['volume_id']
         order = self.get_order_by_resource_id(resource_id)
+
+        if order.get('unit') in ['month', 'year']:
+            return
 
         # Notify master
         action_time = message['timestamp']

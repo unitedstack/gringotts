@@ -187,6 +187,9 @@ class ListenerUpdateEnd(ListenerNotificationBase):
         resource_id = message['payload']['listener']['id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Get subscriptions of this order
         subs = self.get_subscriptions(order_id=order['order_id'], type=const.STATE_RUNNING)
         if not subs:
@@ -229,6 +232,9 @@ class ListenerDeleteEnd(ListenerNotificationBase):
         resource_id = message['payload']['listener']['id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         action_time = message['timestamp']
         remarks = 'Listener Has Been Deleted'
@@ -251,6 +257,9 @@ class LoadBalancerDeleteEnd(ListenerNotificationBase):
             try:
                 # Get the order of this resource
                 order = self.get_order_by_resource_id(listener_id)
+
+                if order.get('unit') in ['month', 'year']:
+                    return
 
                 # Notify master
                 action_time = message['timestamp']

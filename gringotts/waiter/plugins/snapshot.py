@@ -160,6 +160,9 @@ class SnapshotDeleteEnd(SnapshotNotificationBase):
         resource_id = message['payload']['snapshot_id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         action_time = message['timestamp']
         remarks = 'Snapshot Has Been Deleted.'

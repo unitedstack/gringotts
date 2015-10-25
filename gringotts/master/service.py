@@ -65,7 +65,7 @@ class MasterService(rpc_service.Service):
         self.ctxt = context.get_admin_context()
 
         job_defaults = {
-            'misfire_grace_time': 604800,
+            'misfire_grace_time': 6048000,
             'coalesce': False,
             'max_instances': 24,
         }
@@ -81,7 +81,8 @@ class MasterService(rpc_service.Service):
 
     def start(self):
         self.apsched.start()
-        self.load_cron_jobs()
+        self.load_hourly_cron_jobs()
+        self.load_monthly_cron_jobs()
         LOG.warning('Load cron jobs successfully.')
 
         if cfg.CONF.enable_owe:
@@ -165,42 +166,73 @@ class MasterService(rpc_service.Service):
                 self._change_order_unit_price(order['order_id'])
         LOG.warning('Load 30-days date jobs successfully.')
 
-    def load_cron_jobs(self):
+    def _get_cron_orders(self, bill_methods=None, owed=None):
+        orders = []
         states = [const.STATE_RUNNING, const.STATE_STOPPED,
                   const.STATE_SUSPEND]
         for s in states:
-            LOG.debug('Loading jobs in %s state', s)
+            orders += self.gclient.get_orders(status=s,
+                                              owed=owed,
+                                              bill_methods=bill_methods,
+                                              region_id=cfg.CONF.region_name)
+        return orders
 
-            orders = self.gclient.get_orders(status=s,
-                                             region_id=cfg.CONF.region_name)
-            for order in orders:
-                if not order['cron_time']:
-                    continue
-                elif isinstance(order['cron_time'], basestring):
-                    cron_time = timeutils.parse_strtime(
-                        order['cron_time'], fmt=ISO8601_UTC_TIME_FORMAT)
-                else:
-                    cron_time = order['cron_time']
+    def load_monthly_cron_jobs(self):
+        """Load monthly cron jobs
 
-                # create cron job
-                danger_time = (datetime.datetime.utcnow() +
-                               datetime.timedelta(seconds=30))
-                if cron_time > danger_time:
-                    self._create_cron_job(order['order_id'],
-                                          start_date=cron_time)
-                else:
-                    LOG.warning("The order(%s) is in danger time after master"
-                                "started", order['order_id'])
-                    while cron_time <= danger_time:
-                        cron_time += datetime.timedelta(hours=1)
-                    cron_time -= datetime.timedelta(hours=1)
-                    action_time = utils.format_datetime(
-                        timeutils.strtime(cron_time))
-                    self._create_bill(self.ctxt,
-                                      order['order_id'],
-                                      action_time,
-                                      "System Adjust")
-                self.locks[order['order_id']] = gthreading.Lock()
+        Because owed monthly resource will not cron again, so there is no
+        need to load owed monthly resources
+        """
+        # owed="" will be tranlated to owed=False by wsme
+        orders = self._get_cron_orders(bill_methods=['month', 'year'],
+                                       owed="")
+        for order in orders:
+            if not order['cron_time']:
+                continue
+            elif isinstance(order['cron_time'], basestring):
+                cron_time = timeutils.parse_strtime(
+                    order['cron_time'], fmt=ISO8601_UTC_TIME_FORMAT)
+            else:
+                cron_time = order['cron_time']
+
+            # Because if not specify run_date for date_time job or the
+            # specified run_date is less than the current time, the date
+            # time job will use the current time, so there is no need to
+            # distinguish the danger_time
+            self._create_monthly_job(order['order_id'],
+                                     run_date=cron_time)
+            self.locks[order['order_id']] = gthreading.Lock()
+
+    def load_hourly_cron_jobs(self):
+        orders = self._get_cron_orders(bill_methods=['hour'])
+        for order in orders:
+            if not order['cron_time']:
+                continue
+            elif isinstance(order['cron_time'], basestring):
+                cron_time = timeutils.parse_strtime(
+                    order['cron_time'], fmt=ISO8601_UTC_TIME_FORMAT)
+            else:
+                cron_time = order['cron_time']
+
+            # create cron job
+            danger_time = (datetime.datetime.utcnow() +
+                           datetime.timedelta(seconds=30))
+            if cron_time > danger_time:
+                self._create_cron_job(order['order_id'],
+                                      start_date=cron_time)
+            else:
+                LOG.warning("The order(%s) is in danger time after master"
+                            "started", order['order_id'])
+                while cron_time <= danger_time:
+                    cron_time += datetime.timedelta(hours=1)
+                cron_time -= datetime.timedelta(hours=1)
+                action_time = utils.format_datetime(
+                    timeutils.strtime(cron_time))
+                self._create_bill(self.ctxt,
+                                  order['order_id'],
+                                  action_time,
+                                  "System Adjust")
+            self.locks[order['order_id']] = gthreading.Lock()
 
     def _make_30_days_job_id(self, order_id):
         return "30-days-" + order_id
@@ -271,7 +303,8 @@ class MasterService(rpc_service.Service):
                                    resource_id,
                                    region_id],
                              id=job_id,
-                             run_date=action_time)
+                             run_date=action_time,
+                             replace_existing=True)
         LOG.warn('create date job for order: %s', order_id)
 
     def _change_order_unit_price(self, order_id):
@@ -415,56 +448,45 @@ class MasterService(rpc_service.Service):
                              order['type'], order['resource_id'])
                     return
 
-                # 1. if order's renew is activated, we will try to deduct
-                #    the order.
-                if order['period'] > 1:
+                if order['renew_period'] > 1:
                     remarks = "Renew for %s %ss" % \
-                            (order['period'], order['unit'])
+                            (order['renew_period'], order['renew_method'])
                 else:
                     remarks = "Renew for %s %s" % \
-                            (order['period'], order['unit'])
+                            (order['renew_period'], order['renew_method'])
 
-                if order['renew']:
-                    result = self.gclient.create_bill(order_id)
-                # 1.1. if deduct successfully, create another monthly job.
-                # 1.2. if deduct failed because of not sufficient balance,
-                #      stop the resource, an create a date job to delete
-                #      the resoruce.
-                # 2. if order's renew is not activated, we will stop the
-                #    resource, and create a date job to delete the resource.
+                # deduct the order.
+                result = self.gclient.create_bill(order_id,
+                                                  remarks=remarks)
 
-                if isinstance(order['cron_time'], basestring):
-                    cron_time = timeutils.parse_strtime(
-                        order['cron_time'], fmt=ISO8601_UTC_TIME_FORMAT)
-                else:
-                    cron_time = order['cron_time']
+                # if deduct successfully, create another monthly job.
+                if result['type'] == const.BILL_NORMAL:
+                    if isinstance(order['cron_time'], basestring):
+                        cron_time = timeutils.parse_strtime(
+                            order['cron_time'], fmt=ISO8601_UTC_TIME_FORMAT)
+                    else:
+                        cron_time = order['cron_time']
 
-                #remarks = 'Hourly Billing'
-                #now = timeutils.utcnow()
-                #if now - cron_time >= datetime.timedelta(hours=1):
-                #    result = self.gclient.create_bill(order_id,
-                #                                      action_time=now,
-                #                                      remarks=remarks)
-                #else:
-                #    result = self.gclient.create_bill(order_id,
-                #                                      remarks=remarks)
+                    months = utils.to_months(order['renew_method'],
+                                             order['renew_period'])
+                    next_cron_time = utils.add_months(cron_time, months)
+                    self._create_monthly_job(order_id, next_cron_time)
 
-                ## Order is owed
-                #if result['type'] == const.BILL_ORDER_OWED:
-                #    self._stop_owed_resource(result['resource_type'],
-                #                             result['resource_id'],
-                #                             result['region_id'])
-                #    self._create_date_job(order_id,
-                #                          result['resource_type'],
-                #                          result['resource_id'],
-                #                          result['region_id'],
-                #                          result['date_time'])
-                ## Account is charged but order is still owed
-                #elif result['type'] == const.BILL_OWED_ACCOUNT_CHARGED:
-                #    self._delete_date_job(order_id)
+                # if deduct failed because of not sufficient balance,
+                # or the order's renew is not activated, stop the resource,
+                # and create a date job to delete the resoruce.
+                elif result['type'] == const.BILL_ORDER_OWED:
+                    self._stop_owed_resource(result['resource_type'],
+                                             result['resource_id'],
+                                             result['region_id'])
+                    self._create_date_job(order_id,
+                                          result['resource_type'],
+                                          result['resource_id'],
+                                          result['region_id'],
+                                          result['date_time'])
         except Exception as e:
-            LOG.warn("Some exceptions happen when deducting order: %s, "
-                     "for reason: %s", order_id, e)
+            LOG.exception("Some exceptions happen when deducting order: %s, "
+                          "for reason: %s", order_id, e)
 
     def _create_bill(self, ctxt, order_id, action_time, remarks):
         # create a bill

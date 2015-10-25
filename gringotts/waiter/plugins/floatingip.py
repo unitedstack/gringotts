@@ -367,6 +367,9 @@ class FloatingIpResizeEnd(FloatingIpNotificationBase):
         resource_id = payload['id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         action_time = message['timestamp']
         remarks = 'Floating IP Has Been Resized'
@@ -392,8 +395,10 @@ class FloatingIpDeleteEnd(FloatingIpNotificationBase):
         # Get the order of this resource
         order = self.get_order_by_resource_id(payload['id'])
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Only handle the order billed by hour
-        if not order.get('unit') or order.get('unit') == 'hour':
-            action_time = message['timestamp']
-            remarks = 'Floating IP Has Been Deleted'
-            self.resource_deleted(order['order_id'], action_time, remarks)
+        action_time = message['timestamp']
+        remarks = 'Floating IP Has Been Deleted'
+        self.resource_deleted(order['order_id'], action_time, remarks)

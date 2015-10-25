@@ -167,6 +167,9 @@ class AlarmOnOffEnd(AlarmNotificationBase):
         resource_id = message['payload']['alarm_id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         action_time = message['timestamp']
 
@@ -192,8 +195,10 @@ class AlarmDeleteEnd(AlarmNotificationBase):
         resource_id = message['payload']['alarm_id']
         order = self.get_order_by_resource_id(resource_id)
 
-        if not order.get('unit') or order.get('unit') == 'hour':
-            # Notify master
-            action_time = message['timestamp']
-            remarks = 'Alarm Has Been Deleted'
-            self.resource_deleted(order['order_id'], action_time, remarks)
+        if order.get('unit') in ['month', 'year']:
+            return
+
+        # Notify master
+        action_time = message['timestamp']
+        remarks = 'Alarm Has Been Deleted'
+        self.resource_deleted(order['order_id'], action_time, remarks)

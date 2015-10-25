@@ -175,6 +175,9 @@ class ShareDeleteEnd(ShareNotificationBase):
         resource_id = message['payload']['share_id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         action_time = message['timestamp']
         remarks = 'Share Has Been Deleted'

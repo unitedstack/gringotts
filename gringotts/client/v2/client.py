@@ -111,12 +111,13 @@ class Client(object):
         self.client.put('/orders/%s/close' % order_id)
 
     def get_orders(self, status=None, project_id=None, owed=None,
-                   region_id=None, type=None):
+                   region_id=None, type=None, bill_methods=None):
         params = dict(status=status,
                       type=type,
                       project_id=project_id,
                       owed=owed,
-                      region_id=region_id)
+                      region_id=region_id,
+                      bill_methods=bill_methods)
         resp, body = self.client.get('/orders', params=params)
         if body:
             return body['orders']

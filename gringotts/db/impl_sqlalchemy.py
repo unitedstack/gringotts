@@ -519,10 +519,10 @@ class Connection(base.Connection):
                 end_time = gringutils.add_months(start_time, months)
                 total_price = order['unit_price'] * order['period']
                 if order['period'] > 1:
-                    remarks = "Charge for %s %ss" % \
+                    remarks = "Renew for %s %ss" % \
                             (order['period'], order['unit'])
                 else:
-                    remarks = "Charge for %s %s" % \
+                    remarks = "Renew for %s %s" % \
                             (order['period'], order['unit'])
 
                 # add a bill
@@ -712,7 +712,7 @@ class Connection(base.Connection):
             query = query.filter_by(user_id=user_id)
         if project_ids is not None:
             query = query.filter(sa_models.Order.project_id.in_(project_ids))
-        if owed:
+        if owed is not None:
             query = query.filter_by(owed=owed)
         if not read_deleted:
             query = query.filter(
@@ -1708,7 +1708,6 @@ class Connection(base.Connection):
             result['resource_name'] = order.resource_name
             result['resource_id'] = order.resource_id
             result['region_id'] = order.region_id
-            result['deduct_value'] = order.unit_price
             result['type'] = const.BILL_NORMAL
 
             if not cfg.CONF.enable_owe:
@@ -1802,12 +1801,28 @@ class Connection(base.Connection):
                 external_balance = quantize(external_balance)
                 account.balance = external_balance
 
+            result['user_id'] = account.user_id
+            result['project_id'] = project.project_id
+            result['resource_type'] = order.type
+            result['resource_name'] = order.resource_name
+            result['resource_id'] = order.resource_id
+            result['region_id'] = order.region_id
+
             if not order.unit or order.unit == 'hour':
                 next_cron_time = end_time or \
                     action_time + datetime.timedelta(hours=1)
                 total_price = order.unit_price
             else:
                 if not order.renew:
+                    reserved_days = gringutils.cal_reserved_days(account.level)
+                    date_time = (datetime.datetime.utcnow() +
+                                 datetime.timedelta(days=reserved_days))
+                    order.date_time = date_time
+                    order.updated_at = datetime.datetime.utcnow()
+                    order.owed = True
+                    result['resource_owed'] = True
+                    result['type'] = const.BILL_ORDER_OWED
+                    result['date_time'] = date_time
                     return result
 
                 months = gringutils.to_months(order.renew_method,
@@ -1816,7 +1831,15 @@ class Connection(base.Connection):
                 total_price = order.unit_price * order.renew_period
 
                 if account.balance < total_price and account.level != 9:
-                    result['type'] = const.BILL_ACCOUNT_NOT_OWE_ENOUGH
+                    reserved_days = gringutils.cal_reserved_days(account.level)
+                    date_time = (datetime.datetime.utcnow() +
+                                 datetime.timedelta(days=reserved_days))
+                    order.date_time = date_time
+                    order.updated_at = datetime.datetime.utcnow()
+                    order.owed = True
+                    result['resource_owed'] = True
+                    result['type'] = const.BILL_ORDER_OWED
+                    result['date_time'] = date_time
                     return result
 
             bill = sa_models.Bill(
@@ -1872,13 +1895,6 @@ class Connection(base.Connection):
             account.consumption += total_price
             account.updated_at = datetime.datetime.utcnow()
 
-            result['user_id'] = account.user_id
-            result['project_id'] = project.project_id
-            result['resource_type'] = order.type
-            result['resource_name'] = order.resource_name
-            result['resource_id'] = order.resource_id
-            result['region_id'] = order.region_id
-            result['deduct_value'] = total_price
             result['type'] = const.BILL_NORMAL
 
             if not cfg.CONF.enable_owe:
@@ -2024,7 +2040,6 @@ class Connection(base.Connection):
             result['resource_name'] = order.resource_name
             result['resource_id'] = order.resource_id
             result['region_id'] = order.region_id
-            result['deduct_value'] = -more_fee
             result['type'] = const.BILL_NORMAL
 
             if not cfg.CONF.enable_owe:
@@ -2557,6 +2572,13 @@ class Connection(base.Connection):
                                                   project_id=project_id)
 
             # create bill
+            if renew.period > 1:
+                remarks = "Renew for %s %ss" % \
+                        (renew.period, renew.method)
+            else:
+                remarks = "Renew for %s %s" % \
+                        (renew.period, renew.method)
+
             months = gringutils.to_months(renew.method, renew.period)
             end_time = gringutils.add_months(order.cron_time, months)
             bill = sa_models.Bill(

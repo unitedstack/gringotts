@@ -39,9 +39,10 @@ class ProductExtraData(object):
 
     def validate(self):
         try:
-            if 'price' in self.extra:
-                self.new_extra['price'] = pricing.validate_price_data(
-                    self.extra['price'])
+            for key in ['price', 'monthly_price', 'yearly_price']:
+                if key in self.extra:
+                    self.new_extra[key] = pricing.validate_price_data(
+                        self.extra[key])
         except (exception.GringottsException) as e:
             LOG.warning(e.format_message())
             raise e

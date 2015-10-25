@@ -249,8 +249,8 @@ class InstanceStopEnd(ComputeNotificationBase):
     it will only handle one product: volume.size.
     """
 
-    #NOTE(suo): 'compute.instance.shutdown2.end' is sent out
-    #           by soft shutdown operation
+    # NOTE(suo): 'compute.instance.shutdown2.end' is sent out
+    # by soft shutdown operation
     event_types = ['compute.instance.power_off.end',
                    'compute.instance.shutdown2.end']
 
@@ -262,6 +262,9 @@ class InstanceStopEnd(ComputeNotificationBase):
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
         order = self.get_order_by_resource_id(resource_id)
+
+        if order.get('unit') in ['month', 'year']:
+            return
 
         # Notify master
         action_time = message['timestamp']
@@ -284,6 +287,9 @@ class InstanceStartEnd(ComputeNotificationBase):
         resource_id = message['payload']['instance_id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         action_time = message['timestamp']
         change_to = const.STATE_RUNNING
@@ -304,6 +310,9 @@ class InstanceResizeEnd(ComputeNotificationBase):
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
         order = self.get_order_by_resource_id(resource_id)
+
+        if order.get('unit') in ['month', 'year']:
+            return
 
         new_flavor = message['payload']['instance_type']
         old_flavor = message['payload']['old_instance_type']
@@ -339,6 +348,9 @@ class InstanceDeleteEnd(ComputeNotificationBase):
         resource_id = message['payload']['instance_id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         action_time = message['timestamp']
         remarks = 'Instance Has Been Deleted'
@@ -360,6 +372,9 @@ class InstanceSuspendEnd(ComputeNotificationBase):
         resource_id = message['payload']['instance_id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         action_time = message['timestamp']
         change_to = const.STATE_SUSPEND
@@ -380,6 +395,9 @@ class InstanceResumeEnd(ComputeNotificationBase):
         # Get the order of this resource
         resource_id = message['payload']['instance_id']
         order = self.get_order_by_resource_id(resource_id)
+
+        if order.get('unit') in ['month', 'year']:
+            return
 
         # Notify master, just give master messages it needs
         action_time = message['timestamp']

@@ -29,16 +29,19 @@ def wrap_exception(exc_type=None, with_raise=True):
                     gclient = client.get_client()
                     order = gclient.get_order_by_resource_id(uuid)
                     account = gclient.get_account(order['user_id'])
-                    if (order['owed'] and
+                    if (order['unit'] == 'hour' and
+                        order['owed'] and
                         account['owed'] and
                         Decimal(str(account['balance'])) < 0 and
-                        int(account['level']) != 9):
+                        int(account['level']) != 9) or (
+                        order['unit'] in ['month', 'year'] and
+                        order['owed']):
                         LOG.warn("The resource: %s is indeed owed, can be execute"
-                                 "the action: %s", (uuid, f.__name__))
+                                 "the action: %s", uuid, f.__name__)
                         return f(uuid, *args, **kwargs)
                     else:
                         LOG.warn("The resource: %s is not owed, should not execute"
-                                 "the action: %s", (uuid, f.__name__))
+                                 "the action: %s", uuid, f.__name__)
                 else:
                     return f(uuid, *args, **kwargs)
             except Exception as e:

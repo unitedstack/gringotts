@@ -158,6 +158,9 @@ class ImageDeleteEnd(ImageNotificationBase):
         resource_id = message['payload']['id']
         order = self.get_order_by_resource_id(resource_id)
 
+        if order.get('unit') in ['month', 'year']:
+            return
+
         # Notify master
         action_time = message['timestamp']
         remarks = 'Image Has Been Deleted.'

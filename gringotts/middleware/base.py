@@ -376,6 +376,8 @@ class BillingProtocol(object):
             if not any(role in admin_roles for role in roles):
                 return self._reject_request_403(env, start_response)
 
+            return self.app(env ,start_response)
+
     def check_if_in_blacklist(self, method, path_info, body):
         for black_method in self.black_list:
             if black_method(method, path_info, body):
