@@ -138,11 +138,13 @@ class PurchaseItem(APIBase):
 class Purchase(APIBase):
     purchases = [PurchaseItem]
     bill_method = wtypes.text
+    bill_period = int
 
 
 class Price(APIBase):
     """Price represents some products collection."""
     unit_price = decimal.Decimal
+    total_price = decimal.Decimal
     unit = wtypes.text
 
 

@@ -160,6 +160,9 @@ class PriceController(rest.RestController):
             err = 'Should specify bill_method among hour, month and year'
             raise exception.InvalidParameterValue(err=err)
 
+        if not isinstance(purchase.bill_period, int):
+            purchase.bill_period = 1
+
         conn = pecan.request.db_conn
 
         unit_price = quantize_decimal(0)
@@ -202,8 +205,10 @@ class PriceController(rest.RestController):
                 LOG.error('Calculate price of product %s failed, %s',
                           p.product_name, e)
                 raise e
+        total_price = unit_price * purchase.bill_period
         return models.Price.transform(unit_price=unit_price,
-                                      unit=unit)
+                                      unit=unit,
+                                      total_price=total_price)
 
 
 class DetailController(rest.RestController):

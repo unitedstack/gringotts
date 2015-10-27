@@ -267,7 +267,7 @@ class BillingProtocol(object):
             success, result = self.get_order_by_resource_id(
                 env, start_response, resource_id)
             if not success:
-                return result
+                return self.app(env ,start_response)
 
             order = result
             # by-hour resource can be deleted directly
@@ -360,7 +360,7 @@ class BillingProtocol(object):
             success, result = self.get_order_by_resource_id(
                 env, start_response, resource_id)
             if not success:
-                return result
+                return self.app(env ,start_response)
 
             order = result
             # by-hour resource can be operated directly
