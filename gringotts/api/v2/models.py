@@ -322,6 +322,7 @@ class Bill(APIBase):
     start_time = wtypes.text
     end_time = wtypes.text
     total_price = decimal.Decimal
+    unit = wtypes.text
     unit_price = decimal.Decimal
     remarks = wtypes.text
 
