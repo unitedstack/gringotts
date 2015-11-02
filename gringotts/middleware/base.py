@@ -383,6 +383,8 @@ class BillingProtocol(object):
                     return self.app(env ,start_response)
 
                 # by-month resource can be operated directly
+                env['HTTP_X_ROLES'] = env['HTTP_X_ROLES'] + ',month_billing'
+                env['HTTP_X_ROLE'] = env['HTTP_X_ROLE'] + ',month_billing'
                 return self.app(env ,start_response)
 
     def check_if_in_blacklist(self, method, path_info, body):
