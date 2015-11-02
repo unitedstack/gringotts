@@ -20,17 +20,27 @@ class CinderBillingProtocol(base.BillingProtocol):
         self.position = 2
         self.black_list += [
             self.attach_volume_action,
+            self.extend_volume_action,
         ]
         self.resource_regexs = [
             self.resource_regex,
             self.volume_action_regex,
         ]
+        self.resize_resource_actions = [
+            self.extend_volume_action,
+        ]
 
     def attach_volume_action(self, method, path_info, body):
         if method == "POST" and \
                 self.volume_action_regex.search(path_info) and \
-                (body.has_key('os-attach') or \
-                 body.has_key('os-extend')):
+                body.has_key('os-attach'):
+            return True
+        return False
+
+    def extend_volume_action(self, method, path_info, body):
+        if method == "POST" and \
+                self.volume_action_regex.search(path_info) and \
+                 body.has_key('os-extend'):
             return True
         return False
 

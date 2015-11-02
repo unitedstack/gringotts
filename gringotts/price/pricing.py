@@ -156,7 +156,7 @@ def rate_limit_to_unit(rate_limit):
     rate_limit = int(rate_limit)
     if rate_limit < 0:
         raise exception.InvalidParameterValue(
-            'rate limit should greater than')
+            'rate limit should greater than 0')
     if rate_limit < 1024:
         return 1
     else:

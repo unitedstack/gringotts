@@ -496,7 +496,7 @@ class Connection(base.Connection):
                 LOG.error('Could not find the project: %s', order['project_id'])
                 raise exception.ProjectNotFound(project_id=order['project_id'])
 
-            if order['unit'] == 'hour':
+            if not order['unit'] or order['unit'] == 'hour':
                 ref = sa_models.Order(
                     order_id=order['order_id'],
                     resource_id=order['resource_id'],
@@ -2638,4 +2638,4 @@ class Connection(base.Connection):
             account.consumption += total_price
             account.updated_at = datetime.datetime.utcnow()
 
-        return self._row_to_db_order_model(order)
+        return self._row_to_db_order_model(order), total_price

@@ -156,7 +156,7 @@ class OrderController(rest.RestController):
             raise exception.DBError(reason=msg)
         return models.Order.from_db_model(order)
 
-    @wsexpose(models.Order, body=models.Renew)
+    @wsexpose(models.RenewResult, body=models.Renew)
     def renew(self, data):
         """renew the order manually
 
@@ -167,7 +167,8 @@ class OrderController(rest.RestController):
         self._validate_renew(data.as_dict())
         conn = pecan.request.db_conn
         try:
-            order = conn.renew_order(request.context, self._id, data)
+            order, renew_price = conn.renew_order(request.context,
+                                                  self._id, data)
             self.master_api.change_monthly_job_time(
                 request.context, self._id,
                 timeutils.isotime(order.cron_time),
@@ -182,7 +183,9 @@ class OrderController(rest.RestController):
             msg = "Fail to renew the order %s" % self._id
             LOG.exception(msg)
             raise exception.DBError(reason=msg)
-        return models.Order.from_db_model(order)
+        result = models.Order.from_db_model(order)
+        result.renew_price = str(renew_price)
+        return result
 
 
 class SummaryController(rest.RestController):

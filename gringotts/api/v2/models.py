@@ -262,39 +262,11 @@ class Order(APIBase):
     renew_method = wtypes.text
     renew_period = int
 
-    @classmethod
-    def sample1(cls):
-        return cls(order_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
-                   resource_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
-                   resource_name='vm1',
-                   status='running',
-                   unit_price=0.48,
-                   total_price=12.55,
-                   type='instance',
-                   created_at=datetime.datetime(2013, 12, 29, 03, 00, 00))
-
-    @classmethod
-    def sample2(cls):
-        return cls(order_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
-                   resource_id='31d25817-2ece-4f25-8b7b-9af8dac1a70f',
-                   resource_name='vm2',
-                   status='running',
-                   unit_price=0.48,
-                   total_price=1234.55,
-                   type='instance',
-                   created_at=datetime.datetime(2013, 12, 29, 04, 00, 00))
-
 
 class Orders(APIBase):
     """Collection of orders."""
     total_count = int
     orders = [Order]
-
-    @classmethod
-    def sample(cls):
-        return cls(total_count=13,
-                   orders=[Order.sample1(),
-                           Order.sample2()])
 
 
 class BillBody(APIBase):
@@ -775,6 +747,10 @@ class Renew(APIBase):
     method = wtypes.text
     period = int
     auto = bool
+
+
+class RenewResult(Order):
+    renew_price = wtypes.text
 
 
 class SwitchRenew(APIBase):

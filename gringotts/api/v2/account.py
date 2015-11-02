@@ -404,9 +404,11 @@ class AccountController(rest.RestController):
 class ChargeController(rest.RestController):
 
     @wsexpose(models.Charges, wtypes.text, wtypes.text,
-              datetime.datetime, datetime.datetime, int, int)
+              datetime.datetime, datetime.datetime, int, int,
+              wtypes.text, wtypes.text)
     def get(self, user_id=None, type=None, start_time=None,
-            end_time=None, limit=None, offset=None):
+            end_time=None, limit=None, offset=None,
+            sort_key='created_at', sort_dir='desc'):
         """Get all charges of all account."""
 
         check_policy(request.context, "charges:all")
@@ -425,9 +427,9 @@ class ChargeController(rest.RestController):
             contact = keystone.get_uos_user(user_id) or {}
             user_name = contact.get('name')
             email = contact.get('email')
-            real_name = contact.get('real_name') or 'unknown'
-            mobile = contact.get('mobile_number') or 'unknown'
-            company = contact.get('company') or 'unknown'
+            real_name = contact.get('real_name')
+            mobile = contact.get('mobile_number')
+            company = contact.get('company')
             users[user_id] = models.User(user_id=user_id,
                                          user_name=user_name,
                                          email=email,
@@ -443,7 +445,9 @@ class ChargeController(rest.RestController):
                                         limit=limit,
                                         offset=offset,
                                         start_time=start_time,
-                                        end_time=end_time)
+                                        end_time=end_time,
+                                        sort_key=sort_key,
+                                        sort_dir=sort_dir)
         charges_list = []
         for charge in charges:
             acharge = models.Charge.from_db_model(charge)

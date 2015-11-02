@@ -157,6 +157,8 @@ class BillingProtocol(object):
             self.create_resource_action,
             self.delete_resource_action,
         ]
+        self.resource_regexs = []
+        self.resize_resource_actions = []
 
         # make billing client
         self.gclient = client.Client(username=self.admin_user,
@@ -259,34 +261,7 @@ class BillingProtocol(object):
             user_id = env['HTTP_X_AUTH_USER_ID']
             project_id = env['HTTP_X_AUTH_PROJECT_ID']
 
-        if self.delete_resource_action(request_method, path_info, body):
-            resource_id = self.get_resource_id(path_info, self.position)
-
-            # FIXME(suo): If there is not order, the resource should also
-            # can be deleted ?
-            success, result = self.get_order_by_resource_id(
-                env, start_response, resource_id)
-            if not success:
-                return self.app(env ,start_response)
-
-            order = result
-            # by-hour resource can be deleted directly
-            if not order.get('unit') or order.get('unit') == 'hour':
-                return self.app(env ,start_response)
-
-            # normal user can't delete resoruces billed by month/year
-            admin_roles = ['admin', 'uos_admin']
-            if not any(role in admin_roles for role in roles):
-                return self._reject_request_403(env, start_response)
-
-            # only admin can delete resources billed by month/year
-            success, result = self.close_order(env, start_response,
-                                               order['order_id'])
-            if not success:
-                return result
-
-            return self.app(env, start_response)
-        elif self.create_resource_action(request_method, path_info, body):
+        if self.create_resource_action(request_method, path_info, body):
             # parse and validate bill parameters
             bill_params = self._parse_bill_params_from_body(body)
             if not bill_params:
@@ -357,26 +332,58 @@ class BillingProtocol(object):
         else:
             resource_id = self.get_resource_id(path_info, self.position)
 
+            # FIXME(suo): If there is no order, the resource should also
+            # can be deleted?
             success, result = self.get_order_by_resource_id(
                 env, start_response, resource_id)
             if not success:
                 return self.app(env ,start_response)
 
             order = result
-            # by-hour resource can be operated directly
-            if not order.get('unit') or order.get('unit') == 'hour':
-                min_balance = "0"
-                success, result = self.check_if_owed(env, start_response,
-                                                     project_id, min_balance)
+
+            if self.delete_resource_action(request_method, path_info, body):
+                # user can delete resource billed by hour directly
+                if not order.get('unit') or order.get('unit') == 'hour':
+                    return self.app(env ,start_response)
+
+                # normal user can't delete resoruces billed by month/year
+                admin_roles = ['admin', 'uos_admin']
+                if not any(role in admin_roles for role in roles):
+                    return self._reject_request_403(env, start_response)
+
+                # only admin can delete resources billed by month/year
+                success, result = self.close_order(env, start_response,
+                                                   order['order_id'])
                 if not success:
                     return result
-                return self.app(env ,start_response)
-            # normal user can't change resoruces billed by month/year
-            admin_roles = ['admin', 'uos_admin']
-            if not any(role in admin_roles for role in roles):
+
+                return self.app(env, start_response)
+
+            elif self.resize_resource_action(request_method, path_info, body):
+                # by-hour resource can be operated directly
+                if not order.get('unit') or order.get('unit') == 'hour':
+                    min_balance = "0"
+                    success, result = self.check_if_owed(env, start_response,
+                                                         project_id, min_balance)
+                    if not success:
+                        return result
+                    return self.app(env ,start_response)
+
+                # can't change resoruce billed by month/year for now
                 return self._reject_request_403(env, start_response)
 
-            return self.app(env ,start_response)
+            else:
+                # by-hour resource only can be operated when the balance is sufficient
+                if not order.get('unit') or order.get('unit') == 'hour':
+                    min_balance = "0"
+                    success, result = self.check_if_owed(env, start_response,
+                                                         project_id, min_balance)
+                    if not success:
+                        return result
+                    return self.app(env ,start_response)
+
+                # by-month resource can be operated directly
+                return self.app(env ,start_response)
 
     def check_if_in_blacklist(self, method, path_info, body):
         for black_method in self.black_list:
@@ -523,6 +530,13 @@ class BillingProtocol(object):
     def delete_resource_action(self, method, path_info, body):
         if method == 'DELETE' and self.resource_regex.search(path_info):
             return True
+        return False
+
+    def resize_resource_action(self, method, path_info, body):
+        """The action that change the configuration of the resource."""
+        for action in self.resize_resource_actions:
+            if action(method, path_info, body):
+                return True
         return False
 
     def get_resource_id(self, path_info, position):

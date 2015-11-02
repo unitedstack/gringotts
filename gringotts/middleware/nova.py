@@ -114,12 +114,16 @@ class NovaBillingProtocol(base.BillingProtocol):
         self.position = 2
         self.black_list += [
             self.other_server_actions,
+            self.resize_server_action,
             self.attach_volume_to_server_action,
         ]
         self.resource_regexs = [
             self.resource_regex,
             self.server_action_regex,
             self.attach_volume_to_server_regex,
+        ]
+        self.resize_resource_actions = [
+            self.resize_server_action,
         ]
         self.product_items = extension.ExtensionManager(
             namespace='gringotts.server.product_items',
@@ -137,8 +141,15 @@ class NovaBillingProtocol(base.BillingProtocol):
                  body.has_key('unpause') or \
                  body.has_key('resume') or \
                  body.has_key('unshelve') or \
-                 body.has_key('unrescue') or \
-                 body.has_key('resize')):
+                 body.has_key('unrescue')):
+            return True
+        return False
+
+    def resize_server_action(self, method, path_info, body):
+        if method == "POST" and \
+                self.server_action_regex.search(path_info) and \
+                (body.has_key('resize') or \
+                 body.has_key('localResize')):
             return True
         return False
 
