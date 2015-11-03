@@ -613,8 +613,8 @@ class AccountsController(rest.RestController):
         if len(user_id) == 32:
             return AccountController(user_id), remainder
 
-    @wsexpose(models.AdminAccounts, bool, int, int)
-    def get_all(self, owed=None, limit=None, offset=None):
+    @wsexpose(models.AdminAccounts, bool, int, int, wtypes.text)
+    def get_all(self, owed=None, limit=None, offset=None, duration=None):
         """Get all accounts."""
 
         check_policy(request.context, "account:all")
@@ -626,10 +626,19 @@ class AccountsController(rest.RestController):
 
         self.conn = pecan.request.db_conn
 
+        duration = gringutils.normalize_timedelta(duration)
+        if duration:
+            active_from = datetime.datetime.utcnow() - duration
+        else:
+            active_from = None
+
         try:
             accounts = self.conn.get_accounts(request.context, owed=owed,
-                                              limit=limit, offset=offset)
-            count = self.conn.get_accounts_count(request.context, owed=owed)
+                                              limit=limit, offset=offset,
+                                              active_from=active_from)
+            count = self.conn.get_accounts_count(request.context,
+                                                 owed=owed,
+                                                 active_from=active_from)
             pecan.response.headers['X-Total-Count'] = str(count)
         except exception.NotAuthorized as e:
             LOG.exception('Failed to get all accounts')

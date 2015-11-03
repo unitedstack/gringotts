@@ -202,11 +202,11 @@ class ProjectsController(rest.RestController):
             remainder = remainder[:-1]
         return ProjectController(project_id, self.external_client), remainder
 
-    @wsexpose([models.UserProject], wtypes.text, wtypes.text)
-    def get_all(self, user_id=None, type=None):
+    @wsexpose([models.UserProject], wtypes.text, wtypes.text, wtypes.text)
+    def get_all(self, user_id=None, type=None, duration=None):
         """Get all projects."""
-        user_id = acl.get_limited_to_user(request.headers, 'projects_get') or user_id
-
+        user_id = acl.get_limited_to_user(request.headers,
+                                          'projects_get') or user_id
         self.conn = pecan.request.db_conn
         result = []
 
@@ -287,7 +287,14 @@ class ProjectsController(rest.RestController):
                     result.append(up)
 
         elif type.lower() == 'simple':
-            g_projects = list(self.conn.get_projects(request.context, user_id=user_id))
+            duration = gringutils.normalize_timedelta(duration)
+            if duration:
+                active_from = datetime.datetime.utcnow() - duration
+            else:
+                active_from = None
+            g_projects = list(self.conn.get_projects(request.context,
+                                                     user_id=user_id,
+                                                     active_from=active_from))
             project_ids = [p.project_id for p in g_projects]
 
             if not project_ids:

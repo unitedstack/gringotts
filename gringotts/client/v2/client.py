@@ -176,8 +176,9 @@ class Client(object):
                      **kwargs)
         self.client.post('/accounts', body=_body)
 
-    def get_accounts(self, owed=None):
-        params = dict(owed=owed)
+    def get_accounts(self, owed=None, duration=None):
+        params = dict(owed=owed,
+                      duration=duration)
         resp, body = self.client.get('/accounts', params=params)
         return body['accounts']
 
@@ -198,9 +199,10 @@ class Client(object):
                      consumption=consumption)
         self.client.post('/projects', body=_body)
 
-    def get_projects(self, user_id=None, type=None):
+    def get_projects(self, user_id=None, type=None, duration=None):
         params = dict(user_id=user_id,
-                      type=type)
+                      type=type,
+                      duration=duration)
         resp, body = self.client.get('/projects', params=params)
         return body
 

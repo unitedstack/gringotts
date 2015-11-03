@@ -429,13 +429,13 @@ class CheckerService(os_service.Service):
         notify
         """
         for project in projects:
-            if project.id in cfg.CONF.ignore_tenants:
+            if project['project_id'] in cfg.CONF.ignore_tenants:
                 continue
             # Get all active orders
             resource_to_order = {}
             orders = self.gclient.get_active_orders(
                 region_id=self.region_name,
-                project_id=project.id)
+                project_id=project['project_id'])
             for order in orders:
                 if not isinstance(order, dict):
                     order = order.as_dict()
@@ -444,8 +444,9 @@ class CheckerService(os_service.Service):
 
             # Check resource to order
             for method in self.RESOURCE_LIST_METHOD:
-                resources = method(project.id, region_name=self.region_name,
-                                   project_name=project.name)
+                resources = method(project['project_id'],
+                                   region_name=self.region_name,
+                                   project_name=project['project_name'])
                 for resource in resources:
                     self._check_resource_to_order(resource,
                                                   resource_to_order,
@@ -458,7 +459,10 @@ class CheckerService(os_service.Service):
                 self._check_order_to_resource(resource_id, order, try_to_fix)
 
     def _assigned_projects(self):
-        projects = keystone.get_project_list()
+        """Only check the active projects
+        """
+        projects = list(self.gclient.get_projects(type='simple',
+                                                  duration='30d'))
         return self.partition_coordinator.extract_my_subset(
             self.PARTITIONING_GROUP_NAME, projects)
 
@@ -590,7 +594,7 @@ class CheckerService(os_service.Service):
         for project in projects:
             orders = list(self.gclient.get_active_orders(
                 region_id=self.region_name,
-                project_id=project.id,
+                project_id=project['project_id'],
                 owed=True))
             if not orders:
                 continue
@@ -716,7 +720,7 @@ class CheckerService(os_service.Service):
                           "cron jobs match with orders or not")
 
     def _assigned_accounts(self):
-        accounts = list(self.gclient.get_accounts())
+        accounts = list(self.gclient.get_accounts(duration='30d'))
         return self.partition_coordinator.extract_my_subset(
             self.PARTITIONING_GROUP_NAME, accounts)
 

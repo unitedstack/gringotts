@@ -360,6 +360,7 @@ class AdminAccount(APIBase):
     owed = bool
     inviter = wtypes.text
     created_at = wtypes.text
+    updated_at = wtypes.text
 
 
 class AdminAccounts(APIBase):
