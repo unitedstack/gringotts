@@ -23,8 +23,11 @@ class RateLimitItem(base.ProductItem):
         elif 'floatingipset' in body:
             providers = body['floatingipset'].get('uos:service_provider')
         if providers:
-            providers = sorted(list(providers))
-            result = result + ('-'.join(providers))
+            if isinstance(providers, list):
+                providers = sorted(providers)
+            else:
+                providers = [providers]
+            result = "%s.%s" % (result, ('-'.join(providers)))
         return result
 
     def get_resource_volume(self, body):
