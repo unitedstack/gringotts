@@ -194,8 +194,7 @@ class PriceController(rest.RestController):
                 raise exception.MissingRequiredParams(reason=err)
             try:
                 if product.extra:
-                    extra = jsonutils.loads(product.extra)
-                    price_data = extra.get('price', unit)
+                    price_data = pricing.get_price_data(product.extra, unit)
                 else:
                     price_data = None
 
