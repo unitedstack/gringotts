@@ -202,6 +202,8 @@ class InstanceCreateEnd(ComputeNotificationBase):
         action_time = message['timestamp']
         if state:
             self.resource_created_again(order_id, action_time, remarks)
+            if state == const.STATE_STOPPED:
+                self.instance_stopped(order_id, action_time)
         else:
             self.resource_created(order_id, action_time, remarks)
 
