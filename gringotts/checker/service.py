@@ -361,6 +361,11 @@ class CheckerService(os_service.Service):
             order = resource_to_order[resource.id]
         except KeyError:
             # Situation 1: There may exist resources that have no orders
+            # NOTE(suo): The resource billed by month/year may also has no
+            # order, but for now, we couldn't know which billing type it is
+            # only from the GET resource method, on this occasion, we take
+            # this resource as the hourly billing type, then create the order
+            # in auto-fix process
             if resource.status == const.STATE_ERROR:
                 bad_resources.append(resource)
                 return
@@ -372,6 +377,10 @@ class CheckerService(os_service.Service):
             # with its order's
             if resource.status == const.STATE_ERROR:
                 bad_resources.append(resource)
+            elif order['unit'] in ['month', 'year']:
+                # if the order is billed by month or year, we don't check
+                # it for now, just pass, and set it to checked later
+                pass
             elif (resource.resource_type == const.RESOURCE_LISTENER and
                   resource.admin_state != order['status']):
                 # for loadbalancer listener
@@ -413,7 +422,6 @@ class CheckerService(os_service.Service):
                                                           resource,
                                                           unit_price,
                                                           resource.project_id))
-
             resource_to_order[resource.id]['checked'] = True
 
     def _check_order_to_resource(self, resource_id, order, try_to_fix):
