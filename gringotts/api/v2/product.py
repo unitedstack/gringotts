@@ -342,6 +342,7 @@ class ProductsController(rest.RestController):
         return [models.SimpleProduct.transform(name=p.name,
                                                service=p.service,
                                                region_id=p.region_id,
+                                               product_id=p.product_id,
                                                unit_price=p.unit_price,
                                                currency='CNY',
                                                unit=p.unit,

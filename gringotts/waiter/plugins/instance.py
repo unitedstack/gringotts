@@ -174,7 +174,7 @@ class InstanceCreateEnd(ComputeNotificationBase):
         order_id = uuidutils.generate_uuid()
 
         unit_price = 0
-        unit = None
+        unit = 'hour'
 
         # Create subscriptions for this order
         for ext in self.product_items.extensions:
@@ -185,14 +185,12 @@ class InstanceCreateEnd(ComputeNotificationBase):
                 if sub and state==const.STATE_STOPPED:
                     p = gringutils._quantize_decimal(sub['unit_price'])
                     unit_price += p * sub['quantity']
-                    unit = sub['unit']
             elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
                 if sub and (not state or state==const.STATE_RUNNING):
                     p = gringutils._quantize_decimal(sub['unit_price'])
                     unit_price += p * sub['quantity']
-                    unit = sub['unit']
 
         # Create an order for this instance
         self.create_order(order_id, unit_price, unit, message, state=state)
@@ -207,7 +205,7 @@ class InstanceCreateEnd(ComputeNotificationBase):
         else:
             self.resource_created(order_id, action_time, remarks)
 
-    def get_unit_price(self, message, status, cron_time=None):
+    def get_unit_price(self, order_id, message, status, cron_time=None):
         unit_price = 0
 
         if isinstance(cron_time, basestring):
@@ -224,7 +222,7 @@ class InstanceCreateEnd(ComputeNotificationBase):
 
         for ext in self.product_items.extensions:
             if ext.name.startswith(status):
-                unit_price += ext.obj.get_unit_price(message)
+                unit_price += ext.obj.get_unit_price(order_id, message)
 
         return unit_price
 

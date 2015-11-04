@@ -413,7 +413,8 @@ class CheckerService(os_service.Service):
                                    else resource.status)
                 unit_price = (
                     self.RESOURCE_CREATE_MAP[resource.resource_type].\
-                    get_unit_price(resource.to_message(),
+                    get_unit_price(order['order_id'],
+                                   resource.to_message(),
                                    resource_status,
                                    cron_time=order['cron_time']))
                 order_unit_price = utils._quantize_decimal(order['unit_price'])
@@ -619,27 +620,29 @@ class CheckerService(os_service.Service):
                 resource = self.RESOURCE_GET_MAP[order['type']](
                     order['resource_id'],
                     region_name=self.region_name)
+
+                if not resource:
+                    LOG.warn('The resource of the order(%s) not exists',
+                             order)
+                    continue
+
                 now = datetime.datetime.utcnow()
                 if order['date_time'] < now:
-                    if resource:
-                        should_delete_resources.append(resource)
-                else:
-                    if not resource:
-                        LOG.warn('The resource of the order(%s) not exists',
-                                 order)
-                        continue
-                    if (order['type'] == const.RESOURCE_FLOATINGIP and
-                            not resource.is_reserved and order['owed']):
-                        should_delete_resources.append(resource)
-                    elif (resource.resource_type == const.RESOURCE_LISTENER and
-                            not resource.is_last_up and
-                            resource.admin_state !=
-                            self.RESOURCE_STOPPED_STATE[order['type']]):
-                        should_stop_resources.append(resource)
-                    elif (resource.resource_type != const.RESOURCE_LISTENER and
-                            resource.status !=
-                            self.RESOURCE_STOPPED_STATE[order['type']]):
-                        should_stop_resources.append(resource)
+                    should_delete_resources.append(resource)
+                elif order['unit'] in ['month', 'year']:
+                    continue
+                elif (order['type'] == const.RESOURCE_FLOATINGIP and
+                        not resource.is_reserved and order['owed']):
+                    should_delete_resources.append(resource)
+                elif (resource.resource_type == const.RESOURCE_LISTENER and
+                        not resource.is_last_up and
+                        resource.admin_state !=
+                        self.RESOURCE_STOPPED_STATE[order['type']]):
+                    should_stop_resources.append(resource)
+                elif (resource.resource_type != const.RESOURCE_LISTENER and
+                        resource.status !=
+                        self.RESOURCE_STOPPED_STATE[order['type']]):
+                    should_stop_resources.append(resource)
 
     def check_if_owed_resources_match_owed_orders(self):
         should_stop_resources_1 = []
@@ -698,30 +701,59 @@ class CheckerService(os_service.Service):
     def check_if_cronjobs_match_orders(self):
         """Check if cron jobs match with orders
 
-        Check if number of cron jobs match number of orders in running and
-        stopped state, we do this check every one hour.
+        There are 4 kinds of jobs:
+            * hourly cron jobs
+            * monthly cron jobs
+            * date jobs
+            * 30 days date jobs
+
+        We should separately get these kinds of jobs from master service and
+        gclient to compare them.
         """
         LOG.warn('[%s] Checking if cronjobs match with orders', self.member_id)
         try:
-            active_order_count = self.gclient.get_active_order_count(
-                self.region_name)
+            # As hourly order always has cron job no matter it is owed or not,
+            # so we should get all hourly orders count
+            hourly_order_count = self.gclient.get_active_order_count(
+                self.region_name, bill_methods=['hour'])
+
+            # NOTE(suo): owed="" means owed=False, because owed monthly order
+            # has no monthly cron job, so should only get the not owed monthly
+            # orders count.
+            monthly_order_count = self.gclient.get_active_order_count(
+                self.region_name, bill_methods=['month', 'year'], owed="")
+
+            # hourly and monthly order have the same owed logic, so every
+            # owed resource should have a date job
             owed_order_count = self.gclient.get_active_order_count(
                 self.region_name, owed=True)
+
+            # stopped order means the instances that have been stopped
+            # within 30 days
             stopped_order_count = self.gclient.get_stopped_order_count(
-                self.region_name, type=const.RESOURCE_INSTANCE)
+                self.region_name, 
+                type=const.RESOURCE_INSTANCE,
+                bill_methods=['hour'])
 
-            job_count = self.master_api.get_apsched_jobs_count(self.ctxt)
-            order_count = (active_order_count + owed_order_count +
-                           stopped_order_count)
+            (hourly_job_count, monthly_job_count,
+             date_job_count, days_30_job_count) = \
+                    self.master_api.get_apsched_jobs_count(self.ctxt)
 
-            if job_count != order_count:
-                LOG.warn("[%s] There are %s apsched jobs, but there are %s "
-                         "active orders",
-                         self.member_id, job_count, order_count)
-            else:
-                LOG.warn("[%s] Checked, There are %s apsched jobs, and %s "
-                         "active orders",
-                         self.member_id, job_count, order_count)
+            LOG.warn("[%s] Checked, There are %s hourly jobs, and %s "
+                     "hourly orders",
+                     self.member_id, hourly_job_count, hourly_order_count)
+
+            LOG.warn("[%s] Checked, There are %s monthly jobs, and %s "
+                     "not-owed monthly orders",
+                     self.member_id, monthly_job_count, monthly_order_count)
+
+            LOG.warn("[%s] Checked, There are %s date jobs, and %s "
+                     "owed orders",
+                     self.member_id, date_job_count, owed_order_count)
+
+            LOG.warn("[%s] Checked, There are %s 30-days jobs, and %s "
+                     "stopped instance orders",
+                     self.member_id, days_30_job_count, stopped_order_count)
 
         except Exception:
             LOG.exception("Some exceptions occurred when checking whether "

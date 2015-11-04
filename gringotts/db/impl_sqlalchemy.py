@@ -743,15 +743,17 @@ class Connection(base.Connection):
 
     @require_admin_context
     def get_active_order_count(self, context, region_id=None,
-                               owed=None, type=None):
+                               owed=None, type=None, bill_methods=None):
         query = model_query(context, sa_models.Order,
                             func.count(sa_models.Order.id).label('count'))
         if region_id:
             query = query.filter_by(region_id=region_id)
-        if owed:
+        if owed is not None:
             query = query.filter_by(owed=owed)
         if type:
             query = query.filter_by(type=type)
+        if bill_methods:
+            query = query.filter(sa_models.Order.unit.in_(bill_methods))
 
         query = query.filter(
             not_(sa_models.Order.status == const.STATE_DELETED)
@@ -764,15 +766,17 @@ class Connection(base.Connection):
 
     @require_admin_context
     def get_stopped_order_count(self, context, region_id=None,
-                                owed=None, type=None):
+                                owed=None, type=None, bill_methods=None):
         query = model_query(context, sa_models.Order,
                             func.count(sa_models.Order.id).label('count'))
         if region_id:
             query = query.filter_by(region_id=region_id)
-        if owed:
+        if owed is not None:
             query = query.filter_by(owed=owed)
         if type:
             query = query.filter_by(type=type)
+        if bill_methods:
+            query = query.filter(sa_models.Order.unit.in_(bill_methods))
 
         query = query.filter(sa_models.Order.status == const.STATE_STOPPED)
         query = query.filter(
@@ -783,7 +787,7 @@ class Connection(base.Connection):
     def get_active_orders(self, context, type=None, limit=None, offset=None,
                           sort_key=None, sort_dir=None, region_id=None,
                           user_id=None, project_id=None, owed=None,
-                          charged=None, within_one_hour=None):
+                          charged=None, within_one_hour=None, bill_methods=None):
         """Get all active orders
         """
         query = get_session().query(sa_models.Order)
@@ -796,10 +800,12 @@ class Connection(base.Connection):
             query = query.filter_by(user_id=user_id)
         if project_id:
             query = query.filter_by(project_id=project_id)
-        if owed:
+        if owed is not None:
             query = query.filter_by(owed=owed)
         if charged:
             query = query.filter_by(charged=charged)
+        if bill_methods:
+            query = query.filter(sa_models.Order.unit.in_(bill_methods))
 
         if within_one_hour:
             one_hour_later = timeutils.utcnow() + datetime.timedelta(hours=1)
@@ -943,13 +949,15 @@ class Connection(base.Connection):
 
     @require_context
     def get_subscriptions_by_order_id(self, context, order_id, user_id=None,
-                                      type=None):
+                                      type=None, product_id=None):
         query = model_query(context, sa_models.Subscription).\
             filter_by(order_id=order_id)
         if type:
             query = query.filter_by(type=type)
         if user_id:
             query = query.filter_by(user_id=user_id)
+        if product_id:
+            query = query.filter_by(product_id=product_id)
         ref = query.all()
         return (self._row_to_db_subscription_model(r) for r in ref)
 
@@ -1192,7 +1200,7 @@ class Connection(base.Connection):
                      sort_key=None, sort_dir=None, active_from=None):
         query = model_query(context, sa_models.Account)
 
-        if owed:
+        if owed is not None:
             query = query.filter_by(owed=owed)
         if user_id:
             query = query.filter_by(user_id=user_id)
@@ -1212,7 +1220,7 @@ class Connection(base.Connection):
         query = model_query(context, sa_models.Account,
                             func.count(sa_models.Account.id).label('count'))
 
-        if owed:
+        if owed is not None:
             query = query.filter_by(owed=owed)
         if user_id:
             query = query.filter_by(user_id=user_id)
@@ -1770,7 +1778,6 @@ class Connection(base.Connection):
             if order.status == const.STATE_CHANGING:
                 return result
 
-            # Create a bill
             if not action_time:
                 action_time = order.cron_time
 
@@ -1820,6 +1827,8 @@ class Connection(base.Connection):
                     action_time + datetime.timedelta(hours=1)
                 total_price = order.unit_price
             else:
+                # NOTE(suo): If order doesn't activate auto-renew, when the period
+                # is expired, we regard it as owed even if there is enough balance.
                 if not order.renew:
                     reserved_days = gringutils.cal_reserved_days(account.level)
                     date_time = (datetime.datetime.utcnow() +

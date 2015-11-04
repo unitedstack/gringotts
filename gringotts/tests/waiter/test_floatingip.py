@@ -203,7 +203,14 @@ class FloatingIpTestCase(test_service.WaiterServiceTestCase):
             self.admin_account.user_id, self.event_created, payload)
 
         handle = floatingip.FloatingIpCreateEnd()
-        price = handle.get_unit_price(message,
+        handle.process_notification(message)
+
+        resource_id = payload['floatingip']['id']
+        order = self.dbconn.get_order_by_resource_id(
+            self.admin_req_context, resource_id)
+
+        price = handle.get_unit_price(order.order_id,
+                                      message,
                                       gring_const.STATE_RUNNING)
         self.assertDecimalEqual(expected_price, price)
 
@@ -258,7 +265,14 @@ class FloatingIpTestCase(test_service.WaiterServiceTestCase):
         message = fip.to_message()
 
         handle = floatingip.FloatingIpCreateEnd()
-        price = handle.get_unit_price(message,
+        handle.process_notification(message)
+
+        resource_id = payload['id']
+        order = self.dbconn.get_order_by_resource_id(
+            self.admin_req_context, resource_id)
+
+        price = handle.get_unit_price(order.order_id,
+                                      message,
                                       gring_const.STATE_RUNNING)
         self.assertDecimalEqual(expected_price, price)
 
@@ -447,7 +461,14 @@ class FloatingIpSetTestCase(test_service.WaiterServiceTestCase):
         message = fipset.to_message()
 
         handle = floatingip.FloatingIpCreateEnd()
-        price = handle.get_unit_price(message,
+        handle.process_notification(message)
+
+        resource_id = payload['id']
+        order = self.dbconn.get_order_by_resource_id(
+            self.admin_req_context, resource_id)
+
+        price = handle.get_unit_price(order.order_id,
+                                      message,
                                       gring_const.STATE_RUNNING)
         self.assertDecimalEqual(expected_price, price)
 

@@ -382,7 +382,11 @@ class BillingProtocol(object):
                         return result
                     return self.app(env ,start_response)
 
-                # by-month resource can be operated directly
+                # owed monthly billing resource can't be operated
+                if order['owed']:
+                    return self._reject_request_403(env, start_response)
+
+                # not owed monthly billing resource can be operated directly
                 env['HTTP_X_ROLES'] = env['HTTP_X_ROLES'] + ',month_billing'
                 env['HTTP_X_ROLE'] = env['HTTP_X_ROLE'] + ',month_billing'
                 return self.app(env ,start_response)

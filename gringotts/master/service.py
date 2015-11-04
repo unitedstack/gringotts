@@ -130,7 +130,7 @@ class MasterService(rpc_service.Service):
                                           order['region_id'],
                                           order['date_time'])
                 else:
-                    LOG.warning('The resource(%s) is in danger time after'
+                    LOG.warning('The resource(%s) is in danger time after '
                                 'master started', order['resource_id'])
                     self._delete_owed_resource(order['type'],
                                                order['resource_id'],
@@ -142,6 +142,7 @@ class MasterService(rpc_service.Service):
         # load change unit price date job
         orders = self.gclient.get_orders(status=const.STATE_STOPPED,
                                          region_id=cfg.CONF.region_name,
+                                         bill_methods=['hour'],
                                          type=const.RESOURCE_INSTANCE)
         for order in orders:
             if not order['cron_time']:
@@ -161,7 +162,7 @@ class MasterService(rpc_service.Service):
                 self._create_date_job_after_30_days(order['order_id'],
                                                     cron_time)
             else:
-                LOG.warning("The order(%s) is in danger time after master"
+                LOG.warning("The order(%s) is in danger time after master "
                             "started", order['order_id'])
                 self._change_order_unit_price(order['order_id'])
         LOG.warning('Load 30-days date jobs successfully.')
@@ -221,7 +222,7 @@ class MasterService(rpc_service.Service):
                 self._create_cron_job(order['order_id'],
                                       start_date=cron_time)
             else:
-                LOG.warning("The order(%s) is in danger time after master"
+                LOG.warning("The order(%s) is in danger time after master "
                             "started", order['order_id'])
                 while cron_time <= danger_time:
                     cron_time += datetime.timedelta(hours=1)
@@ -505,9 +506,27 @@ class MasterService(rpc_service.Service):
         return result
 
     def get_apsched_jobs_count(self, ctxt):
-        """Get scheduled jobs number minus the clean date job
+        """Get scheduled jobs number
         """
-        return len(self.apsched.get_jobs()) - 1
+        hourly_job_count = 0
+        monthly_job_count = 0
+        date_job_count = 0
+        days_30_job_count = 0
+
+        jobs = self.apsched.get_jobs()
+
+        for job in jobs:
+            if job.id.startswith('30-days'):
+                days_30_job_count += 1
+            elif job.id.startswith('cron'):
+                hourly_job_count += 1
+            elif job.id.startswith('date'):
+                date_job_count += 1
+            elif job.id.startswith('monthly'):
+                monthly_job_count += 1
+        return (hourly_job_count, monthly_job_count,
+                date_job_count, days_30_job_count)
+
 
     def resource_created(self, ctxt, order_id, action_time, remarks):
         with self._get_lock(order_id):

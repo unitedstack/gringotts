@@ -38,6 +38,7 @@ class Database(fixtures.Fixture):
     """A fixture for setting up and tearing down a database"""
 
     IN_MEM_DB_CONNECTION_STRING = 'sqlite://'
+    #IN_MEM_DB_CONNECTION_STRING = 'mysql://root:rachel@127.0.0.1/test?charset=utf8'
 
     def __init__(self):
         super(Database, self).__init__()

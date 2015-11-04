@@ -66,9 +66,10 @@ class Client(object):
         resp, body = self.client.post('/subs', body=_body)
         return body
 
-    def get_subscriptions(self, order_id=None, type=None):
+    def get_subscriptions(self, order_id=None, type=None, product_id=None):
         params = dict(type=type,
-                      order_id=order_id)
+                      order_id=order_id,
+                      product_id=product_id)
         resp, body = self.client.get('/subs', params=params)
         if body:
             return body
@@ -124,30 +125,35 @@ class Client(object):
         return []
 
     def get_active_orders(self, user_id=None, project_id=None, owed=None,
-                          charged=None, region_id=None):
+                          charged=None, region_id=None, bill_methods=None):
         params = dict(user_id=user_id,
                       project_id=project_id,
                       owed=owed,
                       charged=charged,
-                      region_id=region_id)
+                      region_id=region_id,
+                      bill_methods=bill_methods)
         resp, body = self.client.get('/orders/active', params=params)
         if body:
             return body
         return []
 
 
-    def get_active_order_count(self, region_id=None, owed=None, type=None):
+    def get_active_order_count(self, region_id=None, owed=None, type=None,
+                               bill_methods=None):
         params = dict(region_id=region_id,
                       owed=owed,
-                      type=type)
+                      type=type,
+                      bill_methods=bill_methods)
         resp, body = self.client.get('/orders/count',
                                      params=params)
         return body
 
-    def get_stopped_order_count(self, region_id=None, owed=None, type=None):
+    def get_stopped_order_count(self, region_id=None, owed=None, type=None,
+                                bill_methods=None):
         params = dict(region_id=region_id,
                       owed=owed,
-                      type=type)
+                      type=type,
+                      bill_methods=bill_methods)
         resp, body = self.client.get('/orders/stopped',
                                      params=params)
         return body

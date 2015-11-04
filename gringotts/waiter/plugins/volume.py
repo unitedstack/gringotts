@@ -122,7 +122,7 @@ class VolumeCreateEnd(VolumeNotificationBase):
         order_id = uuidutils.generate_uuid()
 
         unit_price = 0
-        unit = None
+        unit = 'hour'
 
         # Create subscriptions for this order
         for ext in self.product_items.extensions:
@@ -140,7 +140,6 @@ class VolumeCreateEnd(VolumeNotificationBase):
 
                     unit_price += pricing.calculate_price(
                         sub['quantity'], sub['unit_price'], price_data)
-                    unit = sub['unit']
             elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
@@ -155,7 +154,6 @@ class VolumeCreateEnd(VolumeNotificationBase):
 
                     unit_price += pricing.calculate_price(
                         sub['quantity'], sub['unit_price'], price_data)
-                    unit = sub['unit']
 
         # Create an order for this volume
         self.create_order(order_id, unit_price, unit, message, state=state)
@@ -168,13 +166,13 @@ class VolumeCreateEnd(VolumeNotificationBase):
         else:
             self.resource_created(order_id, action_time, remarks)
 
-    def get_unit_price(self, message, status, cron_time=None):
+    def get_unit_price(self, order_id,  message, status, cron_time=None):
         unit_price = 0
 
         # Create subscriptions for this order
         for ext in self.product_items.extensions:
             if ext.name.startswith(status):
-                unit_price += ext.obj.get_unit_price(message)
+                unit_price += ext.obj.get_unit_price(order_id, message)
 
         return unit_price
 

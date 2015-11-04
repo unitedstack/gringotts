@@ -62,22 +62,34 @@ class ProductItem(plugin.PluginBase):
                                                   **collection.as_dict())
         return result
 
-    def get_unit_price(self, message):
-        """Get product unit price"""
+    def get_unit_price(self, order_id, message):
+        """Get unit price of this resource
+
+        As the resource has subscribed to the product, so we should
+        calculate price from the subscriptions instead of the product.
+        """
         c = self.get_collection(message)
         product = self.gclient.get_product(
             c.product_name, c.service, c.region_id)
 
-        if product:
-            if 'extra' in product:
-                price_data = pricing.get_price_data(product['extra'])
-            else:
-                price_data = None
-
-            return pricing.calculate_price(
-                c.resource_volume, product['unit_price'], price_data)
-        else:
+        if not product:
             return 0
+
+        subs = self.gclient.get_subscriptions(order_id,
+                                              product_id=product['product_id'])
+        if subs:
+            sub = subs[0]
+        else:
+            LOG.warn("The order %s has no subscriptions" % order_id)
+            return 0
+
+        if 'extra' in sub:
+            price_data = pricing.get_price_data(sub['extra'])
+        else:
+            price_data = None
+
+        return pricing.calculate_price(
+            c.resource_volume, sub['unit_price'], price_data)
 
 
 class Order(object):
@@ -108,7 +120,7 @@ class NotificationBase(plugin.NotificationBase):
         """Collect distinct fileds from different plugins
         """
 
-    def get_unit_price(self, message, status, cron_time=None):
+    def get_unit_price(self, order_id, message, status, cron_time=None):
         return
 
     def change_unit_price(self, message, status, order_id):

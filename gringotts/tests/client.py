@@ -58,7 +58,7 @@ class Client(client.Client):
 
         if params:
             query_vars = [
-                '%s=%s' % (k, v) for k, v in six.iteritems(params)
+                '%s=%s' % (k, v) for k, v in six.iteritems(params) if v
             ]
             path += '?%s' % ('&'.join(query_vars))
 

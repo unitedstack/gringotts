@@ -109,7 +109,7 @@ class RouterCreateEnd(RouterNotificationBase):
         order_id = uuidutils.generate_uuid()
 
         unit_price = 0
-        unit = None
+        unit = 'hour'
 
         # Create subscriptions for this order
         for ext in self.product_items.extensions:
@@ -119,14 +119,12 @@ class RouterCreateEnd(RouterNotificationBase):
                 if sub and state==const.STATE_SUSPEND:
                     p = gringutils._quantize_decimal(sub['unit_price'])
                     unit_price += p * sub['quantity']
-                    unit = sub['unit']
             elif ext.name.startswith('running'):
                 sub = ext.obj.create_subscription(message, order_id,
                                                   type=const.STATE_RUNNING)
                 if sub and (not state or state==const.STATE_RUNNING):
                     p = gringutils._quantize_decimal(sub['unit_price'])
                     unit_price += p * sub['quantity']
-                    unit = sub['unit']
 
         # Create an order for this router
         self.create_order(order_id, unit_price, unit, message, state=state)

@@ -27,13 +27,14 @@ LOG = log.getLogger(__name__)
 
 class SubsController(rest.RestController):
     """The controller of resources."""
-    @wsexpose([models.Subscription], wtypes.text, wtypes.text)
-    def get_all(self, order_id=None, type=None):
+    @wsexpose([models.Subscription], wtypes.text, wtypes.text, wtypes.text)
+    def get_all(self, order_id=None, type=None, product_id=None):
         user_id = acl.get_limited_to_user(request.headers, 'subs:all')
         conn = pecan.request.db_conn
         subs = conn.get_subscriptions_by_order_id(request.context, order_id,
                                                   user_id=user_id,
-                                                  type=type)
+                                                  type=type,
+                                                  product_id=product_id)
         return [models.Subscription.from_db_model(s) for s in subs]
 
     @wsexpose(models.Subscription, body=models.SubscriptionPostBody)

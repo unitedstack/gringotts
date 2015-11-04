@@ -200,8 +200,14 @@ class VolumeTestCase(test_service.WaiterServiceTestCase):
             self.event_created, payload
         )
         handle = volume.VolumeCreateEnd()
+        handle.process_notification(message)
 
-        price = handle.get_unit_price(message, gring_const.STATE_RUNNING)
+        resource_id = payload['volume_id']
+        order = self.dbconn.get_order_by_resource_id(
+            self.admin_req_context, resource_id)
+
+        price = handle.get_unit_price(order.order_id, message,
+                                      gring_const.STATE_RUNNING)
         self.assertDecimalEqual(expected_price, price)
 
     def _test_volume_change_unit_price(self, volume_type=None):
@@ -260,8 +266,14 @@ class VolumeTestCase(test_service.WaiterServiceTestCase):
         )
         message = vol.to_message()
         handle = volume.VolumeCreateEnd()
+        handle.process_notification(message)
 
-        price = handle.get_unit_price(message,
+        resource_id = payload['volume_id']
+        order = self.dbconn.get_order_by_resource_id(
+            self.admin_req_context, resource_id)
+
+        price = handle.get_unit_price(order.order_id,
+                                      message,
                                       gring_const.STATE_RUNNING)
         self.assertDecimalEqual(expected_price, price)
 

@@ -119,6 +119,7 @@ class SimpleProduct(APIBase):
     name = wtypes.text
     service = wtypes.text
     region_id = wtypes.text
+    product_id = wtypes.text
 
     unit_price = decimal.Decimal
     currency = wtypes.text
