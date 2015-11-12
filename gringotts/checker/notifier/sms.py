@@ -18,3 +18,8 @@ class SMSNotifier(notifier.Notifier):
     @staticmethod
     def notify_account_charged(context, account, contact, type, value, bonus=None, **kwargs):
         pass
+
+    @staticmethod
+    def notify_order_billing_owed(context, account, contact, order, **kwargs):
+        pass
+

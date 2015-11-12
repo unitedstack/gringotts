@@ -36,7 +36,7 @@ class EmailNotifier(notifier.Notifier):
                         'projects': projects,
                         'reserved_days': account['reserved_days'],
                         'order_count': order_count,
-                        'recharge_url': cfg.CONF.recharge_url,
+                        'recharge_url': cfg.CONF.checker.recharge_url,
                         'language': kwargs.get('language'),
                     },
                     'from': 'noreply@unitedstack.com',
@@ -91,7 +91,7 @@ class EmailNotifier(notifier.Notifier):
                         'price_per_day': price_per_day,
                         'balance': str(account['balance']),
                         'days_to_owe': days_to_owe,
-                        'recharge_url': cfg.CONF.recharge_url,
+                        'recharge_url': cfg.CONF.checker.recharge_url,
                         'language': kwargs.get('language'),
                     },
                     'from': 'noreply@unitedstack.com',
@@ -128,6 +128,38 @@ class EmailNotifier(notifier.Notifier):
             }
             notify = gring_notifier.get_notifier(service='checker')
             notify.info(context, 'uos.account.will_owed', payload)
+
+    @staticmethod
+    def notify_order_billing_owed(context, account, contact, order,**kwargs):
+        """Only notify for user with has_owed or will_owed order
+        """
+        # Get account info
+        account_name = contact.get('real_name') or contact['email'].split('@')[0]
+        mobile_number = contact.get('mobile_number') or "unknown"
+        company = contact.get('company') or "unknown"
+
+        # Notify user
+        payload = {
+            'actions': {
+                'email': {
+                    'email_template': 'billing/order_billing_owed',
+                    'context': {
+                        'send_to': 'user',
+                        'account_name': account_name,
+                        'order': order,
+                        'email': contact['email'],
+                        'balance': str(account['balance']),
+                        'order_recharge_url': cfg.CONF.checker.order_recharge_url,
+                        'language': kwargs.get('language'),
+                        'reserved_days': account['reserved_days'],
+                    },
+                    'from': 'noreply@unitedstack.com',
+                    'to': contact['email']
+                }
+            }
+        }
+        notify = gring_notifier.get_notifier(service='checker')
+        notify.info(context, 'uos.account.order_billing_owed', payload)
 
     @staticmethod
     def notify_account_charged(context, account, contact, type, value, bonus=None, **kwargs):

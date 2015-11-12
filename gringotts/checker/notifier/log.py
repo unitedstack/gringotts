@@ -25,3 +25,12 @@ class LogNotifier(notifier.Notifier):
     @staticmethod
     def send_account_info(context, account_infos, email_addr_name):
         LOG.warn('account_infos:%s\nemail_addr_name:%s' % (account_infos, email_addr_name))
+
+    @staticmethod
+    def notify_order_billing_owed(context, account, contact, order, **kwargs):
+        if order['owed']:
+            LOG.warn('account: %s has a owed resource: %s, and the owed order is: %s, account contact: %s'
+                     % (account, order['resource_id'], order, contact))
+        else:
+            LOG.warn('account %s has a resource: %s which will be expired after: %s days, and the related order'
+                     'is: %s, account contact: %s' % (account, order['resource_id'], order['reserved_days'], order, contact))

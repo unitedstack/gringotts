@@ -49,7 +49,14 @@ OPTS = [
                help="The cloud manager email"),
     cfg.BoolOpt('send_email_to_sales',
                 default=False,
-                help='disable the function of sending email to sales')
+                help='disable the function of sending email to sales'),
+    cfg.StrOpt('recharge_url',
+               default="https://console.ustack.com/bill/account_charge",
+               help="The recharge url"),
+    cfg.StrOpt('order_recharge_url',
+               default="https://console.ustack.com/bill/order",
+               help="The order recharge url")
+
 ]
 
 cfg.CONF.register_opts(OPTS, group="checker")
@@ -202,7 +209,8 @@ class CheckerService(os_service.Service):
 
         nine_clock = self._absolute_9_clock()
         center_jobs = [
-            (self.check_owed_accounts_and_notify, 24, nine_clock),
+            (self.check_owed_hour_resources_and_notify, 24, nine_clock),
+            (self.check_owed_order_resources_and_notify, 24, nine_clock),
             # (self.check_user_to_account, 2, start_date),
             # (self.check_project_to_project, 2, start_date),
         ]
@@ -764,8 +772,8 @@ class CheckerService(os_service.Service):
         return self.partition_coordinator.extract_my_subset(
             self.PARTITIONING_GROUP_NAME, accounts)
 
-    def check_owed_accounts_and_notify(self):  # noqa
-        """Check owed accounts and notify them
+    def check_owed_hour_resources_and_notify(self):  # noqa
+        """Check owed hour-billing resources and notify them
 
         Get owed accounts, send them sms/email notifications.
         """
@@ -777,19 +785,22 @@ class CheckerService(os_service.Service):
         LOG.warn("[%s] Notifying owed accounts, assigned accounts number: %s",
                  self.member_id, len(accounts))
 
+        bill_methods=['hour',]
+
         for account in accounts:
             try:
-                if account['level'] == 9:
-                    continue
-
                 if not isinstance(account, dict):
                     account = account.as_dict()
+
+                if account['level'] == 9:
+                    continue
 
                 if account['owed']:
                     orders = list(
                         self.gclient.get_active_orders(
                             user_id=account['user_id'],
-                            owed=True)
+                            owed=True,
+                            bill_methods=bill_methods)
                     )
                     if not orders:
                         continue
@@ -866,7 +877,8 @@ class CheckerService(os_service.Service):
                                                   projects, language=language)
                 else:
                     orders = self.gclient.get_active_orders(
-                        user_id=account['user_id'])
+                        user_id=account['user_id'],
+                        bill_methods=bill_methods)
                     if not orders:
                         continue
 
@@ -932,6 +944,104 @@ class CheckerService(os_service.Service):
                                                      str(price_per_day),
                                                      days_to_owe,
                                                      language=language)
+            except Exception:
+                LOG.exception("Some exceptions occurred when checking owed "
+                              "account: %s", account['user_id'])
+
+    def check_owed_order_resources_and_notify(self):  #noqa
+        """Check order-billing resources and notify related accounts
+
+        Send sms/email notifications for each has-owed or will-owed order.
+        """
+        try:
+            accounts = self._assigned_accounts()
+        except Exception:
+            LOG.exception("Fail to get assigned accounts")
+            accounts = []
+        LOG.warn("[%s] Notifying owed accounts, assigned accounts number: %s",
+                 self.member_id, len(accounts))
+
+        bill_methods = ['month', 'year']
+
+        for account in accounts:
+            try:
+                if not isinstance(account, dict):
+                    account = account.as_dict()
+
+                if account['level'] == 9:
+                    continue
+
+                contact = keystone.get_uos_user(account['user_id'])
+                country_code = contact.get("country_code") or "86"
+                language = "en_US" if country_code != '86' else "zh_CN"
+                account['reserved_days'] = utils.cal_reserved_days(account['level'])
+
+                orders = list(
+                    self.gclient.get_active_orders(
+                        user_id=account['user_id'],
+                        bill_methods=bill_methods)
+                )
+
+                for order in orders:
+                    # check if the resource exists
+                    resource = self.RESOURCE_GET_MAP[order['type']](
+                        order['resource_id'],
+                        region_name=order['region_id'])
+                    if not resource:
+                        # alert that the resource not exists
+                        LOG.warn("[%s] The resource(%s|%s) has been "
+                                 "deleted",
+                                 self.member_id,
+                                 order['type'], order['resource_id'])
+                        alert.wrong_billing_order(order,
+                                                  'resource_deleted')
+                        continue
+
+                    order_d = {}
+                    order_d['order_id'] = order['order_id']
+                    order_d['region_id'] = order['region_id']
+                    order_d['resource_id'] = order['resource_id']
+                    order_d['resource_name'] = order['resource_name']
+                    order_d['type'] = order['type']
+                    order_d['owed'] = order['owed']
+
+                    if isinstance(order['date_time'], basestring):
+                        order['date_time'] = timeutils.parse_strtime(
+                            order['date_time'],
+                            fmt=ISO8601_UTC_TIME_FORMAT)
+
+                    if isinstance(order['cron_time'], basestring):
+                        order['cron_time'] = timeutils.parse_strtime(
+                            order['cron_time'],
+                            fmt=ISO8601_UTC_TIME_FORMAT)
+
+                    # if order is owed, reserved_days represent how long resource will be reserved;
+                    # if not, reserved_days repesent how long resource will be expired
+                    now = datetime.datetime.utcnow()
+                    if order['owed']:
+                        reserved_days = (order['date_time'] - now).days
+                    else:
+                        reserved_days = (order['cron_time'] - now).days
+                    if reserved_days < 0:
+                        LOG.warn("[%s] The order %s reserved_days is "
+                                 "less than 0",
+                                 self.member_id, order['order_id'])
+                        reserved_days = 0
+                    order_d['reserved_days'] = reserved_days
+
+                    order_d['date_time'] = timeutils.strtime(
+                        order['date_time'],
+                        fmt=ISO8601_UTC_TIME_FORMAT)
+
+                    order_d['cron_time'] = timeutils.strtime(
+                        order['cron_time'],
+                        fmt=ISO8601_UTC_TIME_FORMAT)
+
+                    is_notify_will_owed = (order_d['reserved_days'] <= cfg.CONF.checker.days_to_owe)
+                    if order_d['owed'] or (not order_d['owed'] and is_notify_will_owed):
+                        self.notifier.notify_order_billing_owed(self.ctxt, account, contact,
+                                                                order_d, language=language)
+
             except Exception:
                 LOG.exception("Some exceptions occurred when checking owed "
                               "account: %s", account['user_id'])

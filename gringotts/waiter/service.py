@@ -39,9 +39,6 @@ OPTS_GLOBAL = [
     cfg.StrOpt('cloud_name',
                default="localhost",
                help="The environment this service is running"),
-    cfg.StrOpt('recharge_url',
-               default="https://console.ustack.com/bill/account_charge",
-               help="The recharge url"),
     cfg.ListOpt('notification_email_receivers', default=[],
                 help='Receivers of notification email.'),
 ]

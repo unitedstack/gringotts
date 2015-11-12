@@ -49,6 +49,8 @@ enable_non_center_jobs=True
 try_to_fix=False
 notifier_level=0
 days_to_owe=7
+recharge_url=https://console.ustack.com/bill/account_charge
+order_recharge_url=https://console.ustack.com/bill/order
 
 [service_credentials]
 os_username=admin

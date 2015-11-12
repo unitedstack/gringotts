@@ -338,10 +338,10 @@ class ActiveController(rest.RestController):
     """Get active orders."""
 
     @wsexpose([models.Order], wtypes.text, int, int, wtypes.text,
-              wtypes.text, wtypes.text, bool, bool)
+              wtypes.text, wtypes.text, bool, bool, [wtypes.text])
     def get_all(self, type=None, limit=None, offset=None,
                 region_id=None, user_id=None, project_id=None,
-                owed=None, charged=None):
+                owed=None, charged=None, bill_methods=None):
 
         if limit and limit < 0:
             raise exception.InvalidParameterValue(err="Invalid limit")
@@ -357,7 +357,8 @@ class ActiveController(rest.RestController):
                                         user_id=user_id,
                                         project_id=project_id,
                                         owed=owed,
-                                        charged=charged)
+                                        charged=charged,
+                                        bill_methods=bill_methods)
         return [models.Order.from_db_model(order)
                 for order in orders]
 
