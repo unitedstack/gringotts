@@ -1,20 +1,51 @@
-import sys
+import argparse
 import json
+import os
+import sys
 import requests
+
 from gringotts.client import client as gring_client
 from novaclient.v1_1 import client as nova_client
 
 
-gc = gring_client.Client(username='admin',
-                         password='rachel',
-                         project_name='admin',
-                         auth_url='http://localhost:35357/v3')
+parser = argparse.ArgumentParser(description='Generate products')
+parser.add_argument('--username',
+                    metavar='OS_USERNAME',
+                    default=os.environ.get('OS_USERNAME', 'admin'),
+                    help='User name to use for OpenStack service access.')
+parser.add_argument('--password',
+                    metavar='OS_PASSWORD',
+                    default=os.environ.get('OS_PASSWORD', 'admin'),
+                    help='Password to use for OpenStack service access.')
+parser.add_argument('--tenant_name',
+                    metavar='OS_TENANT_NAME',
+                    default=os.environ.get('OS_TENANT_NAME', 'admin'),
+                    help='Tenant name to use for OpenStack service access.')
+parser.add_argument('--auth_url',
+                    metavar='OS_AUTH_URL',
+                    default=os.environ.get('OS_AUTH_URL', 'http://localhost:35357/v3'),
+                    help='Auth URL to use for OpenStack service access.')
+args = parser.parse_args()
 
 
-nc = nova_client.Client(username='admin',
-                        api_key='rachel',
-                        project_id='admin',
-                        auth_url='http://localhost:35357/v2.0')
+def force_v3_api(url):
+    if url is None:
+        return url
+    if url.endswith('/v2.0'):
+        return url.replace('/v2.0', '/v3')
+    return url
+
+
+gc = gring_client.Client(username=args.username,
+                         password=args.password,
+                         project_name=args.tenant_name,
+                         auth_url=force_v3_api(args.auth_url))
+
+
+nc = nova_client.Client(username=args.username,
+                        api_key=args.password,
+                        project_id=args.tenant_name,
+                        auth_url=args.auth_url)
 
 
 def create_or_update_product(name, service, region_id, unit_price, extra=None):
