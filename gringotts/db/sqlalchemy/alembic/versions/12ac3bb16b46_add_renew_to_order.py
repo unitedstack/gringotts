@@ -22,6 +22,7 @@ def upgrade():
 
     op.execute("UPDATE account set frozen_balance=0")
     op.execute("UPDATE `order` set renew=0, unit='hour'")
+    op.execute("UPDATE `bill` set unit='hour' where unit is NULL")
 
 
 def downgrade():
