@@ -14,7 +14,12 @@ class SizeItem(base.ProductItem):
     service = const.SERVICE_BLOCKSTORAGE
 
     def get_product_name(self, body):
-        return const.PRODUCT_VOLUME_SIZE
+        if body['volume'].get('volume_type') == 'sata':
+            return const.PRODUCT_SATA_VOLUME_SIZE
+        elif body['volume'].get('volume_type') == 'ssd':
+            return const.PRODUCT_VOLUME_SIZE
+        else:
+            return const.PRODUCT_VOLUME_SIZE
 
     def get_resource_volume(self, body):
         return body['volume']['size']
