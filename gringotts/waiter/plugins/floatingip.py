@@ -191,9 +191,14 @@ class FloatingIpNotificationBase(waiter_plugin.NotificationBase):
         project_id = payload['tenant_id']
         user_id = None
 
+        event_type = message['event_type']
+        if event_type in EVENT_FLOATINGIP:
+            resource_type = const.RESOURCE_FLOATINGIP
+        elif event_type in EVENT_FLOATINGIPSET:
+            resource_type = const.RESOURCE_FLOATINGIPSET
         order = Order(resource_id=resource_id,
                       resource_name=resource_name,
-                      type=const.RESOURCE_FLOATINGIP,
+                      type=resource_type,
                       status=state if state else const.STATE_RUNNING,
                       user_id=user_id,
                       project_id=project_id)
