@@ -1834,6 +1834,7 @@ class Connection(base.Connection):
                     date_time = (datetime.datetime.utcnow() +
                                  datetime.timedelta(days=reserved_days))
                     order.date_time = date_time
+                    order.status = const.STATE_STOPPED
                     order.updated_at = datetime.datetime.utcnow()
                     order.owed = True
                     result['resource_owed'] = True
@@ -1851,6 +1852,7 @@ class Connection(base.Connection):
                     date_time = (datetime.datetime.utcnow() +
                                  datetime.timedelta(days=reserved_days))
                     order.date_time = date_time
+                    order.status = const.STATE_STOPPED
                     order.updated_at = datetime.datetime.utcnow()
                     order.owed = True
                     result['resource_owed'] = True
@@ -2625,6 +2627,8 @@ class Connection(base.Connection):
             order.total_price += total_price
             order.cron_time = end_time
             order.date_time = None
+            order.status = const.STATE_RUNNING
+            order.owed = False
             order.updated_at = datetime.datetime.utcnow()
 
             # Update project and user_project

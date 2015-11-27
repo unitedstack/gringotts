@@ -316,6 +316,8 @@ class AccountController(rest.RestController):
 
     @wsexpose(int)
     def estimate(self):
+        """Estimate the hourly billing resources how many days to owed.
+        """
         self.conn = pecan.request.db_conn
 
         if not cfg.CONF.enable_owe:
@@ -330,7 +332,8 @@ class AccountController(rest.RestController):
 
         orders = self.conn.get_active_orders(request.context,
                                              user_id=user_id,
-                                             within_one_hour=True)
+                                             within_one_hour=True,
+                                             bill_methods=['hour'])
         if not orders:
             return -1
 
@@ -362,7 +365,8 @@ class AccountController(rest.RestController):
         account = self._account(user_id=user_id)
         orders = self.conn.get_active_orders(request.context,
                                              user_id=user_id,
-                                             within_one_hour=True)
+                                             within_one_hour=True,
+                                             bill_methods=['hour'])
         price_per_day = gringutils._quantize_decimal(0)
         remaining_day = -1
         if not orders:
@@ -580,7 +584,8 @@ class DetailController(rest.RestController):
 
         orders = self.conn.get_active_orders(request.context,
                                              user_id=user_id,
-                                             within_one_hour=True)
+                                             within_one_hour=True,
+                                             bill_methods=['hour'])
         price_per_day = gringutils._quantize_decimal(0)
         remaining_day = -1
         if not orders:

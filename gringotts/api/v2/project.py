@@ -159,7 +159,8 @@ class ProjectController(rest.RestController):
         orders_db = list(conn.get_orders(request.context,
                                          project_ids=project_ids,
                                          region_id=region_id,
-                                         read_deleted=False))
+                                         read_deleted=False,
+                                         bill_methods=['hour']))
 
         total_price = gringutils._quantize_decimal(0)
         total_count = 0

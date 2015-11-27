@@ -411,7 +411,7 @@ class OrdersController(rest.RestController):
             raise exception.InvalidParameterValue(err="Invalid offset")
 
         limit_user_id = acl.get_limited_to_user(
-            request.headers, 'order_get')
+            request.headers, 'orders_get')
 
         if limit_user_id:  # normal user
             user_id = None
