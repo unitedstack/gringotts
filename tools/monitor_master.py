@@ -9,14 +9,40 @@ import requests
 from gringotts.client import client
 
 ISO8601_TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
-OS_AUHT_URL = 'http://localhost:35357/v3'
 SMS_API_URL = "http://q.hl95.com:8061"
 
 
-client = client.Client(username='demo',
-                       password='rachel',
-                       project_name='demo',
-                       auth_url=OS_AUHT_URL)
+CLOUDS = {"uos": {"os_auth_url": "http://i.l7.0.uc.ustack.in:35357/v3",
+                  "regions": ["bj1", "gd1"],
+                  "admin_user": "admin",
+                  "admin_password": "password",
+                  "admin_tenant_name": "admin"},
+          "zhj": {"os_auth_url": "http://l7.0.zhj.ustack.in:35357/v3",
+                 "regions": ["RegionOne"],
+                 "admin_user": "admin",
+                 "admin_password": "password",
+                 "admin_tenant_name": "admin"},
+          "sh": {"os_auth_url": "http://l7.0.sh.ustack.in:35357/v3",
+                 "regions": ["RegionOne"],
+                 "admin_user": "admin",
+                 "admin_password": "password",
+                 "admin_tenant_name": "admin"},
+          "lxy": {"os_auth_url": "http://l7.0.lxy.ustack.in:35357/v3",
+                 "regions": ["RegionOne"],
+                 "admin_user": "admin",
+                 "admin_password": "password",
+                 "admin_tenant_name": "admin"},
+          "ghxw": {"os_auth_url": "http://l7.0.ghxw.ustack.in:35357/v3",
+                 "regions": ["RegionOne"],
+                 "admin_user": "admin",
+                 "admin_password": "password",
+                 "admin_tenant_name": "admin"},
+          "wywl": {"os_auth_url": "http://i.l7.7.wywl.ustack.in:35357/v3",
+                 "regions": ["xm1", "tw1"],
+                 "admin_user": "admin",
+                 "admin_password": "password",
+                 "admin_tenant_name": "admin"},
+}
 
 
 def parse_strtime(timestr, fmt=ISO8601_TIME_FORMAT):
@@ -24,8 +50,9 @@ def parse_strtime(timestr, fmt=ISO8601_TIME_FORMAT):
     return datetime.datetime.strptime(timestr, fmt)
 
 
-def get_order(order_id):
-    return client.get('/orders/%s/order' % order_id)
+def get_one_active_order(client, region_id):
+    _, resp = client.get('/orders/active?region_id=%s&limit=1&offset=0' % region_id)
+    return resp[0] if resp else None
 
 
 def alert_to(content, recipients):
@@ -44,13 +71,22 @@ def alert_to(content, recipients):
 
 if __name__ == '__main__':
     while True:
-        try:
-            _, order = get_order("2437aa8b-e8b1-496e-918e-02f1d05f2b10")
-            cron_time = parse_strtime(order['cron_time'])
-            utc_now = datetime.datetime.utcnow()
-            if utc_now > cron_time:
-                alert_to(u"【UnitedStack有云】gring-master maybe hanged, check it",
-                         ["18500239557"])
-        except Exception as e:
-            print "some error happen: %s" % e
+        for cloud_name, cloud in CLOUDS.items():
+            try:
+                gclient = client.Client(username=cloud['admin_user'],
+                                        password=cloud['admin_password'],
+                                        project_name=cloud['admin_tenant_name'],
+                                        auth_url=cloud['os_auth_url'])
+                for region_name in cloud['regions']:
+                    order = get_one_active_order(gclient, region_name)
+                    if not order:
+                        print "there is no active order in [%s][%s]." % (cloud_name, region_name)
+                        continue
+                    cron_time = parse_strtime(order['cron_time'])
+                    utc_now = datetime.datetime.utcnow()
+                    if utc_now > cron_time:
+                        alert_to(u"【UnitedStack有云】[%s][%s] gring-master maybe hanged, check it" % (cloud_name, region_name),
+                                 ["18500239557"])
+            except Exception as e:
+                print "some error happen when checking in %s: %s" % (cloud_name, e)
         time.sleep(3600)
