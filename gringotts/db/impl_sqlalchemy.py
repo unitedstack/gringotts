@@ -1194,12 +1194,10 @@ class Connection(base.Connection):
 
         return (self._row_to_db_account_model(r) for r in result), total_count
 
-    @require_domain_context
     def get_accounts(self, context, user_id=None,
                      owed=None, limit=None, offset=None,
                      sort_key=None, sort_dir=None, active_from=None):
-        query = model_query(context, sa_models.Account)
-
+        query = get_session().query(sa_models.Account)
         if owed is not None:
             query = query.filter_by(owed=owed)
         if user_id:
@@ -1214,12 +1212,10 @@ class Connection(base.Connection):
 
         return (self._row_to_db_account_model(r) for r in result)
 
-    @require_domain_context
     def get_accounts_count(self, context,
                            user_id=None, owed=None, active_from=None):
-        query = model_query(context, sa_models.Account,
-                            func.count(sa_models.Account.id).label('count'))
-
+        query = get_session().query(sa_models.Account,
+                                    func.count(sa_models.Account.id).label('count'))
         if owed is not None:
             query = query.filter_by(owed=owed)
         if user_id:
