@@ -302,19 +302,18 @@ def get_users_by_user_ids(user_ids=[]):
     url = cfg.CONF.service_credentials.os_auth_url
     internal_api = lambda api: url + '/US-INTERNAL' + '/' + api
 
-    query = {'query': {'user_ids': user_ids}}
-
-    r = requests.post(internal_api('get_users'),
-                      data=json.dumps(query),
-                      headers={'Content-Type': 'application/json'})
-    if r.status_code == 404:
-        LOG.info("Can't not find users by ids from keystone")
-        return {}
-
     result = {}
-    for user in r.json()['users']:
-        if user:
-            result[user['id']] = user
+    _user_ids = [user_ids[i:i+50] for i in range(0, len(user_ids), 50)]
+
+    for __user_ids in _user_ids:
+        query = {'query': {'user_ids': __user_ids}}
+        r = requests.post(internal_api('get_users'),
+                          data=json.dumps(query),
+                          headers={'Content-Type': 'application/json'})
+        if r.status_code != 404:
+            for user in r.json()['users']:
+                if user:
+                    result[user['id']] = user
     return result
 
 
@@ -339,14 +338,19 @@ def get_projects_by_project_ids(project_ids=[]):
     auth_url = get_auth_url()
     internal_api = lambda api: auth_url + '/US-INTERNAL'+ '/' + api
 
-    query = {'ids': ','.join(project_ids)}
+    projects = []
+    _project_ids = [project_ids[i:i+50]
+                    for i in range(0, len(project_ids), 50)]
 
-    r = requests.get(internal_api('get_projects'),
-                     params=query,
-                     headers={'Content-Type': 'application/json'})
-    if r.status_code == 404:
-        return []
-    return r.json()['projects']
+    for __project_ids in _project_ids:
+        query = {'ids': ','.join(__project_ids)}
+
+        r = requests.get(internal_api('get_projects'),
+                         params=query,
+                         headers={'Content-Type': 'application/json'})
+        if r.status_code != 404:
+            projects += r.json()['projects']
+    return projects
 
 
 def get_projects_by_user(user_id):
