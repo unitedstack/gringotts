@@ -314,9 +314,11 @@ def floatingip_list(project_id, region_name=None, project_name=None):
     for fip in fips:
         created_at = utils.format_datetime(fip['created_at'])
         status = utils.transform_status(fip['status'])
+        is_bill = False if fip.get('floatingipset_id') else True
         formatted_fips.append(
             FloatingIp(id=fip['id'],
                        name=fip['uos:name'],
+                       is_bill=is_bill,
                        size=fip['rate_limit'],
                        providers=fip['uos:service_provider'],
                        project_id=fip['tenant_id'],
@@ -335,8 +337,10 @@ def floatingip_list(project_id, region_name=None, project_name=None):
 def floatingipset_list(project_id, region_name=None, project_name=None):
     client = get_neutronclient(region_name)
     if project_id:
-        fipsets = client.list_floatingipsets(
+        _fipsets = client.list_floatingipsets(
             tenant_id=project_id).get('floatingipsets')
+        fipsets = [fip for fip in _fipsets if fip['tenant_id'] == project_id]
+
     else:
         fipsets = client.list_floatingipsets().get('floatingipsets')
 

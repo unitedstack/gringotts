@@ -351,6 +351,11 @@ services.register_class(ks_client,
                         const.RESOURCE_FLOATINGIP,
                         FloatingIpCreateEnd)
 
+services.register_class(ks_client,
+                        'network',
+                        const.RESOURCE_FLOATINGIPSET,
+                        FloatingIpCreateEnd)
+
 
 class FloatingIpResizeEnd(FloatingIpNotificationBase):
     """Handle the events that floating ip be changed

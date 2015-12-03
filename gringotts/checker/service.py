@@ -434,11 +434,17 @@ class CheckerService(os_service.Service):
             resource_to_order[resource.id]['checked'] = True
 
     def _check_order_to_resource(self, resource_id, order, try_to_fix):
-        # Situation 4: The resource of the order has been deleted
-        deleted_at = utils.format_datetime(timeutils.strtime())
-        try_to_fix['4'].append(Situation4Item(order['order_id'],
-                                              deleted_at,
-                                              order['project_id']))
+        # if the order is billed by month or year, we don't check it
+        if order['unit'] in ['month', 'year']:
+            LOG.warn("The monthly/yearly billing resource %s has been "
+                     "deleted, the order is %s, please check it manually",
+                     resource_id, order['order_id'])
+        else:
+            # Situation 4: The resource of the order has been deleted
+            deleted_at = utils.format_datetime(timeutils.strtime())
+            try_to_fix['4'].append(Situation4Item(order['order_id'],
+                                                  deleted_at,
+                                                  order['project_id']))
 
     def _check_if_resources_match_orders(self, bad_resources, try_to_fix,
                                          projects):
