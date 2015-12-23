@@ -82,7 +82,10 @@ class MasterService(rpc_service.Service):
     def start(self):
         self.apsched.start()
         self.load_hourly_cron_jobs()
-        self.load_monthly_cron_jobs()
+        # dirty hack, remove it latter
+        if cfg.CONF.region_name == 'uc' or \
+                cfg.CONF.region_name == 'RegionOne':
+            self.load_monthly_cron_jobs()
         LOG.warning('Load cron jobs successfully.')
 
         if cfg.CONF.enable_owe:
@@ -167,7 +170,7 @@ class MasterService(rpc_service.Service):
                 self._change_order_unit_price(order['order_id'])
         LOG.warning('Load 30-days date jobs successfully.')
 
-    def _get_cron_orders(self, bill_methods=None, owed=None):
+    def _get_cron_orders(self, bill_methods=None, owed=None, region_id=None):
         orders = []
         states = [const.STATE_RUNNING, const.STATE_STOPPED,
                   const.STATE_SUSPEND]
@@ -175,7 +178,7 @@ class MasterService(rpc_service.Service):
             orders += self.gclient.get_orders(status=s,
                                               owed=owed,
                                               bill_methods=bill_methods,
-                                              region_id=cfg.CONF.region_name)
+                                              region_id=region_id)
         return orders
 
     def load_monthly_cron_jobs(self):
@@ -205,7 +208,8 @@ class MasterService(rpc_service.Service):
             self.locks[order['order_id']] = gthreading.Lock()
 
     def load_hourly_cron_jobs(self):
-        orders = self._get_cron_orders(bill_methods=['hour'])
+        orders = self._get_cron_orders(bill_methods=['hour'],
+                                       region_id=cfg.CONF.region_name)
         for order in orders:
             if not order['cron_time']:
                 continue
