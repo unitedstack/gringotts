@@ -179,6 +179,9 @@ class OrderController(rest.RestController):
         except exception.OrderRenewError as e:
             LOG.warn(e)
             raise
+        except exception.NotSufficientFund as e:
+            LOG.warn(e)
+            raise
         except Exception:
             msg = "Fail to renew the order %s" % self._id
             LOG.exception(msg)

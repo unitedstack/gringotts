@@ -2583,7 +2583,7 @@ class Connection(base.Connection):
 
             if account.balance < total_price and account.level != 9:
                 raise exception.NotSufficientFund(user_id=project.user_id,
-                                                  project_id=project_id)
+                                                  project_id=order.project_id)
 
             # create bill
             if renew.period > 1:
