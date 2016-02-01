@@ -1,4 +1,4 @@
-from oslo.config import cfg
+from oslo_config import cfg
 from stevedore import extension
 
 from gringotts.openstack.common import log

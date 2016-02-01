@@ -10,7 +10,7 @@ from pecan import response
 
 from wsme import types as wtypes
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts import exception
 from gringotts.api import acl

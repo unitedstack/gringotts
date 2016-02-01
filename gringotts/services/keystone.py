@@ -2,7 +2,7 @@ import json
 import logging as log
 import requests
 
-from oslo.config import cfg
+from oslo_config import cfg
 from keystoneclient.v3 import client
 
 from gringotts import exception

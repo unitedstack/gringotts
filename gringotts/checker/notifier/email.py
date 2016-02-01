@@ -2,7 +2,7 @@
 
 from gringotts import notifier as gring_notifier
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.checker import notifier
 from gringotts.openstack.common import log

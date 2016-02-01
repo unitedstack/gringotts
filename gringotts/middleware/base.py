@@ -2,7 +2,7 @@ import copy
 
 import webob
 import logging
-from oslo.config import cfg
+from oslo_config import cfg
 from decimal import Decimal
 
 from gringotts.client.v2 import client

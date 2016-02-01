@@ -1,4 +1,4 @@
-from oslo.config import cfg
+from oslo_config import cfg
 
 # Register options for the service
 API_SERVICE_OPTS = [

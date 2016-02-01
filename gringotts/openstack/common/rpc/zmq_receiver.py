@@ -20,7 +20,7 @@ eventlet.monkey_patch()
 import contextlib
 import sys
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.openstack.common import log as logging
 from gringotts.openstack.common import rpc

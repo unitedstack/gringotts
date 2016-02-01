@@ -1,6 +1,6 @@
 import datetime
 
-from oslo.config import cfg
+from oslo_config import cfg
 import pecan
 from pecan import request
 from pecan import rest

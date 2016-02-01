@@ -6,7 +6,7 @@ from pecan import request
 import wsme
 from wsme import types as wtypes
 from wsmeext.pecan import wsexpose
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.api import acl
 from gringotts.api import app

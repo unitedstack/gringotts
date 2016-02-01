@@ -4,7 +4,7 @@
 import abc
 import collections
 import fnmatch
-from oslo.config import cfg
+from oslo_config import cfg
 import six
 
 from gringotts.openstack.common import log

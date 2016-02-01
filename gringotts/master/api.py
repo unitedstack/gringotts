@@ -1,6 +1,6 @@
 """Handles all requests to the master service"""
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.master import rpcapi
 from gringotts.master import service

@@ -23,7 +23,7 @@ is smaller and easier to review. This file will be removed as part of that
 commit.
 """
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.openstack.common.notifier import api as notifier_api
 

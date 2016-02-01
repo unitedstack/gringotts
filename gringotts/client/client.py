@@ -17,7 +17,7 @@ import logging
 import requests
 from urllib import urlencode
 
-from oslo.config import cfg
+from oslo_config import cfg
 from stevedore import driver
 from keystoneclient.middleware import auth_token
 

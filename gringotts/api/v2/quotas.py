@@ -2,7 +2,7 @@ import pecan
 import wsme
 import itertools
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from pecan import rest
 from pecan import request

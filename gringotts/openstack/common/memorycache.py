@@ -18,7 +18,7 @@
 
 """Super simple fake memcache client."""
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.openstack.common import timeutils
 

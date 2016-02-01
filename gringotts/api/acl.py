@@ -1,6 +1,6 @@
 from gringotts.openstack.common import policy
 from keystoneclient.middleware import auth_token
-from oslo.config import cfg
+from oslo_config import cfg
 
 
 _ENFORCER = None

@@ -6,7 +6,7 @@ from pecan import request
 from wsmeext.pecan import wsexpose
 from wsme import types as wtypes
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.api.v2 import models
 from gringotts.db import models as db_models

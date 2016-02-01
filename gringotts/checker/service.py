@@ -2,7 +2,7 @@ import datetime
 import time
 
 from apscheduler.schedulers import background  # noqa
-from oslo.config import cfg  # noqa
+from oslo_config import cfg  # noqa
 import pytz
 
 from gringotts.checker import notifier

@@ -11,7 +11,7 @@ import calendar
 from dateutil import tz
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal, ROUND_HALF_UP
-from oslo.config import cfg
+from oslo_config import cfg
 from gringotts import constants as const
 from random import Random
 

@@ -29,7 +29,7 @@ import time
 import eventlet
 from eventlet import event
 import logging as std_logging
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.openstack.common import eventlet_backdoor
 from gringotts.openstack.common.gettextutils import _  # noqa

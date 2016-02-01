@@ -15,7 +15,7 @@
 
 '''messaging based notification driver, with message envelopes'''
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.openstack.common import context as req_context
 from gringotts.openstack.common.gettextutils import _  # noqa

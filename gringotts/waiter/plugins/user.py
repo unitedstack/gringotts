@@ -2,7 +2,7 @@
 """Handle user registeration
 """
 from decimal import Decimal
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts import context
 from gringotts import db

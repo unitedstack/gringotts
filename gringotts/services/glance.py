@@ -1,7 +1,7 @@
 import functools
 import logging as log
 
-from oslo.config import cfg
+from oslo_config import cfg
 import  glanceclient
 from glanceclient.exc import NotFound,HTTPNotFound
 

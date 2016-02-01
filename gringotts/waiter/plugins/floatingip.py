@@ -6,7 +6,7 @@
 from datetime import datetime
 from datetime import timedelta
 
-from oslo.config import cfg
+from oslo_config import cfg
 import six
 from stevedore import extension
 

@@ -17,7 +17,7 @@
 import os
 import ssl
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.openstack.common.gettextutils import _  # noqa
 

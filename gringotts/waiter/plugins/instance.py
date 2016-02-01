@@ -3,7 +3,7 @@
 """
 import datetime
 
-from oslo.config import cfg
+from oslo_config import cfg
 from stevedore import extension
 
 from gringotts import constants as const

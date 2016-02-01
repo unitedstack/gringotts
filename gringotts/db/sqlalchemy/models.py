@@ -4,7 +4,7 @@ SQLAlchemy models for Gringotts data
 
 import json
 import urlparse
-from oslo.config import cfg
+from oslo_config import cfg
 
 from sqlalchemy import Column, Integer, String
 from sqlalchemy import DateTime, Index, DECIMAL, Boolean, Text

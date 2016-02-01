@@ -4,7 +4,7 @@
 import json
 
 import requests
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.services import keystone
 from gringotts.services import wrap_exception

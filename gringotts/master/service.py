@@ -3,7 +3,7 @@ import time
 
 from apscheduler.schedulers import background  # noqa
 from eventlet.green import threading as gthreading  # noqa
-from oslo.config import cfg
+from oslo_config import cfg
 import pytz
 
 from gringotts.client import client

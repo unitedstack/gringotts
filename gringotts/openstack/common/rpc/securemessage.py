@@ -22,7 +22,7 @@ import time
 
 import requests
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.openstack.common.crypto import utils as cryptoutils
 from gringotts.openstack.common import jsonutils

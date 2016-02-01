@@ -2,7 +2,7 @@ import wsme
 import pecan
 import datetime
 
-from oslo.config import cfg
+from oslo_config import cfg
 from pecan import rest
 from wsmeext.pecan import wsexpose
 from wsme import types as wtypes

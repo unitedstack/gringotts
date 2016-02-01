@@ -38,7 +38,7 @@ https://bitbucket.org/eventlet/eventlet/issue/137/
 """
 import functools
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.openstack.common import importutils
 from gringotts.openstack.common import lockutils

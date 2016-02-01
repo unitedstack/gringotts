@@ -7,7 +7,7 @@ from pecan import request
 from wsmeext.pecan import wsexpose
 from wsme import types as wtypes
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts import master
 from gringotts import exception

@@ -1,7 +1,7 @@
 import abc
 import copy
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.client import client
 from gringotts import context

@@ -3,7 +3,7 @@ import json
 import logging as log
 import requests
 
-from oslo.config import cfg
+from oslo_config import cfg
 from gringotts.services import wrap_exception
 
 

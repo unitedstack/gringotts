@@ -18,7 +18,7 @@ import sys
 
 from keystoneclient import access
 from troveclient.v1 import client as trove_client
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.services import keystone as ks_client
 from gringotts.services import wrap_exception

@@ -3,7 +3,7 @@ import eventlet
 import socket
 import sys
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts.openstack.common import gettextutils
 from gringotts.openstack.common import log

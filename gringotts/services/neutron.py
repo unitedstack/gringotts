@@ -4,7 +4,7 @@ import logging as log
 
 from neutronclient.common import exceptions
 from neutronclient.v2_0 import client as neutron_client
-from oslo.config import cfg
+from oslo_config import cfg
 import requests
 
 from gringotts import constants as const

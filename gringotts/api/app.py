@@ -4,7 +4,7 @@ eventlet.monkey_patch()
 import sys
 import pecan
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from gringotts import db
 from gringotts.api import acl

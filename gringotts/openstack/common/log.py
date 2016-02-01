@@ -38,7 +38,7 @@ import os
 import sys
 import traceback
 
-from oslo.config import cfg
+from oslo_config import cfg
 from six import moves
 
 from gringotts.openstack.common.gettextutils import _  # noqa

@@ -61,7 +61,7 @@ import re
 import urllib
 import urllib2
 
-from oslo.config import cfg
+from oslo_config import cfg
 import six
 
 from gringotts.openstack.common import fileutils

@@ -8,7 +8,7 @@
 import logging
 import sys
 
-from oslo.config import cfg
+from oslo_config import cfg
 from wsgiref import simple_server
 
 from gringotts import service

@@ -6,7 +6,7 @@
 # created at : 2013-07-01 21:05:45
 
 import re
-from oslo.config import cfg
+from oslo_config import cfg
 from pecan import hooks
 
 from gringotts import exception

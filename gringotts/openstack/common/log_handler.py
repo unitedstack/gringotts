@@ -17,7 +17,7 @@ import logging
 
 from gringotts.openstack.common import notifier
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 
 class PublishErrorsHandler(logging.Handler):

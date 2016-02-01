@@ -21,7 +21,7 @@ import copy
 import sys
 import traceback
 
-from oslo.config import cfg
+from oslo_config import cfg
 import six
 
 from gringotts.openstack.common.gettextutils import _  # noqa
