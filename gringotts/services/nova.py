@@ -5,7 +5,7 @@ import logging as log
 from gringotts import utils
 from gringotts import constants as const
 
-from novaclient.v1_1 import client as nova_client
+from novaclient.v2 import client as nova_client
 from novaclient.exceptions import NotFound
 
 from gringotts.openstack.common import timeutils

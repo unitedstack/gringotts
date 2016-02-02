@@ -19,7 +19,6 @@ from urllib import urlencode
 
 from oslo_config import cfg
 from stevedore import driver
-from keystoneclient.middleware import auth_token
 
 from gringotts import exception
 from gringotts.openstack.common import jsonutils

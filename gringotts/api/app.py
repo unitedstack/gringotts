@@ -1,27 +1,28 @@
 import eventlet
 eventlet.monkey_patch()
 
+import os
 import sys
 import pecan
 
 from oslo_config import cfg
+from paste import deploy
 
 from gringotts import db
-from gringotts.api import acl
 from gringotts.api import config
 from gringotts.api import hooks
 from gringotts.api import middleware
 from gringotts.client.v2 import client
 
 
-auth_opts = [
-    cfg.StrOpt('auth_strategy',
-               default='keystone',
-               help='The strategy to use for auth: noauth or keystone.'),
+OPTS = [
+    cfg.StrOpt('api_paste_config',
+               default="api_paste.ini",
+               help="Configuration file for WSGI definition of API."
+               ),
 ]
-
 CONF = cfg.CONF
-CONF.register_opts(auth_opts)
+CONF.register_opts(OPTS)
 
 
 EXT_OPTS = [
@@ -120,15 +121,12 @@ def get_pecan_config():
     return pecan.configuration.conf_from_file(filename)
 
 
-def setup_app(config, extra_hooks=None):
+def setup_app(config=None):
 
     app_hooks = [hooks.ConfigHook(),
                  hooks.DBHook(db.get_connection(CONF)),
                  hooks.ContextHook(),
                  hooks.LimitHook()]
-
-    if extra_hooks:
-        app_hooks.extend(extra_hooks)
 
     if not config:
         config = get_pecan_config()
@@ -145,49 +143,22 @@ def setup_app(config, extra_hooks=None):
 
     pecan.conf.update({'wsme': {'debug': CONF.debug}})
 
-    if config.app.enable_acl:
-        app = acl.install(app, cfg.CONF)
-
     return app
 
 
-def setup_noauth_app(config, extra_hooks=None):
+def load_app():
+    # Build the WSGI app
+    cfg_file = None
+    cfg_path = cfg.CONF.api_paste_config
+    if not os.path.isabs(cfg_path):
+        cfg_file = CONF.find_file(cfg_path)
+    elif os.path.exists(cfg_path):
+        cfg_file = cfg_path
 
-    app_hooks = [hooks.ConfigHook(),
-                 hooks.DBHook(db.get_connection(CONF)),
-                 hooks.ContextHook()]
-
-    if extra_hooks:
-        app_hooks.extend(extra_hooks)
-
-    if not config:
-        config = get_pecan_config()
-
-    app = pecan.make_app(
-        config.app.noauth_root,
-        static_root=config.app.static_root,
-        template_path=config.app.template_path,
-        debug=False,
-        force_canonical=getattr(config.app, 'force_canonical', True),
-        hooks=app_hooks,
-        wrap_app=middleware.FaultWrapperMiddleware,
-    )
-
-    pecan.conf.update({'wsme': {'debug': CONF.debug}})
-
-    return app
+    if not cfg_file:
+        raise cfg.ConfigFilesNotFoundError([cfg.CONF.api_paste_config])
+    return deploy.loadapp("config:" + cfg_file)
 
 
-class VersionSelectorApplication(object):
-    def __init__(self):
-        pc = get_pecan_config()
-        pc.app.enable_acl = (CONF.auth_strategy == 'keystone')
-
-        self.app = setup_app(pc)
-        self.noauth_app = setup_noauth_app(pc)
-
-    def __call__(self, environ, start_response):
-        if environ['PATH_INFO'].startswith('/noauth/'):
-            return self.noauth_app(environ, start_response)
-        else:
-            return self.app(environ, start_response)
+def app_factory(global_config, **local_conf):
+    return setup_app()

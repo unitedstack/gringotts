@@ -28,7 +28,7 @@ def main():
     port = CONF.api.port
     wsgi = simple_server.make_server(host,
                                      port,
-                                     app.VersionSelectorApplication())
+                                     app.load_app())
 
     LOG.info("Serving on http://%s:%s" % (host, port))
     LOG.info("Configuration:")
