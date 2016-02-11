@@ -4,7 +4,6 @@ from oslo_config import cfg
 
 _ENFORCER = None
 
-
 def get_enforcer():
     global _ENFORCER
     if not _ENFORCER:

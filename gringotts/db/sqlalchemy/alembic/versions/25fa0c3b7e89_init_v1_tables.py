@@ -18,13 +18,6 @@ from gringotts.services import keystone
 
 
 def upgrade():
-    # Check keystone service is available first
-    admin_user_id = keystone.get_admin_user_id()
-    admin_project_id = keystone.get_admin_tenant_id()
-
-    manila_user_id = keystone.get_manila_user_id()
-    manila_project_id = keystone.get_services_project_id()
-
     op.create_table(
         'product',
 
@@ -36,13 +29,8 @@ def upgrade():
         sa.Column('region_id', sa.String(255)),
         sa.Column('description', sa.String(255)),
 
-        sa.Column('type', sa.String(64)),
+        sa.Column('unit_price', sa.Text),
         sa.Column('deleted', sa.Boolean),
-
-        sa.Column('unit_price', sa.DECIMAL(20, 4)),
-        sa.Column('unit', sa.String(64)),
-        sa.Column('quantity', sa.Integer),
-        sa.Column('total_price', sa.DECIMAL(20, 4)),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -70,9 +58,17 @@ def upgrade():
         sa.Column('cron_time', sa.DateTime),
         sa.Column('date_time', sa.DateTime),
 
-        sa.Column('user_id', sa.String(255)),
+        sa.Column('renew', sa.Boolean),
+        sa.Column('renew_method', sa.String(64)),
+        sa.Column('renew_period', sa.Integer),
+
+        sa.Column('user_id', sa.String(255), index=True),
         sa.Column('project_id', sa.String(255), index=True),
         sa.Column('region_id', sa.String(255)),
+        sa.Column('domain_id', sa.String(255)),
+
+        sa.Column('charged', sa.Boolean),
+        sa.Column('owed', sa.Boolean),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -80,6 +76,8 @@ def upgrade():
         mysql_engine='InnoDB',
         mysql_charset='utf8',
     )
+    op.create_index('ix_order_user_id_project_id', 'order', ['user_id', 'project_id'])
+    op.create_unique_constraint('uq_order_resource_id', 'order', ['resource_id'])
 
     op.create_table(
         'subscription',
@@ -90,16 +88,13 @@ def upgrade():
         sa.Column('type', sa.String(64)),
 
         sa.Column('product_id', sa.String(255), index=True),
-        sa.Column('unit_price', sa.DECIMAL(20,4)),
-        sa.Column('unit', sa.String(64)),
-        sa.Column('quantity', sa.Integer),
-        sa.Column('total_price', sa.DECIMAL(20,4)),
+        sa.Column('unit_price', sa.Text),
 
         sa.Column('order_id', sa.String(255), index=True),
-
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255), index=True),
         sa.Column('region_id', sa.String(255)),
+        sa.Column('domain_id', sa.String(255)),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -132,6 +127,7 @@ def upgrade():
         sa.Column('user_id', sa.String(255)),
         sa.Column('project_id', sa.String(255), index=True),
         sa.Column('region_id', sa.String(255)),
+        sa.Column('domain_id', sa.String(255)),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -148,11 +144,32 @@ def upgrade():
         'account',
 
         sa.Column('id', sa.Integer, primary_key=True),
-        sa.Column('user_id', sa.String(255)),
-        sa.Column('project_id', sa.String(255), index=True),
+        sa.Column('user_id', sa.String(255), index=True),
+        sa.Column('domain_id', sa.String(255)),
         sa.Column('balance', sa.DECIMAL(20,4)),
+        sa.Column('frozen_balance', sa.DECIMAL(20, 4)),
         sa.Column('consumption', sa.DECIMAL(20,4)),
-        sa.Column('currency', sa.String(64)),
+        sa.Column('level', sa.Integer),
+        sa.Column('owed', sa.Boolean),
+        sa.Column('deleted', sa.Boolean),
+
+        sa.Column('created_at', sa.DateTime),
+        sa.Column('updated_at', sa.DateTime),
+        sa.Column('deleted_at', sa.DateTime),
+
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
+    )
+
+    op.create_table(
+        'project',
+
+        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('user_id', sa.String(255), index=True),
+        sa.Column('project_id', sa.String(255), index=True),
+        sa.Column('consumption', sa.DECIMAL(20,4)),
+
+        sa.Column('domain_id', sa.String(255)),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -160,6 +177,25 @@ def upgrade():
         mysql_engine='InnoDB',
         mysql_charset='utf8',
     )
+
+    op.create_table(
+        'user_project',
+
+        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('user_id', sa.String(255), index=True),
+        sa.Column('project_id', sa.String(255), index=True),
+        sa.Column('consumption', sa.DECIMAL(20,4)),
+
+        sa.Column('domain_id', sa.String(255)),
+
+        sa.Column('created_at', sa.DateTime),
+        sa.Column('updated_at', sa.DateTime),
+
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
+    )
+
+    op.create_unique_constraint('uq_user_project_id', 'user_project', ['user_id', 'project_id'])
 
     op.create_table(
         'charge',
@@ -167,12 +203,14 @@ def upgrade():
         sa.Column('id', sa.Integer, primary_key=True),
         sa.Column('charge_id', sa.String(255)),
         sa.Column('user_id', sa.String(255)),
-        sa.Column('project_id', sa.String(255)),
+        sa.Column('domain_id', sa.String(255)),
         sa.Column('value', sa.DECIMAL(20,4)),
         sa.Column('type', sa.String(64)),
         sa.Column('come_from', sa.String(255)),
-        sa.Column('currency', sa.String(64)),
         sa.Column('charge_time', sa.DateTime),
+        sa.Column('trading_number', sa.String(255)),
+        sa.Column('operator', sa.String(64)),
+        sa.Column('remarks', sa.String(255)),
 
         sa.Column('created_at', sa.DateTime),
         sa.Column('updated_at', sa.DateTime),
@@ -182,63 +220,48 @@ def upgrade():
     )
 
     op.create_table(
-        'region',
+        'precharge',
 
         sa.Column('id', sa.Integer, primary_key=True),
-        sa.Column('region_id', sa.String(255)),
-        sa.Column('name', sa.String(255)),
-        sa.Column('description', sa.String(255)),
+
+        sa.Column('code', sa.String(64), unique=True, index=True),
+        sa.Column('price', sa.DECIMAL(20, 4)),
 
         sa.Column('created_at', sa.DateTime),
-        sa.Column('updated_at', sa.DateTime),
+        sa.Column('expired_at', sa.DateTime),
+        sa.Column('deleted_at', sa.DateTime),
+
+        sa.Column('used', sa.Boolean),
+        sa.Column('dispatched', sa.Boolean),
+        sa.Column('deleted', sa.Boolean),
+
+        sa.Column('user_id', sa.String(255), index=True),
+        sa.Column('operator_id', sa.String(255)),
+        sa.Column('domain_id', sa.String(255)),
+
+        sa.Column('remarks', sa.String(255)),
 
         mysql_engine='InnoDB',
         mysql_charset='utf8',
     )
 
-    # Add products
-    PRODUCT_SQL_PRE = "INSERT INTO product VALUES"
+    op.create_table(
+        'deduct',
 
-    PRODUCT_SQLS = [
-        "(1,'98f2ce8b-8ad3-42db-b82e-dd022381d1bc','volume.size','block_storage','RegionOne','some decs','regular',0,'0.0020','hour',0,0,'2014-02-09 08:16:10',NULL,NULL)",
-        "(2,'e1cd002a-bef5-4306-b60e-8e6f54b80548','snapshot.size','block_storage','RegionOne','some decs','regular',0,'0.0002','hour',0,0,'2014-02-09 08:20:06',NULL,NULL)",
-        "(3,'a7ee0483-ff48-4567-84c4-932801cacfad','ip.floating','network','RegionOne','some decs','regular',0,'0.0300','hour',0,0,'2014-02-11 08:21:17',NULL,NULL)",
-        "(4,'4038d1b8-e08f-4824-9f4e-f277d15c5bfe','router','network','RegionOne','some decs','regular',0,'0.0500','hour',0,0,'2014-02-11 09:02:38',NULL,NULL)",
-        "(5,'0ab4bc1b-938f-4b9e-bebd-7e91dd58c85d','instance:micro-1','compute','RegionOne','some decs','regular',0,'0.0560','hour',0,0,'2014-03-18 06:42:15',NULL,NULL)",
-        "(6,'9425b452-d0fb-406c-ba1b-c00bec291a02','instance:micro-2','compute','RegionOne','some decs','regular',0,'0.1110','hour',0,0,'2014-03-18 06:42:59',NULL,NULL)",
-        "(7,'33969e9b-27b3-4772-acbc-a094940493f0','instance:standard-1','compute','RegionOne','some decs','regular',0,'0.2220','hour',0,0,'2014-03-18 06:43:49',NULL,NULL)",
-        "(8,'2cda8174-4b1d-4988-8d0f-e94b46442bce','instance:standard-2','compute','RegionOne','some decs','regular',0,'0.4440','hour',0,0,'2014-03-18 06:44:05',NULL,NULL)",
-        "(9,'bea31dc8-4140-47ee-8b48-4983f0f28a0f','instance:standard-4','compute','RegionOne','some decs','regular',0,'0.8890','hour',0,0,'2014-03-18 06:44:22',NULL,NULL)",
-        "(10,'da55dddc-aa4e-4439-ba30-8bcfba36094b','instance:standard-8','compute','RegionOne','some decs','regular',0,'1.7780','hour',0,0,'2014-03-18 06:44:46',NULL,NULL)",
-        "(11,'049378d6-8918-45be-b023-00fd573267ff','instance:standard-12','compute','RegionOne','some decs','regular',0,'2.6670','hour',0,0,'2014-03-18 06:45:01',NULL,NULL)",
-        "(12,'b45234b1-64fd-4572-8e71-2d5ff3e62594','instance:standard-16','compute','RegionOne','some decs','regular',0,'3.5560','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)",
-        "(13,'e73b7486-0071-4bf7-8ea2-dca040a8dee0','instance:memory-1','compute','RegionOne','some decs','regular',0,'0.3610','hour',0,0,'2014-03-18 06:45:41',NULL,NULL)",
-        "(14,'72af128b-9e82-45e6-824d-b15fcb01fbd3','instance:memory-2','compute','RegionOne','some decs','regular',0,'0.7220','hour',0,0,'2014-03-18 06:46:02',NULL,NULL)",
-        "(15,'46345fe6-ab66-4f39-b6ca-b2945557e999','instance:memory-4','compute','RegionOne','some decs','regular',0,'1.4440','hour',0,0,'2014-03-18 06:46:16',NULL,NULL)",
-        "(16,'732a3fe2-2837-4e46-80cd-ae6579c99121','instance:memory-8','compute','RegionOne','some decs','regular',0,'2.8890','hour',0,0,'2014-03-18 06:46:37',NULL,NULL)",
-        "(17,'b45234b1-64fd-4572-8e71-2d5ff3e62595','instance:memory-12','compute','RegionOne','some decs','regular',0,'4.3330','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)",
-        "(18,'41579554-6b2c-4cd9-965c-0f2544d68a24','instance:compute-2','compute','RegionOne','some decs','regular',0,'0.3330','hour',0,0,'2014-03-18 06:47:19',NULL,NULL)",
-        "(19,'4d2f6900-8f75-4f8d-877d-dff4dec1a57b','instance:compute-4','compute','RegionOne','some decs','regular',0,'0.6670','hour',0,0,'2014-03-18 06:47:43',NULL,NULL)",
-        "(20,'cef8cb7b-b0a5-46ff-80a5-57d82e7ac611','instance:compute-8','compute','RegionOne','some decs','regular',0,'1.3330','hour',0,0,'2014-03-18 06:47:58',NULL,NULL)",
-        "(21,'b45234b1-64fd-4572-8e71-2d5ff3e62593','instance:compute-12','compute','RegionOne','some decs','regular',0,'2.0000','hour',0,0,'2014-03-18 06:48:12',NULL,NULL)",
-        "(22,'98f2ce8b-8ad3-42db-b82e-dd022381d1bd','sata.volume.size','block_storage','RegionOne','some decs','regular',0,'0.0006','hour',0,0,'2014-02-09 08:16:10',NULL,NULL)",
-        "(23,'895a52d2-df2e-46c0-96c0-6bbb04e15502','alarm','monitor','RegionOne','some decs','regular',0,'0.0300','hour',0,0,'2014-02-11 09:02:38',NULL,NULL)",
-    ]
+        sa.Column('id', sa.Integer, primary_key=True),
+        sa.Column('req_id', sa.String(255), index=True, unique=True),
+        sa.Column('deduct_id', sa.String(255)),
+        sa.Column('type', sa.String(64)),
+        sa.Column('money', sa.DECIMAL(20, 4)),
+        sa.Column('remark', sa.String(255)),
 
-    for PRODUCT in PRODUCT_SQLS:
-        op.execute(PRODUCT_SQL_PRE + PRODUCT)
+        sa.Column('order_id', sa.String(255)),
+        sa.Column('created_at', sa.DateTime),
 
-    now = datetime.datetime.utcnow()
-    ACCOUNT_SQL_PRE = "INSERT INTO account VALUES"
-    ACCOUNT_SQLS = [
-        "(1, '%s', '%s', 10, 0, 'CNY', '%s', '%s')" % (admin_user_id, admin_project_id, now, now),
-    ]
+        mysql_engine='InnoDB',
+        mysql_charset='utf8',
+    )
 
-    if manila_user_id is not None and manila_project_id is not None:
-        ACCOUNT_SQLS.append("(2, '%s', '%s', 10, 0, 'CNY', '%s', '%s')"
-                            % (manila_user_id, manila_project_id, now, now))
-    for ACCOUNT in ACCOUNT_SQLS:
-        op.execute(ACCOUNT_SQL_PRE + ACCOUNT)
 
 
 def downgrade():
@@ -247,5 +270,8 @@ def downgrade():
     op.drop_table('subscription')
     op.drop_table('bill')
     op.drop_table('account')
+    op.drop_table('project')
+    op.drop_table('user_project')
     op.drop_table('charge')
-    op.drop_table('region')
+    op.drop_table('precharge')
+    op.drop_table('deduct')

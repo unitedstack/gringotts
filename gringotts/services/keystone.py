@@ -177,6 +177,9 @@ def get_endpoint(region_name, service_type, endpoint_type=None, project_id=None)
     """
     catalog = _get_catalog()
 
+    if catalog:
+        raise exception.EmptyCatalog()
+
     if not catalog:
         raise exception.EmptyCatalog()
 
@@ -295,26 +298,6 @@ def get_uos_user(user_id):
         LOG.warn("can't not find user %s from keystone" % user_id)
         raise exception.NotFound()
     return r.json()['user']
-
-
-def get_users_by_user_ids(user_ids=[]):
-
-    url = cfg.CONF.service_credentials.os_auth_url
-    internal_api = lambda api: url + '/US-INTERNAL' + '/' + api
-
-    result = {}
-    _user_ids = [user_ids[i:i+50] for i in range(0, len(user_ids), 50)]
-
-    for __user_ids in _user_ids:
-        query = {'query': {'user_ids': __user_ids}}
-        r = requests.post(internal_api('get_users'),
-                          data=json.dumps(query),
-                          headers={'Content-Type': 'application/json'})
-        if r.status_code != 404:
-            for user in r.json()['users']:
-                if user:
-                    result[user['id']] = user
-    return result
 
 
 @wrap_exception(exc_type='get', with_raise=False)

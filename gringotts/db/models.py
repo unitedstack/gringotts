@@ -45,18 +45,11 @@ class Product(Model):
     :param type: The bill type of the product(regular/metered)
     :param deleted: If the product has been deleted
     :param unit_price: The unit price of the product
-    :param unit: The unit of the price, currently there are fllowing options:
-                 hour, month, year, GB-hour, IOPS-hour. Note that the unit
-                 here should be corresponding to the period field. Fox example,
-                 if period is hourly, and the unit here should be hour or
-                 GB-hour, not month or GB-month.
-    :param extra: Contains extra information.
     """
     def __init__(self,
                  product_id, name, service, region_id, description,
-                 type, deleted, unit_price, unit, quantity,
-                 created_at=None, updated_at=None, deleted_at=None,
-                 extra=None):
+                 deleted, unit_price, created_at=None, updated_at=None,
+                 deleted_at=None):
         Model.__init__(
             self,
             product_id=product_id,
@@ -64,15 +57,11 @@ class Product(Model):
             service=service,
             region_id=region_id,
             description=description,
-            type=type,
             deleted=deleted,
             unit_price=unit_price,
-            unit=unit,
-            quantity=quantity,
             created_at=created_at,
             updated_at=updated_at,
-            deleted_at=deleted_at,
-            extra=extra
+            deleted_at=deleted_at
         )
 
 
@@ -130,33 +119,28 @@ class Subscription(Model):
     :param type: The type of the subscription, corresponding to resource
                  status.
     :param product_id: The product this resource subscribes to
-    :param unit_price: The unit price of the product
-    :param unit: The unit of the product
+    :param unit_price: The copy of the product's unit price
     :param order_id: The order this subscription belongs to
     :param user_id: The user id this subscription belongs to
     :param project_id: The project id this subscription belongs to
-    :param extra: Contains extra information
     """
     def __init__(self,
-                 subscription_id, type, product_id, unit_price, unit,
-                 quantity, order_id, user_id, project_id, region_id, domain_id,
-                 created_at=None, updated_at=None, extra=None):
+                 subscription_id, type, product_id, unit_price,
+                 order_id, user_id, project_id, region_id, domain_id,
+                 created_at=None, updated_at=None):
         Model.__init__(
             self,
             subscription_id=subscription_id,
             type=type,
             product_id=product_id,
             unit_price=unit_price,
-            unit=unit,
-            quantity=quantity,
             order_id=order_id,
             user_id=user_id,
             project_id=project_id,
-            domain_id=domain_id,
             region_id=region_id,
+            domain_id=domain_id,
             created_at=created_at,
             updated_at=updated_at,
-            extra=extra,
         )
 
 
@@ -206,30 +190,24 @@ class Bill(Model):
 class Account(Model):
     """The DB model of user
     :param user_id: The uuid of the user
-    :param balance: The balance of the account
-    :param consumption: The consumption of the account
-    :param currency: The currency of the account
+    :param balance: The balance of the user
+    :param consumption: The consumption of the 
+    :param currency: The currency of the user
     """
 
     def __init__(self,
-                 user_id, domain_id, balance, consumption,
-                 level, owed=None, created_at=None, updated_at=None,
-                 project_id=None, frozen_balance=None,
-                 inviter=None, charged=None, sales_id=None, reward_value=None):
+                 user_id, domain_id, balance, frozen_balance, consumption,
+                 level, deleted, owed, created_at=None, updated_at=None):
         Model.__init__(
             self,
             user_id=user_id,
-            project_id=project_id,
             domain_id=domain_id,
             balance=balance,
             frozen_balance=frozen_balance,
             consumption=consumption,
             level=level,
+            deleted=deleted,
             owed=owed,
-            inviter=inviter,
-            charged=charged,
-            reward_value=reward_value,
-            sales_id=sales_id,
             created_at=created_at,
             updated_at=updated_at)
 
@@ -242,7 +220,7 @@ class Charge(Model):
     :param charge_time: The charge time
     """
 
-    def __init__(self, charge_id, user_id, project_id, domain_id,
+    def __init__(self, charge_id, user_id, domain_id,
                  value, charge_time,
                  type=None, come_from=None, trading_number=None,
                  operator=None, remarks=None,
@@ -251,7 +229,6 @@ class Charge(Model):
             self,
             charge_id=charge_id,
             user_id=user_id,
-            project_id=project_id,
             domain_id=domain_id,
             value=value,
             type=type,
@@ -260,21 +237,6 @@ class Charge(Model):
             operator=operator,
             remarks=remarks,
             charge_time=charge_time,
-            created_at=created_at,
-            updated_at=updated_at)
-
-
-class Region(Model):
-    """The region model
-    """
-
-    def __init__(self, region_id, name, description,
-                 created_at=None, updated_at=None):
-        Model.__init__(
-            self,
-            region_id=region_id,
-            name=name,
-            description=description,
             created_at=created_at,
             updated_at=updated_at)
 

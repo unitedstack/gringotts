@@ -199,15 +199,11 @@ class Connection(base.Connection):
                                  service=row.service,
                                  region_id=row.region_id,
                                  description=row.description,
-                                 type=row.type,
                                  deleted=row.deleted,
                                  unit_price=row.unit_price,
-                                 unit=row.unit,
-                                 quantity=row.quantity,
                                  created_at=row.created_at,
                                  updated_at=row.updated_at,
-                                 deleted_at=row.deleted_at,
-                                 extra=row.extra)
+                                 deleted_at=row.deleted_at)
 
     @staticmethod
     def _row_to_db_order_model(row):
@@ -239,16 +235,13 @@ class Connection(base.Connection):
                                       type=row.type,
                                       product_id=row.product_id,
                                       unit_price=row.unit_price,
-                                      unit=row.unit,
-                                      quantity=row.quantity,
                                       order_id=row.order_id,
                                       user_id=row.user_id,
                                       project_id=row.project_id,
                                       region_id=row.region_id,
                                       domain_id=row.domain_id,
                                       created_at=row.created_at,
-                                      updated_at=row.updated_at,
-                                      extra=row.extra)
+                                      updated_at=row.updated_at)
 
     @staticmethod
     def _row_to_db_bill_model(row):
@@ -273,17 +266,12 @@ class Connection(base.Connection):
     @staticmethod
     def _row_to_db_account_model(row):
         return db_models.Account(user_id=row.user_id,
-                                 project_id=row.project_id,
                                  domain_id=row.domain_id,
                                  balance=row.balance,
                                  frozen_balance=row.frozen_balance,
                                  consumption=row.consumption,
                                  level=row.level,
                                  owed=row.owed,
-                                 inviter=row.inviter,
-                                 charged=row.charged,
-                                 reward_value=row.reward_value,
-                                 sales_id=row.sales_id,
                                  created_at=row.created_at,
                                  updated_at=row.updated_at)
 
@@ -300,7 +288,6 @@ class Connection(base.Connection):
     def _row_to_db_charge_model(row):
         return db_models.Charge(charge_id=row.charge_id,
                                 user_id=row.user_id,
-                                project_id=row.project_id,
                                 domain_id=row.domain_id,
                                 value=row.value,
                                 type=row.type,
@@ -323,14 +310,6 @@ class Connection(base.Connection):
                                 created_at=row.created_at)
 
     @staticmethod
-    def _row_to_db_region_model(row):
-        return db_models.Region(region_id=row.region_id,
-                                name=row.name,
-                                description=row.description,
-                                created_at=row.created_at,
-                                updated_at=row.updated_at)
-
-    @staticmethod
     def _row_to_db_precharge_model(row):
         return db_models.PreCharge(code=row.code,
                                    price=row.price,
@@ -339,7 +318,6 @@ class Connection(base.Connection):
                                    deleted=row.deleted,
                                    operator_id=row.operator_id,
                                    user_id=row.user_id,
-                                   project_id=row.project_id,
                                    domain_id=row.domain_id,
                                    created_at=row.created_at,
                                    deleted_at=row.deleted_at,
@@ -1194,7 +1172,7 @@ class Connection(base.Connection):
 
         return (self._row_to_db_account_model(r) for r in result), total_count
 
-    def get_accounts(self, context, user_id=None,
+    def get_accounts(self, context, user_id=None, read_deleted=False,
                      owed=None, limit=None, offset=None,
                      sort_key=None, sort_dir=None, active_from=None):
         query = get_session().query(sa_models.Account)
@@ -1204,6 +1182,8 @@ class Connection(base.Connection):
             query = query.filter_by(user_id=user_id)
         if active_from:
             query = query.filter(sa_models.Account.updated_at > active_from)
+        if not read_deleted:
+            query = query.filter_by(deleted=False)
 
         result = paginate_query(context, sa_models.Account,
                                 limit=limit, offset=offset,
@@ -1212,7 +1192,7 @@ class Connection(base.Connection):
 
         return (self._row_to_db_account_model(r) for r in result)
 
-    def get_accounts_count(self, context,
+    def get_accounts_count(self, context, read_deleted=False,
                            user_id=None, owed=None, active_from=None):
         query = get_session().query(sa_models.Account,
                                     func.count(sa_models.Account.id).label('count'))
@@ -1222,20 +1202,17 @@ class Connection(base.Connection):
             query = query.filter_by(user_id=user_id)
         if active_from:
             query = query.filter(sa_models.Account.updated_at > active_from)
+        if not read_deleted:
+            query = query.filter_by(deleted=False)
 
         return query.one().count or 0
 
     def change_account_level(self, context, user_id, level, project_id=None):
         session = db_session.get_session()
         with session.begin():
-            if project_id:
-                account = session.query(sa_models.Account).\
-                    filter_by(project_id=project_id).\
-                    with_lockmode('update').one()
-            else:
-                account = session.query(sa_models.Account).\
-                    filter_by(user_id=user_id).\
-                    with_lockmode('update').one()
+            account = session.query(sa_models.Account).\
+                filter_by(user_id=user_id).\
+                with_lockmode('update').one()
             account.level = level
 
         return self._row_to_db_account_model(account)
@@ -1246,16 +1223,9 @@ class Connection(base.Connection):
         """
         session = db_session.get_session()
         with session.begin():
-            # add up account balance
-            if project_id:
-                account = session.query(sa_models.Account).\
-                    filter_by(project_id=project_id).\
-                    with_lockmode('update').one()
-            else:
-                account = session.query(sa_models.Account).\
-                    filter_by(user_id=user_id).\
-                    with_lockmode('update').one()
-
+            account = session.query(sa_models.Account).\
+                filter_by(user_id=user_id).\
+                with_lockmode('update').one()
             account.balance += data['value']
 
             if account.balance >= 0:

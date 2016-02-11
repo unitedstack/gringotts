@@ -82,18 +82,12 @@ class Product(Base):
     region_id = Column(String(255))
     description = Column(String(255))
 
-    type = Column(String(64))
+    unit_price = Column(Text)
     deleted = Column(Boolean)
-
-    unit_price = Column(DECIMAL(20, 4))
-    unit = Column(String(64))
-    quantity = Column(Integer)
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
     deleted_at = Column(DateTime)
-
-    extra = Column(Text)
 
 
 class Order(Base):
@@ -152,12 +146,9 @@ class Subscription(Base):
     type = Column(String(64))
 
     product_id = Column(String(255))
-    unit_price = Column(DECIMAL(20, 4))
-    unit = Column(String(64))
-    quantity = Column(Integer)
+    unit_price = Column(Text)
 
     order_id = Column(String(255))
-
     user_id = Column(String(255))
     project_id = Column(String(255))
     region_id = Column(String(255))
@@ -165,8 +156,6 @@ class Subscription(Base):
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)
-
-    extra = Column(Text)
 
 
 class Bill(Base):
@@ -206,86 +195,23 @@ class Bill(Base):
     updated_at = Column(DateTime)
 
 
-class Charge(Base):
-
-    __tablename__ = 'charge'
-
-    id = Column(Integer, primary_key=True)
-    charge_id = Column(String(255))
-    user_id = Column(String(255))
-    project_id = Column(String(255))
-    domain_id = Column(String(255))
-    value = Column(DECIMAL(20, 4))
-    type = Column(String(64))
-    come_from = Column(String(255))
-    trading_number = Column(String(255))
-    charge_time = Column(DateTime)
-    operator = Column(String(64))
-    remarks = Column(String(255))
-
-    created_at = Column(DateTime, default=timeutils.utcnow)
-    updated_at = Column(DateTime)
-
-
-class Region(Base):
-
-    __tablename__ = 'region'
-
-    id = Column(Integer, primary_key=True)
-    region_id = Column(String(255))
-    name = Column(String(255))
-    description = Column(String(255))
-
-    created_at = Column(DateTime, default=timeutils.utcnow)
-    updated_at = Column(DateTime)
-
-
-class PreCharge(Base):
-
-    __tablename__ = 'precharge'
-
-    id = Column(Integer, primary_key=True)
-
-    code = Column(String(64))
-    price = Column(DECIMAL(20, 4))
-
-    created_at = Column(DateTime, default=timeutils.utcnow)
-    expired_at = Column(DateTime)
-    deleted_at = Column(DateTime)
-
-    used = Column(Boolean, default=False)
-    dispatched = Column(Boolean, default=False)
-    deleted = Column(Boolean, default=False)
-
-    operator_id = Column(String(255))
-
-    user_id = Column(String(255))
-    project_id = Column(String(255))
-    domain_id = Column(String(255))
-
-    remarks = Column(String(255))
-
-
 class Account(Base):
 
     __tablename__ = 'account'
 
     id = Column(Integer, primary_key=True)
     user_id = Column(String(255))
-    project_id = Column(String(255))
     domain_id = Column(String(255))
     balance = Column(DECIMAL(20, 4))
     frozen_balance = Column(DECIMAL(20, 4), default=0)
     consumption = Column(DECIMAL(20, 4))
     level = Column(Integer)
     owed = Column(Boolean, default=False)
-    inviter = Column(String(64))
-    charged = Column(Boolean, default=False)
-    reward_value = Column(DECIMAL(20, 4))
-    sales_id = Column(String(255))
+    deleted = Column(Boolean)
 
     created_at = Column(DateTime, default=timeutils.utcnow)
-    updated_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime)
+    deleted_at = Column(DateTime)
 
 
 class Project(Base):
@@ -314,6 +240,50 @@ class UserProject(Base):
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime, default=timeutils.utcnow)
+
+
+class Charge(Base):
+
+    __tablename__ = 'charge'
+
+    id = Column(Integer, primary_key=True)
+    charge_id = Column(String(255))
+    user_id = Column(String(255))
+    domain_id = Column(String(255))
+    value = Column(DECIMAL(20, 4))
+    type = Column(String(64))
+    come_from = Column(String(255))
+    charge_time = Column(DateTime)
+    trading_number = Column(String(255))
+    operator = Column(String(64))
+    remarks = Column(String(255))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    updated_at = Column(DateTime)
+
+
+class PreCharge(Base):
+
+    __tablename__ = 'precharge'
+
+    id = Column(Integer, primary_key=True)
+
+    code = Column(String(64))
+    price = Column(DECIMAL(20, 4))
+
+    created_at = Column(DateTime, default=timeutils.utcnow)
+    expired_at = Column(DateTime)
+    deleted_at = Column(DateTime)
+
+    used = Column(Boolean, default=False)
+    dispatched = Column(Boolean, default=False)
+    deleted = Column(Boolean, default=False)
+
+    operator_id = Column(String(255))
+    user_id = Column(String(255))
+    domain_id = Column(String(255))
+
+    remarks = Column(String(255))
 
 
 class Deduct(Base):
