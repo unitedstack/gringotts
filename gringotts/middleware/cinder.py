@@ -62,7 +62,7 @@ class CinderBillingProtocol(base.BillingProtocol):
     def extend_volume_action(self, method, path_info, body):
         if method == "POST" and \
                 self.volume_action_regex.search(path_info) and \
-                 body.has_key('os-extend'):
+                body.has_key('os-extend'):
             return True
         return False
 
@@ -87,6 +87,18 @@ class CinderBillingProtocol(base.BillingProtocol):
         except Exception:
             return []
         return resources
+
+    def resize_resource_order(self, env, body, start_response,
+                              order_id, resource_id,
+                              resource_type):
+        quantity = body['os-extend'].get('new_size')
+
+        try:
+            self.gclient.resize_resource_order(order_id,
+                                               quantity=quantity,
+                                               resource_type=resource_type)
+        except Exception as e:
+            pass
 
 
 def filter_factory(global_conf, **local_conf):

@@ -235,6 +235,7 @@ class Connection(base.Connection):
                                       type=row.type,
                                       product_id=row.product_id,
                                       unit_price=row.unit_price,
+                                      quantity=row.quantity,
                                       order_id=row.order_id,
                                       user_id=row.user_id,
                                       project_id=row.project_id,
@@ -272,8 +273,10 @@ class Connection(base.Connection):
                                  consumption=row.consumption,
                                  level=row.level,
                                  owed=row.owed,
+                                 deleted=row.deleted,
                                  created_at=row.created_at,
-                                 updated_at=row.updated_at)
+                                 updated_at=row.updated_at,
+                                 deleted_at=row.deleted_at)
 
     @staticmethod
     def _row_to_db_project_model(row):
@@ -416,7 +419,6 @@ class Connection(base.Connection):
                 # update subscription's unit price
                 for s in p_subs:
                     s.unit_price = product.unit_price
-                    s.extra = product.extra
 
                 # update order's unit price
                 t_subs = session.query(sa_models.Subscription).\
@@ -426,15 +428,15 @@ class Connection(base.Connection):
                 unit_price = 0
                 for s in t_subs:
                     price_data = None
-                    if s.extra:
+                    if s.unit_price:
                         try:
-                            extra_data = jsonutils.loads(s.extra)
-                            price_data = extra_data.get('price', None)
+                            unit_price_data = jsonutils.loads(s.unit_price)
+                            price_data = unit_price_data.get('price', None)
                         except (Exception):
                             pass
 
                     unit_price += pricing.calculate_price(
-                        s.quantity, s.unit_price, price_data)
+                        s.quantity, price_data)
 
                 if order.unit_price != 0:
                     order.unit_price = unit_price
@@ -471,7 +473,8 @@ class Connection(base.Connection):
                     filter_by(project_id=order['project_id']).\
                     with_lockmode('update').one()
             except NoResultFound:
-                LOG.error('Could not find the project: %s', order['project_id'])
+                LOG.error('Could not find the project: %s',
+                          order['project_id'])
                 raise exception.ProjectNotFound(project_id=order['project_id'])
 
             if not order['unit'] or order['unit'] == 'hour':
@@ -499,10 +502,10 @@ class Connection(base.Connection):
                 total_price = order['unit_price'] * order['period']
                 if order['period'] > 1:
                     remarks = "Renew for %s %ss" % \
-                            (order['period'], order['unit'])
+                        (order['period'], order['unit'])
                 else:
                     remarks = "Renew for %s %s" % \
-                            (order['period'], order['unit'])
+                        (order['period'], order['unit'])
 
                 # add a bill
                 bill = sa_models.Bill(
@@ -554,8 +557,8 @@ class Connection(base.Connection):
                         filter_by(user_id=project.user_id).\
                         with_lockmode('update').one()
                 except NoResultFound:
-                    LOG.error('Could not find the relationship between user(%s) '
-                              'and project(%s)',
+                    LOG.error('Could not find the relationship between '
+                              'user(%s) and project(%s)',
                               project.user_id, order['project_id'])
                     raise exception.UserProjectNotFound(
                         user_id=project.user_id,
@@ -573,7 +576,8 @@ class Connection(base.Connection):
                         filter_by(user_id=project.user_id).\
                         with_lockmode('update').one()
                 except NoResultFound:
-                    LOG.error('Could not find the account: %s', project.user_id)
+                    LOG.error('Could not find the account: %s',
+                              project.user_id)
                     raise exception.AccountNotFound(user_id=project.user_id)
 
                 account.frozen_balance -= total_price
@@ -600,15 +604,15 @@ class Connection(base.Connection):
 
             for sub in subs:
                 price_data = None
-                if sub.extra:
+                if sub.unit_price:
                     try:
-                        extra_data = jsonutils.loads(sub.extra)
-                        price_data = extra_data.get('price', None)
+                        unit_price_data = jsonutils.loads(sub.unit_price)
+                        price_data = unit_price_data.get('price', None)
                     except (Exception):
                         pass
 
                 unit_price += pricing.calculate_price(
-                    sub.quantity, sub.unit_price, price_data)
+                    sub.quantity, price_data)
 
             # update the order
             a_order = dict(unit_price=unit_price,
@@ -765,7 +769,8 @@ class Connection(base.Connection):
     def get_active_orders(self, context, type=None, limit=None, offset=None,
                           sort_key=None, sort_dir=None, region_id=None,
                           user_id=None, project_id=None, owed=None,
-                          charged=None, within_one_hour=None, bill_methods=None):
+                          charged=None, within_one_hour=None,
+                          bill_methods=None):
         """Get all active orders
         """
         query = get_session().query(sa_models.Order)
@@ -833,14 +838,11 @@ class Connection(base.Connection):
                 type=subscription['type'],
                 product_id=product.product_id,
                 unit_price=product.unit_price,
-                unit=product.unit,
-                quantity=quantity,
                 order_id=subscription['order_id'],
                 user_id=subscription['user_id'],
                 project_id=subscription['project_id'],
                 region_id=subscription['region_id'],
                 domain_id=project.domain_id,
-                extra=product.extra
             )
 
             session.add(subscription)
@@ -1244,7 +1246,6 @@ class Connection(base.Connection):
 
             charge = sa_models.Charge(charge_id=uuidutils.generate_uuid(),
                                       user_id=account.user_id,
-                                      project_id=account.project_id,
                                       domain_id=account.domain_id,
                                       value=data['value'],
                                       type=data.get('type'),
@@ -2453,9 +2454,9 @@ class Connection(base.Connection):
                     with_lockmode('read').all()
                 for sub in subs:
                     price_data = pricing.get_price_data(
-                        sub.extra, order.renew_method)
+                        sub.unit_price, order.renew_method)
                     new_unit_price += pricing.calculate_price(
-                        sub.quantity, sub.unit_price, price_data)
+                        sub.quantity, price_data)
                 order.unit = renew.method
                 order.unit_price = new_unit_price
 
@@ -2543,9 +2544,9 @@ class Connection(base.Connection):
                 unit_price = 0
                 for sub in subs:
                     price_data = pricing.get_price_data(
-                        sub.extra, renew.method)
+                        sub.unit_price, renew.method)
                     unit_price += pricing.calculate_price(
-                        sub.quantity, sub.unit_price, price_data)
+                        sub.quantity, price_data)
             else:
                 unit_price = order.unit_price
 

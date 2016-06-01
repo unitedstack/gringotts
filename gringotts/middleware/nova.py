@@ -4,6 +4,7 @@ from stevedore import extension
 from oslo_config import cfg
 
 from gringotts import constants as const
+from gringotts import exception
 from gringotts.middleware import base
 from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import memorycache
@@ -17,6 +18,7 @@ RESOURCE_RE = r"(os-volumes|os-snapshots|os-floating-ips|os-floating-ips-bulk|im
 
 
 MC = None
+
 
 def _get_cache():
     global MC
@@ -105,7 +107,7 @@ class NovaBillingProtocol(base.BillingProtocol):
         self.create_resource_regex = re.compile(
             r"^/%s/%s([.][^.]+)?$" % (UUID_RE, RESOURCE_RE), re.UNICODE)
 
-        self.server_action_regex =  re.compile(
+        self.server_action_regex = re.compile(
             r"^/%s/(servers)/%s/action([.][^.]+)?$" % (UUID_RE, UUID_RE))
         self.attach_volume_to_server_regex = re.compile(
             r"^/%s/(servers)/%s/os-volume_attachments([.][^.]+)?$" % \
@@ -207,6 +209,38 @@ class NovaBillingProtocol(base.BillingProtocol):
             except Exception:
                 return []
         return resources
+
+    def resize_resource_order(self, env, body, start_response, order_id,
+                              resource_id, resource_type):
+        new_flavor = body['resize'].get('flavorRef', None)
+        if not new_flavor:
+            msg = "Must specify the new flavor"
+            LOG.exception(msg)
+            return False, self._reject_request_500(env, start_response)
+
+        old_flavor = nova.server_get(order.resource_id).flavor.flavor_id
+
+        if new_flavor == old_flavor:
+            return True, None
+
+        new_flavor = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
+                                new_flavor)
+        old_flavor = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
+                                old_flavor)
+        service = const.SERVICE_COMPUTE
+        region_id = cfg.CONF.region_name
+
+        try:
+            self.gclient.resize_resource_order(order_id,
+                                               resource_type=resource_type,
+                                               new_flavor=new_flavor,
+                                               old_flavor=old_flavor,
+                                               service=service,
+                                               region_id=region_id)
+        except Exception as e:
+            msg = "Unable to resize the order: %s" % order_id
+            LOG.exception(msg)
+            return False, self._reject_request_500(env, start_response)
 
 
 def filter_factory(global_conf, **local_conf):

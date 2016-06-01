@@ -104,10 +104,10 @@ class ProductController(rest.RestController):
         product_in.updated_at = datetime.datetime.utcnow()
 
         # Check and process extra data
-        if product_in.extra is not None:
-            extra_data = ProductExtraData(product_in.extra)
-            new_extra_data = extra_data.validate()
-            product_in.extra = new_extra_data
+        if product_in.unit_price is not None:
+            price_data = ProductExtraData(product_in.unit_price)
+            new_price_data = price_data.validate()
+            product_in.unit_price = new_price_data
 
         # Check if there are other same names in the same region
         # except itself
@@ -193,13 +193,14 @@ class PriceController(rest.RestController):
                       "product_id and quantity."
                 raise exception.MissingRequiredParams(reason=err)
             try:
-                if product.extra:
-                    price_data = pricing.get_price_data(product.extra, unit)
+                if product.unit_price:
+                    price_data = pricing.get_price_data(product.unit_price,
+                                                        unit)
                 else:
                     price_data = None
 
                 unit_price += pricing.calculate_price(
-                    p.quantity, product.unit_price, price_data)
+                    p.quantity, price_data)
             except (Exception) as e:
                 LOG.error('Calculate price of product %s failed, %s',
                           p.product_name, e)
@@ -279,10 +280,10 @@ class ProductsController(rest.RestController):
             raise exception.MissingRequiredParams(reason=error)
 
         # Check and process extra data
-        if product_in.extra is not None:
-            extra_data = ProductExtraData(product_in.extra)
-            new_extra_data = extra_data.validate()
-            product_in.extra = new_extra_data
+        if product_in.unit_price is not None:
+            price_data = ProductExtraData(product_in.unit_price)
+            new_price_data = price_data.validate()
+            product_in.unit_price = new_price_data
 
         # Check if there are duplicated name in the same region
         filters = {'name': data.name,
@@ -344,7 +345,5 @@ class ProductsController(rest.RestController):
                                                region_id=p.region_id,
                                                product_id=p.product_id,
                                                unit_price=p.unit_price,
-                                               currency='CNY',
-                                               unit=p.unit,
-                                               extra=p.extra)
+                                               currency='CNY')
                 for p in result]

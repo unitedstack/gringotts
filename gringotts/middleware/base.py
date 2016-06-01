@@ -119,13 +119,14 @@ class ProductItem(object):
                                            collection.service,
                                            collection.region_id)
         if product:
-            if 'extra' in product:
-                price_data = pricing.get_price_data(product['extra'], method)
+            if 'unit_price' in product:
+                price_data = pricing.get_price_data(product['unit_price'],
+                                                    method)
             else:
                 price_data = None
 
             return pricing.calculate_price(
-                collection.resource_volume, product['unit_price'], price_data)
+                collection.resource_volume, price_data)
         else:
             return 0
 
@@ -194,11 +195,12 @@ class BillingProtocol(object):
 
         There are two special cases:
         * If not specify any billing params, the default bill_method is hour.
-        * If specify bill_method is month or year, then must specify bill_period
+        * If specify bill_method is month or year, then must specify
+          bill_period
         """
         result = dict(bill_method=None, bill_period=None, bill_renew=None)
 
-        if not bill_params.get('bill_method'): # None or not specified
+        if not bill_params.get('bill_method'):  # None or not specified
             result['bill_method'] = 'hour'
             return True, result
 
@@ -211,7 +213,7 @@ class BillingProtocol(object):
         if bill_method in ['month', 'year']:
             bill_period = bill_params.get('bill_period')
             try:
-                bill_period = int(bill_period) # can convert to int
+                bill_period = int(bill_period)  # can convert to int
                 if bill_period <= 0:
                     raise ValueError
             except ValueError:
@@ -283,7 +285,23 @@ class BillingProtocol(object):
                 if not success:
                     return result
 
-                return self.app(env, start_response)
+                unit = 'hour'
+                unit_price = self.get_order_unit_price(env, body, unit)
+                # Additional properties are not allowed by Nova API
+                if 'billing' in body:
+                    body.pop('billing')
+                    req.json = body
+                app_result = self.app(env, start_response)
+                resources = self.parse_app_result(body, app_result,
+                                                  user_id, project_id)
+
+                for resource in resources:
+                    self.create_order(env, start_response, body,
+                                      unit_price, unit,
+                                      None, None,
+                                      resource)
+
+                return app_result
             else:
                 renew = bill_params['bill_renew']
                 unit = bill_params['bill_method']
@@ -337,14 +355,18 @@ class BillingProtocol(object):
             success, result = self.get_order_by_resource_id(
                 env, start_response, resource_id)
             if not success:
-                return self.app(env ,start_response)
+                return self.app(env, start_response)
 
             order = result
 
             if self.delete_resource_action(request_method, path_info, body):
                 # user can delete resource billed by hour directly
                 if not order.get('unit') or order.get('unit') == 'hour':
-                    return self.app(env ,start_response)
+                    self.delete_resource_order(env,
+                                               start_response,
+                                               order['order_id'],
+                                               order['type'])
+                    return self.app(env, start_response)
 
                 # normal user can't delete resoruces billed by month/year
                 admin_roles = ['admin', 'uos_admin']
@@ -367,7 +389,14 @@ class BillingProtocol(object):
                                                          project_id, min_balance)
                     if not success:
                         return result
-                    return self.app(env ,start_response)
+
+                    success, result = self.resize_resource_order(env,
+                                                                 body,
+                                                                 start_response,
+                                                                 order.get('order_id'),
+                                                                 order.get('resource_id'),
+                                                                 order.get('type'))
+                    return self.app(env, start_response)
 
                 # can't change resoruce billed by month/year for now
                 return self._reject_request_403(env, start_response)
@@ -380,7 +409,7 @@ class BillingProtocol(object):
                                                          project_id, min_balance)
                     if not success:
                         return result
-                    return self.app(env ,start_response)
+                    return self.app(env, start_response)
 
                 # owed monthly billing resource can't be operated
                 if order['owed']:
@@ -389,7 +418,7 @@ class BillingProtocol(object):
                 # not owed monthly billing resource can be operated directly
                 env['HTTP_X_ROLES'] = env['HTTP_X_ROLES'] + ',month_billing'
                 env['HTTP_X_ROLE'] = env['HTTP_X_ROLE'] + ',month_billing'
-                return self.app(env ,start_response)
+                return self.app(env, start_response)
 
     def check_if_in_blacklist(self, method, path_info, body):
         for black_method in self.black_list:
@@ -520,6 +549,14 @@ class BillingProtocol(object):
 
     def get_resource_count(self, body):
         return True, 1
+
+    def delete_resource_order(self, env, start_response, order_id, resource_type):
+        try:
+            self.gclient.delete_resource_order(order_id, resource_type)
+        except Exception as e:
+            msg = "Unable to delete the order: %s" % order_id
+            LOG.exception(msg)
+            return False, self._reject_request_500(env, start_response)
 
     def parse_app_result(self, body, result, user_id, project_id):
         """Parse response that processed by application/middleware

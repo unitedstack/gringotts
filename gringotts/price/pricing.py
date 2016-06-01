@@ -35,14 +35,13 @@ def calculate_segmented_price(quantity, price_list):
     return total_price
 
 
-def calculate_price(quantity, unit_price, price_data=None):
+def calculate_price(quantity, price_data=None):
     """Calculate price of quantity of items.
 
     Calculate price of quantity of items by following order:
         segmented pricing -> unit pricing
 
     :param quantity: quantity of items
-    :unit_price: unit price of item
     :price_data: extra price data of item
     """
     if price_data and not isinstance(price_data, dict):
@@ -56,9 +55,11 @@ def calculate_price(quantity, unit_price, price_data=None):
             segmented_price = calculate_segmented_price(
                 quantity, price_data['segmented'])
 
-            return segmented_price + base_price
+            if len(price_data['segmented']) == 1:
+                return calculate_unit_price(quantity,
+                                            segmented_price+base_price)
 
-    return calculate_unit_price(quantity, unit_price)
+            return segmented_price + base_price
 
 
 def validate_segmented_price(price_data):
