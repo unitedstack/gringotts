@@ -177,9 +177,6 @@ def get_endpoint(region_name, service_type, endpoint_type=None, project_id=None)
     """
     catalog = _get_catalog()
 
-    if catalog:
-        raise exception.EmptyCatalog()
-
     if not catalog:
         raise exception.EmptyCatalog()
 
@@ -348,7 +345,7 @@ def get_projects_by_user(user_id):
     return r.json()['projects']
 
 
-def get_account_type( type='user', key='id', op='eq', value=None):
+def get_account_type(type='user', key='id', op='eq', value=None):
     auth_url = get_auth_url()
     url = '%s/UOS-EXT/search/?type=%s&key=%s&op=%s&value=%s' % \
           (auth_url, type, key, op, value)

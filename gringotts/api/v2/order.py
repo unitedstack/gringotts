@@ -30,6 +30,8 @@ class OrderController(rest.RestController):
         'activate_auto_renew': ['PUT'],
         'switch_auto_renew': ['PUT'],
         'renew': ['PUT'],
+        'resize_resource': ['POST'],
+        'delete_resource': ['POST'],
     }
 
     def __init__(self, order_id):
@@ -80,6 +82,56 @@ class OrderController(rest.RestController):
         conn = pecan.request.db_conn
         order = conn.get_order(request.context, self._id)
         return models.Order.from_db_model(order)
+
+    def _validate_resize(self, resize):
+        err = None
+        if 'resource_type' not in resize:
+            err = 'Must specify resource_type'
+
+        resource_type = resize['resource_type']
+        if resource_type == 'instance':
+            params = ['new_flavor', 'old_flavor',
+                      'service', 'region_id']
+            for param in params:
+                if param not in resize:
+                    err = 'Must specify %s' % param
+        else:
+            if 'quantity' not in resize:
+                err = 'Must specify quantity'
+
+        if err:
+            LOG.warn(err)
+            raise exception.InvalidParameterValue(err=err)
+
+    @wsexpose(None, body=models.ResourceResizeBody)
+    def resize_resource(self, data):
+        """Update the order when resize the resource"""
+
+        action_time = \
+            gringutils.format_datetime(timeutils.strtime(timeutils.utcnow()))
+        remarks = '%s Has Been Resized' % data.resource_type.capitalize()
+
+        self._validate_resize(data.as_dict())
+
+        if data.resource_type == 'instance':
+            self.master_api.instance_resized(request.context, self._id,
+                                             action_time, data.new_flavor,
+                                             data.old_flavor, data.service,
+                                             data.region_id, remarks)
+        else:
+            self.master_api.resource_resized(request.context,
+                                             self._id, action_time,
+                                             data.quantity, remarks)
+
+    @wsexpose(None, body=models.ResourceDeleteBody)
+    def delete_resource(self, data):
+        """Update the order when delete the resource"""
+
+        action_time = \
+            gringutils.format_datetime(timeutils.strtime(timeutils.utcnow()))
+        remarks = '%s Has Been Deleted' % data.resource_type.capitalize()
+        self.master_api.resource_deleted(request.context, self._id,
+                                         action_time, remarks)
 
     @wsexpose(models.Order)
     def close(self):
@@ -481,6 +533,15 @@ class OrdersController(rest.RestController):
                 self.master_api.create_monthly_job(
                     request.context, order.order_id,
                     timeutils.isotime(order.cron_time))
+            else:
+                action_time = \
+                    gringutils.format_datetime(
+                        timeutils.strtime(timeutils.utcnow()))
+                remarks = '%s Has Been Created.' % order.type.capitalize()
+                self.master_api.resource_created(request.context,
+                                                 order.order_id,
+                                                 action_time,
+                                                 remarks)
         except Exception as e:
             LOG.exception('Fail to create order: %s, for reason %s' %
                           (data.as_dict(), e))

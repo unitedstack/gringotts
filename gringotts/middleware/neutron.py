@@ -131,6 +131,8 @@ class NeutronBillingProtocol(base.BillingProtocol):
                     user_id=user_id,
                     project_id=project_id
                 ))
+            elif 'router' in result:
+                pass
         except Exception:
             return []
         return resources

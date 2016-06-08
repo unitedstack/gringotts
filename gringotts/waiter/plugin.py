@@ -84,12 +84,12 @@ class ProductItem(plugin.PluginBase):
             return 0
 
         if 'extra' in sub:
-            price_data = pricing.get_price_data(sub['extra'])
+            price_data = pricing.get_price_data(sub['unit_price'])
         else:
             price_data = None
 
         return pricing.calculate_price(
-            c.resource_volume, sub['unit_price'], price_data)
+            c.resource_volume, price_data)
 
 
 class Order(object):

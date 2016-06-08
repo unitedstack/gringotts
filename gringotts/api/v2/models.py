@@ -98,15 +98,12 @@ class Product(APIBase):
     description = wtypes.text
 
     type = wtypes.text
-    unit_price = decimal.Decimal
-    unit = wtypes.text
+    unit_price = wsme.wsattr(wtypes.text, mandatory=False)
 
     reset = bool
 
     created_at = wtypes.text
     updated_at = wtypes.text
-
-    extra = wsme.wsattr(wtypes.text, mandatory=False)
 
 
 class Products(APIBase):
@@ -121,10 +118,9 @@ class SimpleProduct(APIBase):
     region_id = wtypes.text
     product_id = wtypes.text
 
-    unit_price = decimal.Decimal
+    unit_price = wtypes.text
     currency = wtypes.text
     unit = wtypes.text
-    extra = wtypes.text
 
 
 class PurchaseItem(APIBase):
@@ -179,7 +175,7 @@ class Sales(APIBase):
 
 class Subscription(APIBase):
     """Represent model for a subscription to a product."""
-    unit_price = decimal.Decimal
+    unit_price = wtypes.text
     quantity = int
     unit = wtypes.text
     product_id = wtypes.text
@@ -768,3 +764,18 @@ class BalanceFrozenResult(APIBase):
 
 class BalanceFrozenBody(APIBase):
     total_price = wsme.wsattr(decimal.Decimal, mandatory=True)
+
+
+class ResourceResizeBody(APIBase):
+    resource_type = wtypes.text
+
+    quantity = int
+
+    new_flavor = wtypes.text
+    old_flavor = wtypes.text
+    service = wtypes.text
+    region_id = wtypes.text
+
+
+class ResourceDeleteBody(APIBase):
+    resource_type = wtypes.text

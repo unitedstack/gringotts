@@ -89,6 +89,7 @@ def upgrade():
 
         sa.Column('product_id', sa.String(255), index=True),
         sa.Column('unit_price', sa.Text),
+        sa.Column('quantity', sa.Integer),
 
         sa.Column('order_id', sa.String(255), index=True),
         sa.Column('user_id', sa.String(255)),

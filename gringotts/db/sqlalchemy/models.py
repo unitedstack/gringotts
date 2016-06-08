@@ -147,6 +147,7 @@ class Subscription(Base):
 
     product_id = Column(String(255))
     unit_price = Column(Text)
+    quantity = Column(Integer)
 
     order_id = Column(String(255))
     user_id = Column(String(255))

@@ -4,10 +4,13 @@ from gringotts.client import client
 from gringotts import exception
 from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import uuidutils
+from gringotts import utils as gringutils
 
 
 LOG = logging.getLogger(__name__)
 TIMESTAMP_TIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
+
+quantize_decimal = gringutils._quantize_decimal
 
 
 class Client(object):
@@ -137,7 +140,6 @@ class Client(object):
             return body
         return []
 
-
     def get_active_order_count(self, region_id=None, owed=None, type=None,
                                bill_methods=None):
         params = dict(region_id=region_id,
@@ -213,7 +215,7 @@ class Client(object):
         return body
 
     def get_billing_owner(self, project_id):
-        resp, body = self.client.get('/projects/%s/billing_owner' % \
+        resp, body = self.client.get('/projects/%s/billing_owner' %
                                      project_id)
         return body
 
@@ -223,13 +225,13 @@ class Client(object):
 
     def freeze_balance(self, project_id, total_price):
         _body = dict(total_price=total_price)
-        resp, body = self.client.put('/projects/%s/billing_owner/freeze' % \
+        resp, body = self.client.put('/projects/%s/billing_owner/freeze' %
                                      project_id, body=_body)
         return body
 
     def unfreeze_balance(self, project_id, total_price):
         _body = dict(total_price=total_price)
-        resp, body = self.client.put('/projects/%s/billing_owner/unfreeze' % \
+        resp, body = self.client.put('/projects/%s/billing_owner/unfreeze' %
                                      project_id, body=_body)
         return body
 
@@ -268,7 +270,7 @@ class Client(object):
             failed = True
 
         if failed:
-            LOG.warn("Fail to backup the deduct: user_id: %s, money: %s" % \
+            LOG.warn("Fail to backup the deduct: user_id: %s, money: %s" %
                      (user_id, money))
 
     def deduct_external_account(self, user_id, money, type="1", remark=None,
@@ -318,7 +320,7 @@ class Client(object):
             except Exception:
                 msg = "Check request account(%s) failed, deduct money(%s), \
                        req_id(%s), reason: %s" % \
-                       (user_id, money, req_id, body)
+                    (user_id, money, req_id, body)
                 LOG.exception(msg)
                 raise exception.DeductError(user_id=user_id,
                                             money=money,
@@ -335,7 +337,7 @@ class Client(object):
             except Exception:
                 msg = "Deduct external account(%s) failed, deduct money(%s), \
                        req_id(%s), response: %s" % \
-                       (user_id, money, req_id, body)
+                    (user_id, money, req_id, body)
                 LOG.exception(msg)
                 raise exception.DeductError(user_id=user_id,
                                             money=money,
@@ -348,7 +350,7 @@ class Client(object):
             if str(body['code']) != "0":
                 raise Exception
         except Exception:
-            LOG.exception("Fail to get external balance of account: %s" % \
+            LOG.exception("Fail to get external balance of account: %s" %
                           user_id)
             raise exception.GetExternalBalanceFailed(user_id=user_id)
         return body
@@ -370,6 +372,22 @@ class Client(object):
 
     def get_consumption_per_day(self, user_id):
         resp, body = self.client.get('/accounts/%s/estimate_per_day' % user_id)
+        if body:
+            return body
+        return {}
+
+    def resize_resource_order(self, order_id, **kwargs):
+        resp, body = \
+            self.client.post('/orders/%s/resize_resource' % order_id,
+                             body=kwargs)
+        if body:
+            return body
+        return {}
+
+    def delete_resource_order(self, order_id, resource_type):
+        _body = dict(resource_type=resource_type)
+        resp, body = self.client.post('/orders/%s/delete_resource' % order_id,
+                                      body=_body)
         if body:
             return body
         return {}

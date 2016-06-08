@@ -126,14 +126,15 @@ class Subscription(Model):
     """
     def __init__(self,
                  subscription_id, type, product_id, unit_price,
-                 order_id, user_id, project_id, region_id, domain_id,
-                 created_at=None, updated_at=None):
+                 quantity, order_id, user_id, project_id,
+                 region_id, domain_id, created_at=None, updated_at=None):
         Model.__init__(
             self,
             subscription_id=subscription_id,
             type=type,
             product_id=product_id,
             unit_price=unit_price,
+            quantity=quantity,
             order_id=order_id,
             user_id=user_id,
             project_id=project_id,
@@ -191,13 +192,14 @@ class Account(Model):
     """The DB model of user
     :param user_id: The uuid of the user
     :param balance: The balance of the user
-    :param consumption: The consumption of the 
+    :param consumption: The consumption of the
     :param currency: The currency of the user
     """
 
     def __init__(self,
                  user_id, domain_id, balance, frozen_balance, consumption,
-                 level, deleted, owed, created_at=None, updated_at=None):
+                 level, deleted, owed, created_at=None, updated_at=None,
+                 deleted_at=None):
         Model.__init__(
             self,
             user_id=user_id,
@@ -209,7 +211,8 @@ class Account(Model):
             deleted=deleted,
             owed=owed,
             created_at=created_at,
-            updated_at=updated_at)
+            updated_at=updated_at,
+            deleted_at=deleted_at)
 
 
 class Charge(Model):
