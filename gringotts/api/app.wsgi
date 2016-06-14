@@ -27,4 +27,4 @@ from gringotts.api import app
 # Initialize the oslo configuration library and logging
 service.prepare_service([])
 
-application = app.VersionSelectorApplication()
+application = app.load_app()
