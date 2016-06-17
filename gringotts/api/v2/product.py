@@ -27,27 +27,35 @@ quantize_decimal = gringutils._quantize_decimal
 
 class ProductExtraData(object):
 
-    def __init__(self, extra_json_string):
+    def __init__(self, unit_price):
         try:
-            self.extra = json.loads(extra_json_string)
+            self.unit_price = unit_price
         except (Exception) as e:
             err = 'Extra data is not a valid JSON string, %s' % (e)
             LOG.warning(err)
             raise exception.InvalidParameterValue(err=err)
 
-        self.new_extra = {}
+        self.new_unit_price = {}
 
     def validate(self):
         try:
             for key in ['price', 'monthly_price', 'yearly_price']:
-                if key in self.extra:
-                    self.new_extra[key] = pricing.validate_price_data(
-                        self.extra[key])
+                if key in self.unit_price:
+
+                    # transform order to dict
+                    self.unit_price[key] = self.unit_price[key].as_dict()
+                    new_seg = []
+                    for seg in self.unit_price[key]['segmented']:
+                        new_seg.append(seg.as_dict())
+                    self.unit_price[key]['segmented'] = new_seg
+
+                    self.new_unit_price[key] = pricing.validate_price_data(
+                        self.unit_price[key])
         except (exception.GringottsException) as e:
             LOG.warning(e.format_message())
             raise e
 
-        return json.dumps(self.new_extra)
+        return self.new_unit_price
 
 
 class ProductController(rest.RestController):
@@ -103,11 +111,10 @@ class ProductController(rest.RestController):
 
         product_in.updated_at = datetime.datetime.utcnow()
 
-        # Check and process extra data
+        # Check and process unit_price data
         if product_in.unit_price is not None:
-            price_data = ProductExtraData(product_in.unit_price)
-            new_price_data = price_data.validate()
-            product_in.unit_price = new_price_data
+            price_data = ProductExtraData(product_in.unit_price.as_dict())
+            price_data.validate()
 
         # Check if there are other same names in the same region
         # except itself
@@ -146,7 +153,14 @@ class ProductController(rest.RestController):
                 raise exception.DBError(reason=error)
 
         # DB model to API model
-        return models.Product.from_db_model(product)
+        return models.Product(product_id=product.product_id,
+                              name=product.name,
+                              service=product.service,
+                              region_id=product.region_id,
+                              description=product.description,
+                              unit_price=product_in.unit_price,
+                              created_at=product.created_at,
+                              updated_at=product.updated_at)
 
 
 class PriceController(rest.RestController):
@@ -194,7 +208,8 @@ class PriceController(rest.RestController):
                 raise exception.MissingRequiredParams(reason=err)
             try:
                 if product.unit_price:
-                    price_data = pricing.get_price_data(product.unit_price,
+                    unit_price_data = jsonutils.loads(product.unit_price)
+                    price_data = pricing.get_price_data(unit_price_data,
                                                         unit)
                 else:
                     price_data = None
@@ -242,7 +257,19 @@ class DetailController(rest.RestController):
                                    offset=offset,
                                    sort_key=sort_key,
                                    sort_dir=sort_dir)
-        products = [models.Product.from_db_model(p) for p in result]
+        products = []
+        for p in result:
+            unit_price = \
+                gringutils.transform_unit_price_string(p.unit_price)
+            sp = models.Product.transform(name=p.name,
+                                          service=p.service,
+                                          region_id=p.region_id,
+                                          product_id=p.product_id,
+                                          description=p.description,
+                                          unit_price=unit_price,
+                                          created_at=p.created_at,
+                                          updated_at=p.updated_at)
+            products.append(sp)
         total_count = conn.get_products_count(request.context,
                                               filters=filters)
         return models.Products(total_count=total_count,
@@ -271,19 +298,17 @@ class ProductsController(rest.RestController):
 
         # API model to DB model
         try:
-            product_in = db_models.Product(quantity=0,
-                                           deleted=False,
+            product_in = db_models.Product(deleted=False,
                                            **data.as_dict())
         except Exception:
             error = 'Error while turning product: %s' % data.as_dict()
             LOG.exception(error)
             raise exception.MissingRequiredParams(reason=error)
 
-        # Check and process extra data
+        # Check and process unit_price data
         if product_in.unit_price is not None:
-            price_data = ProductExtraData(product_in.unit_price)
-            new_price_data = price_data.validate()
-            product_in.unit_price = new_price_data
+            price_data = ProductExtraData(product_in.unit_price.as_dict())
+            price_data.validate()
 
         # Check if there are duplicated name in the same region
         filters = {'name': data.name,
@@ -307,10 +332,15 @@ class ProductsController(rest.RestController):
             LOG.exception(error)
             raise exception.DBError(reason=error)
 
-        product.unit_price = quantize_decimal(product.unit_price)
-
         # DB model to API model
-        return models.Product.from_db_model(product)
+        return models.Product(product_id=product.product_id,
+                              name=product.name,
+                              service=product.service,
+                              region_id=product.region_id,
+                              description=product.description,
+                              unit_price=product_in.unit_price,
+                              created_at=product.created_at,
+                              updated_at=product.updated_at)
 
     @wsexpose([models.SimpleProduct], wtypes.text, wtypes.text, wtypes.text,
               int, int, wtypes.text, wtypes.text)
@@ -340,10 +370,15 @@ class ProductsController(rest.RestController):
                                    offset=offset,
                                    sort_key=sort_key,
                                    sort_dir=sort_dir)
-        return [models.SimpleProduct.transform(name=p.name,
-                                               service=p.service,
-                                               region_id=p.region_id,
-                                               product_id=p.product_id,
-                                               unit_price=p.unit_price,
-                                               currency='CNY')
-                for p in result]
+        products = []
+        for p in result:
+            unit_price = \
+                gringutils.transform_unit_price_string(p.unit_price)
+            sp = models.SimpleProduct.transform(name=p.name,
+                                                service=p.service,
+                                                region_id=p.region_id,
+                                                product_id=p.product_id,
+                                                unit_price=unit_price,
+                                                currency='CNY')
+            products.append(sp)
+        return products

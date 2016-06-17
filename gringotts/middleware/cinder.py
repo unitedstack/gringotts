@@ -17,7 +17,7 @@ class SizeItem(base.ProductItem):
         if body['volume'].get('volume_type') == 'sata':
             return const.PRODUCT_SATA_VOLUME_SIZE
         elif body['volume'].get('volume_type') == 'ssd':
-            return const.PRODUCT_VOLUME_SIZE
+            return const.PRODUCT_SSD_VOLUME_SIZE
         else:
             return const.PRODUCT_VOLUME_SIZE
 

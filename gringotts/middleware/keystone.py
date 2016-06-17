@@ -70,9 +70,12 @@ class KeystoneBillingProtocol(object):
             return True
         return False
 
+    def parse_app_result(self, body, result, user_id, project_id):
+        pass
+
     def __call__(self, env, start_response):
         request_method = env['REQUEST_METHOD']
-        path_info = env['RAW_PATH_INFO']
+        path_info = env.get('RAW_PATH_INFO') or env.get('REQUEST_URI')
 
         if not cfg.CONF.billing.enable_billing or \
                 request_method in set(['GET', 'OPTIONS', 'HEAD']):
