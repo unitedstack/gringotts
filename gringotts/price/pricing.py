@@ -1,6 +1,8 @@
 
 import six
 
+from decimal import Decimal
+
 from gringotts import exception
 from gringotts.openstack.common import jsonutils
 from gringotts import utils as gringutils
@@ -28,9 +30,9 @@ def calculate_segmented_price(quantity, price_list):
     q = int(quantity)
     total_price = quantize_decimal(0)
     for p in price_list:
-        if q > p[0]:
-            total_price += (q - p[0]) * quantize_decimal(p[1])
-            q = p[0]
+        if q > p['count']:
+            total_price += (q - p['count']) * quantize_decimal(p['price'])
+            q = p['count']
 
     return total_price
 
@@ -42,7 +44,7 @@ def calculate_price(quantity, price_data=None):
         segmented pricing -> unit pricing
 
     :param quantity: quantity of items
-    :price_data: extra price data of item
+    :price_data: unit_price data of item
     """
     if price_data and not isinstance(price_data, dict):
         raise exception.InvalidParameterValue('price_data should be a dict')
@@ -54,10 +56,6 @@ def calculate_price(quantity, price_data=None):
                 'segmented' in price_data):
             segmented_price = calculate_segmented_price(
                 quantity, price_data['segmented'])
-
-            if len(price_data['segmented']) == 1:
-                return calculate_unit_price(quantity,
-                                            segmented_price+base_price)
 
             return segmented_price + base_price
 
@@ -74,9 +72,9 @@ def validate_segmented_price(price_data):
     #     [(quantity_level)int, (unit_price)str]
     item_is_valid = all(
         ((len(p) == 2) and (
-            isinstance(p[0], int) and (
-                isinstance(p[1], six.text_type) and (
-                    quantize_decimal(p[1]) >= 0
+            isinstance(p['count'], int) and (
+                isinstance(p['price'], Decimal) and (
+                    quantize_decimal(p['price']) >= 0
                 )
             )
         )) for p in price_list
@@ -89,8 +87,8 @@ def validate_segmented_price(price_data):
     duplicated = False
     quantity_items = {}
     for p in price_list:
-        if p[0] not in quantity_items:
-            quantity_items[p[0]] = 1
+        if p['count'] not in quantity_items:
+            quantity_items[p['count']] = 1
         else:
             duplicated = True
             break
@@ -100,10 +98,10 @@ def validate_segmented_price(price_data):
 
     # Sort price list
     sorted_price_list = sorted(
-        price_list, key=lambda p: p[0], reverse=True)
+        price_list, key=lambda p: p['count'], reverse=True)
 
     # Check the price list starts from 0
-    if sorted_price_list[-1][0] != 0:
+    if sorted_price_list[-1]['count'] != 0:
         raise exception.InvalidParameterValue(
             'Number of resource should start from 0')
 
@@ -115,9 +113,9 @@ def validate_base_price(price_data):
         return '0'
 
     base_price = price_data['base_price']
-    if not isinstance(base_price, six.text_type):
+    if not isinstance(base_price, Decimal):
         raise exception.InvalidParameterValue(
-            err='Invalid base price type, should be string')
+            err='Invalid base price type, should be decimal')
     base_price_decimal = quantize_decimal(base_price)
     if base_price_decimal < 0:
         raise exception.InvalidParameterValue(
@@ -140,17 +138,16 @@ def validate_price_data(price_data):
     return new_price_data
 
 
-def get_price_data(extra, method=None):
-    if not extra:
+def get_price_data(unit_price, method=None):
+    if not unit_price:
         return None
 
-    extra_data = jsonutils.loads(extra)
     if not method or method == 'hour':
-        return extra_data.get('price', None)
+        return unit_price.get('price', None)
     elif method == 'month':
-        return extra_data.get('monthly_price', None)
+        return unit_price.get('monthly_price', None)
     elif method == 'year':
-        return extra_data.get('yearly_price', None)
+        return unit_price.get('yearly_price', None)
 
 
 def rate_limit_to_unit(rate_limit):

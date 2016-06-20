@@ -3,6 +3,7 @@
 import bisect
 import datetime
 import hashlib
+import json
 import six
 import struct
 import sys
@@ -14,6 +15,9 @@ from decimal import Decimal, ROUND_HALF_UP
 from oslo_config import cfg
 from gringotts import constants as const
 from random import Random
+
+from gringotts.api.v2 import models
+from gringotts import exception
 
 
 OPTS = [
@@ -244,3 +248,30 @@ def normalize_timedelta(duration):
     if unit == 'd':
         return datetime.timedelta(days=float(value))
     raise ValueError("unsupport time unit")
+
+def transform_unit_price_string(data):
+    price_type = ['price', 'monthly_price', 'yearly_price']
+    json_data = json.loads(data)
+
+    for p in price_type:
+        if p in json_data:
+            if 'segmented' not in json_data[p]:
+                err = 'Should have the segmented'
+                raise exception.InvalidParameterValue(err=err)
+            # transform SegmentedItem
+            segmented = json_data[p]['segmented']
+            new_seg = []
+            for s in segmented:
+                s['price'] = _quantize_decimal(s['price'])
+                new_seg.append(models.SegmentedItem.transform(**s))
+            json_data[p]['segmented'] = new_seg
+
+            # transform PriceData
+            if 'base_price' not in json_data[p]:
+                json_data[p]['base_price'] = \
+                    _quantize_decimal(0)
+            json_data[p]['base_price'] = \
+                _quantize_decimal(json_data[p]['base_price'])
+            json_data[p] = models.PriceData.transform(
+                **json_data[p])
+    return models.UnitPriceData.transform(**json_data)

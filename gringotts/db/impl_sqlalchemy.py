@@ -2453,8 +2453,9 @@ class Connection(base.Connection):
                     filter_by(type=const.STATE_RUNNING).\
                     with_lockmode('read').all()
                 for sub in subs:
+                    unit_price = jsonutils.loads(sub.unit_price)
                     price_data = pricing.get_price_data(
-                        sub.unit_price, order.renew_method)
+                        unit_price, order.renew_method)
                     new_unit_price += pricing.calculate_price(
                         sub.quantity, price_data)
                 order.unit = renew.method
@@ -2543,8 +2544,9 @@ class Connection(base.Connection):
                     with_lockmode('read').all()
                 unit_price = 0
                 for sub in subs:
+                    unit_price = jsonutils.loads(sub.unit_price)
                     price_data = pricing.get_price_data(
-                        sub.unit_price, renew.method)
+                        unit_price, renew.method)
                     unit_price += pricing.calculate_price(
                         sub.quantity, price_data)
             else:

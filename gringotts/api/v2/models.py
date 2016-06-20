@@ -89,6 +89,23 @@ class Version(APIBase):
     version = wtypes.text
 
 
+class SegmentedItem(APIBase):
+    count = int
+    price = decimal.Decimal
+
+
+class PriceData(APIBase):
+    type = wtypes.text
+    base_price = decimal.Decimal
+    segmented = [SegmentedItem]
+
+
+class UnitPriceData(APIBase):
+    price = PriceData
+    monthly_price = PriceData
+    yearly_price = PriceData
+
+
 class Product(APIBase):
     """A product represents a rule which is applied to a billing resource."""
     product_id = wtypes.text
@@ -97,10 +114,9 @@ class Product(APIBase):
     region_id = wtypes.text
     description = wtypes.text
 
-    type = wtypes.text
-    unit_price = wsme.wsattr(wtypes.text, mandatory=False)
+    unit_price = UnitPriceData
 
-    reset = bool
+    reset= bool
 
     created_at = wtypes.text
     updated_at = wtypes.text
@@ -118,7 +134,7 @@ class SimpleProduct(APIBase):
     region_id = wtypes.text
     product_id = wtypes.text
 
-    unit_price = wtypes.text
+    unit_price = UnitPriceData
     currency = wtypes.text
     unit = wtypes.text
 
@@ -184,7 +200,6 @@ class Subscription(APIBase):
     project_id = wtypes.text
     created_at = wtypes.text
     type = wtypes.text
-    extra = wtypes.text
 
 
 class SubscriptionPostBody(APIBase):
