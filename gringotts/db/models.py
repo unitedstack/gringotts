@@ -197,9 +197,9 @@ class Account(Model):
     """
 
     def __init__(self,
-                 user_id, domain_id, balance, frozen_balance, consumption,
-                 level, deleted, owed, created_at=None, updated_at=None,
-                 deleted_at=None):
+                 user_id, domain_id, balance, consumption,
+                 level, deleted=None, owed=None, created_at=None, updated_at=None,
+                 deleted_at=None, frozen_balance=None):
         Model.__init__(
             self,
             user_id=user_id,

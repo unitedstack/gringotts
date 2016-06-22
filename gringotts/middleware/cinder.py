@@ -98,7 +98,11 @@ class CinderBillingProtocol(base.BillingProtocol):
                                                quantity=quantity,
                                                resource_type=resource_type)
         except Exception as e:
-            pass
+            msg = "Unbale to resize the order: %s" % order_id
+            LOG.exception(msg)
+            return False, self._reject_request_500(env, start_response)
+
+        return True, None
 
 
 def filter_factory(global_conf, **local_conf):

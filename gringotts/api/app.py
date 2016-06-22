@@ -145,6 +145,30 @@ def setup_app(config=None):
 
     return app
 
+def setup_noauth_app(config=None):
+
+    app_hooks = [hooks.ConfigHook(),
+                 hooks.DBHook(db.get_connection(CONF)),
+                 hooks.ContextHook(),
+                 hooks.LimitHook()]
+
+    if not config:
+        config = get_pecan_config()
+
+    app = pecan.make_app(
+        config.app.noauth_root,
+        static_root=config.app.static_root,
+        template_path=config.app.template_path,
+        debug=False,
+        force_canonical=getattr(config.app, 'force_canonical', True),
+        hooks=app_hooks,
+        wrap_app=middleware.FaultWrapperMiddleware,
+    )
+
+    pecan.conf.update({'wsme': {'debug': CONF.debug}})
+
+    return app
+
 
 def load_app():
     # Build the WSGI app
@@ -162,3 +186,6 @@ def load_app():
 
 def app_factory(global_config, **local_conf):
     return setup_app()
+
+def noauth_app_factory(global_config, **local_conf):
+    return setup_noauth_app()

@@ -160,6 +160,8 @@ class BillingProtocol(object):
         ]
         self.resource_regexs = []
         self.resize_resource_actions = []
+        self.stop_resource_actions = []
+        self.start_resource_actions = []
 
         # make billing client
         self.gclient = client.Client(username=self.admin_user,
@@ -362,11 +364,15 @@ class BillingProtocol(object):
             if self.delete_resource_action(request_method, path_info, body):
                 # user can delete resource billed by hour directly
                 if not order.get('unit') or order.get('unit') == 'hour':
-                    self.delete_resource_order(env,
-                                               start_response,
-                                               order['order_id'],
-                                               order['type'])
-                    return self.app(env, start_response)
+                    app_result = self.app(env, start_response)
+                    if not app_result[0]:
+                        success, result = self.delete_resource_order(env,
+                                                                     start_response,
+                                                                     order['order_id'],
+                                                                     order['type'])
+                        if not success:
+                            app_result = result
+                    return app_result
 
                 # normal user can't delete resoruces billed by month/year
                 admin_roles = ['admin', 'uos_admin']
@@ -390,17 +396,35 @@ class BillingProtocol(object):
                     if not success:
                         return result
 
-                    success, result = self.resize_resource_order(env,
-                                                                 body,
-                                                                 start_response,
-                                                                 order.get('order_id'),
-                                                                 order.get('resource_id'),
-                                                                 order.get('type'))
-                    return self.app(env, start_response)
+                    app_result = self.app(env, start_response)
+                    if not app_result[0]:
+                        success, result = self.resize_resource_order(env,
+                                                                     body,
+                                                                     start_response,
+                                                                     order.get('order_id'),
+                                                                     order.get('resource_id'),
+                                                                     order.get('type'))
+                        if not success:
+                            app_result = result
+                    return app_result
 
                 # can't change resoruce billed by month/year for now
                 return self._reject_request_403(env, start_response)
 
+            elif self.stop_resource_action(request_method, path_info, body):
+                app_result = self.app(env, start_response)
+                if not app_result[0]:
+                    success, result = self.stop_resource_order(env, body, start_response, order.get('order_id'))
+                    if not success:
+                        app_result = result
+                return app_result
+            elif self.start_resource_action(request_method, path_info, body):
+                app_result = self.app(env, start_response)
+                if not app_result[0]:
+                    success, result = self.start_resource_order(env, body, start_response, order.get('order_id'))
+                    if not success:
+                        app_result = result
+                return app_result
             else:
                 # by-hour resource only can be operated when the balance is sufficient
                 if not order.get('unit') or order.get('unit') == 'hour':
@@ -553,6 +577,7 @@ class BillingProtocol(object):
     def delete_resource_order(self, env, start_response, order_id, resource_type):
         try:
             self.gclient.delete_resource_order(order_id, resource_type)
+            return True, None
         except Exception as e:
             msg = "Unable to delete the order: %s" % order_id
             LOG.exception(msg)
@@ -578,6 +603,18 @@ class BillingProtocol(object):
     def resize_resource_action(self, method, path_info, body):
         """The action that change the configuration of the resource."""
         for action in self.resize_resource_actions:
+            if action(method, path_info, body):
+                return True
+        return False
+
+    def stop_resource_action(self, method, path_info, body):
+        for action in self.stop_resource_actions:
+            if action(method, path_info, body):
+                return True
+        return False
+
+    def start_resource_action(self, method, path_info, body):
+        for action in self.start_resource_actions:
             if action(method, path_info, body):
                 return True
         return False

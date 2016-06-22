@@ -1,12 +1,13 @@
 import datetime
 import decimal
+import logging
+
 import wsme
 from wsme import types as wtypes
-from gringotts.openstack.common import log
 from gringotts.openstack.common import timeutils
 
 
-LOG = log.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 operation_kind = wtypes.Enum(str, 'lt', 'le', 'eq', 'ne', 'ge', 'gt')
@@ -136,7 +137,6 @@ class SimpleProduct(APIBase):
 
     unit_price = UnitPriceData
     currency = wtypes.text
-    unit = wtypes.text
 
 
 class PurchaseItem(APIBase):

@@ -208,7 +208,7 @@ class Account(Base):
     consumption = Column(DECIMAL(20, 4))
     level = Column(Integer)
     owed = Column(Boolean, default=False)
-    deleted = Column(Boolean)
+    deleted = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=timeutils.utcnow)
     updated_at = Column(DateTime)

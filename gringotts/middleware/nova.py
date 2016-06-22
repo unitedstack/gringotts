@@ -7,6 +7,7 @@ from gringotts import constants as const
 from gringotts import exception
 from gringotts.middleware import base
 from gringotts.openstack.common import jsonutils
+from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import memorycache
 from gringotts.services import nova
 from gringotts.services import glance
@@ -118,6 +119,8 @@ class NovaBillingProtocol(base.BillingProtocol):
             self.other_server_actions,
             self.resize_server_action,
             self.attach_volume_to_server_action,
+            self.start_server_action,
+            self.stop_server_action,
         ]
         self.resource_regexs = [
             self.resource_regex,
@@ -127,6 +130,12 @@ class NovaBillingProtocol(base.BillingProtocol):
         self.resize_resource_actions = [
             self.resize_server_action,
         ]
+        self.stop_resource_actions = [
+            self.stop_server_action,
+        ]
+        self.start_resource_actions = [
+            self.start_server_action,
+        ]
         self.product_items = extension.ExtensionManager(
             namespace='gringotts.server.product_items',
             invoke_on_load=True,
@@ -135,8 +144,7 @@ class NovaBillingProtocol(base.BillingProtocol):
     def other_server_actions(self, method, path_info, body):
         if method == "POST" and \
                 self.server_action_regex.search(path_info) and \
-                (body.has_key('os-start') or \
-                 body.has_key('createImage') or \
+                (body.has_key('createImage') or \
                  body.has_key('addFloatingIp') or \
                  body.has_key('reboot') or \
                  body.has_key('rebuild') or \
@@ -144,6 +152,24 @@ class NovaBillingProtocol(base.BillingProtocol):
                  body.has_key('resume') or \
                  body.has_key('unshelve') or \
                  body.has_key('unrescue')):
+            return True
+        return False
+
+    def start_server_action(self, method, path_info, body):
+        if method == "POST" and \
+            self.server_action_regex.search(path_info) and \
+            (body.has_key('os-start') or \
+             body.has_key('unshelve') or \
+             body.has_key('unpause')):
+            return True
+        return False
+
+    def stop_server_action(self, method, path_info, body):
+        if method == "POST" and \
+            self.server_action_regex.search(path_info) and \
+            (body.has_key('os-stop') or \
+             body.has_key('shelve') or \
+             body.has_key('pause')):
             return True
         return False
 
@@ -241,6 +267,31 @@ class NovaBillingProtocol(base.BillingProtocol):
             msg = "Unable to resize the order: %s" % order_id
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)
+
+        return True, None
+
+    def stop_resource_order(self, env, body, start_response, order_id):
+        try:
+            action_time = gringutils.format_datetime(timeutils.strtime(timeutils.utcnow()))
+            self.gclient.stop_resource_order(order_id, action_time, 'instance')
+        except Exception as e:
+            msg = "Unable to stop the order: %s" % order_id
+            LOG.exception(msg)
+            return False, self._reject_request_500(env, start_response)
+
+        return True, None
+
+    def start_resource_order(self, env, body, start_response, order_id):
+        try:
+            action_time = gringutils.format_datetime(timeutils.strtime(timeutils.utcnow()))
+            change_to = const.STATE_RUNNING
+            self.gclient.start_resource_order(order_id, action_time, change_to, 'instance')
+        except Exception as e:
+            msg = "Unable to start the order: %s" % order_id
+            LOG.exception(msg)
+            return Fasle, self._reject_request_500(env, start_response)
+
+        return True, None
 
 
 def filter_factory(global_conf, **local_conf):
