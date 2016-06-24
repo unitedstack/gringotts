@@ -327,11 +327,34 @@ class Connection(base.Connection):
                                    expired_at=row.expired_at,
                                    remarks=row.remarks)
 
+    def _product_object_to_dict(self, product):
+        p_dict = product.as_dict()
+        try:
+            p_dict['unit_price'] = p_dict['unit_price'].as_dict()
+            for key in ['price', 'monthly_price', 'yearly_price']:
+                if key in p_dict['unit_price']:
+                    p_dict['unit_price'][key] = \
+                        p_dict['unit_price'][key].as_dict()
+                    new_segmented = []
+                    base_price = p_dict['unit_price'][key]['base_price']
+                    p_dict['unit_price'][key]['base_price'] = str(base_price)
+                    for seg in p_dict['unit_price'][key]['segmented']:
+                        new_seg = seg.as_dict()
+                        new_seg['price'] = str(new_seg['price'])
+                        new_segmented.append(new_seg)
+                    p_dict['unit_price'][key]['segmented'] = new_segmented
+            p_dict['unit_price'] = jsonutils.dumps(p_dict['unit_price'])
+        except KeyError:
+            LOG.error("The unit_price lack of some key words.")
+            return None
+
+        return p_dict
+
     def create_product(self, context, product):
         session = db_session.get_session()
         with session.begin():
             product_ref = sa_models.Product()
-            product_ref.update(product.as_dict())
+            product_ref.update(self._product_object_to_dict(product))
             session.add(product_ref)
         return self._row_to_db_product_model(product_ref)
 
@@ -387,7 +410,8 @@ class Connection(base.Connection):
         with session.begin():
             query = model_query(context, sa_models.Product)
             query = query.filter_by(product_id=product.product_id)
-            query.update(product.as_dict(), synchronize_session='fetch')
+            query.update(product.as_dict(),
+                         synchronize_session='fetch')
             ref = query.one()
         return self._row_to_db_product_model(ref)
 
@@ -396,7 +420,7 @@ class Connection(base.Connection):
         with session.begin():
             query = model_query(context, sa_models.Product)
             query = query.filter_by(product_id=product.product_id)
-            query.update(product.as_dict(), synchronize_session='fetch')
+            query.update(self._product_object_to_dict(product), synchronize_session='fetch')
             ref = query.one()
         return self._row_to_db_product_model(ref)
 
@@ -1113,7 +1137,6 @@ class Connection(base.Connection):
 
         return query.one().count or 0, query.one().sum or 0
 
-    @require_context
     def create_account(self, context, account):
         session = db_session.get_session()
         with session.begin():
@@ -1381,7 +1404,6 @@ class Connection(base.Connection):
 
         return query.one().sum or 0, query.one().count or 0
 
-    @require_domain_context
     def create_project(self, context, project):
         session = db_session.get_session()
         with session.begin():
@@ -1520,7 +1542,6 @@ class Connection(base.Connection):
 
         return (self._row_to_db_project_model(p) for p in projects)
 
-    @require_context
     def change_billing_owner(self, context, project_id, user_id):
         session = db_session.get_session()
         with session.begin():

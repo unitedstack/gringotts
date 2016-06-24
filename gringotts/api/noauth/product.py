@@ -11,6 +11,7 @@ from oslo_config import cfg
 from gringotts.api.v2 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
+from gringotts import utils as gringutils
 
 
 LOG = log.getLogger(__name__)
@@ -43,9 +44,13 @@ class ProductsController(rest.RestController):
                                    offset=offset,
                                    sort_key=sort_key,
                                    sort_dir=sort_dir)
-        return [models.SimpleProduct.transform(name=p.name,
-                                               service=p.service,
-                                               unit_price=p.unit_price,
-                                               currency='CNY',
-                                               unit=p.unit)
-                for p in result]
+        products = []
+        for p in result:
+            unit_price = \
+                gringutils.transform_unit_price_string(p.unit_price)
+            sp = models.SimpleProduct.transform(name=p.name,
+                                                service=p.service,
+                                                unit_price_price=unit_price,
+                                                currency='CNY')
+            products.append(sp)
+        return products

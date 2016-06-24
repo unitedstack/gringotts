@@ -1,11 +1,31 @@
+import copy
 import re
 
 import webob
 import logging
 from oslo_config import cfg
 
+from gringotts.client.noauth import client
+from gringotts.openstack.common import jsonutils
+
 LOG = logging.getLogger(__name__)
 cfg.CONF.import_group("billing", "gringotts.middleware.base")
+
+KEYSTONE_OPTS = [
+    cfg.StrOpt('initial_balance',
+               default='10',
+               help="Initial balance for the new account"),
+    cfg.StrOpt('initial_level',
+               default='3',
+               help="Initial level for the new account"),
+    cfg.StrOpt('billing_endpoint',
+               default='http://127.0.0.1:8975',
+               help="Billing endpoint"),
+    cfg.StrOpt('billing_owner_role_id',
+               default=None,
+               help="Billing owner role id"),
+]
+cfg.CONF.register_opts(KEYSTONE_OPTS,group="billing")
 
 UUID_RE = r"([0-9a-f]{32}|[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12})"
 API_VERSION = r"(v2.0|v3)"
@@ -14,11 +34,48 @@ PROJECT_RESOURCE_RE = r"(projects|tenants)"
 ROLE_RESOURCE_RE = r"(roles|roles/OS-KSADM)"
 
 
+class MiniResp(object):
+    def __init__(self, error_message, env, headers=[]):
+        # The HEAD method is unique: it must never return a body, even if
+        # it reports an error (RFC-2616 clause 9.4). We relieve callers
+        # from varying the error responses depending on the method.
+        if env['REQUEST_METHOD'] == 'HEAD':
+            self.body = ['']
+        else:
+            self.body = [error_message]
+        self.headers = list(headers)
+        self.headers.append(('Content-type', 'application/json'))
+
+
+class User(object):
+
+    def __init__(self, user_id, user_name, domain_id):
+        self.user_id = user_id
+        self.user_name = user_name
+        self.domain_id = domain_id
+
+    def as_dict(self):
+        return copy.copy(self.__dict__)
+
+class Project(object):
+
+    def __init__(self, project_id, project_name, domain_id):
+        self.project_id = project_id
+        self.project_name = project_name
+        self.domain_id = domain_id
+
+    def as_dict(self):
+        return copy.copy(self.__dict__)
+
+
 class KeystoneBillingProtocol(object):
 
     def __init__(self, app, conf):
         self.app = app
         self.conf = conf
+        self.position = 2
+        self.user_id_position = 4
+        self.role_id_position = 6
 
         self.user_regex = re.compile(
             r"^/%s/%s/%s([.][^.]+)?$" % \
@@ -39,6 +96,10 @@ class KeystoneBillingProtocol(object):
                 (API_VERSION, PROJECT_RESOURCE_RE, UUID_RE, USER_RESOURCE_RE,
                  UUID_RE, ROLE_RESOURCE_RE, UUID_RE),
             re.UNICODE)
+
+        noauth_billing_endpoint = cfg.CONF.billing.billing_endpoint + \
+            '/noauth'
+        self.gclient = client.Client(endpoint=noauth_billing_endpoint)
 
     def create_user_action(self, method, path_info):
         if method == "POST" and self.create_user_regex.search(path_info):
@@ -70,8 +131,45 @@ class KeystoneBillingProtocol(object):
             return True
         return False
 
-    def parse_app_result(self, body, result, user_id, project_id):
-        pass
+    def parse_user_result(self, body, result):
+        users = []
+        try:
+            for re in result:
+                user = jsonutils.loads(re)['user']
+                users.append(User(
+                    user_id=user['id'],
+                    user_name=user['name'],
+                    domain_id=user['domain_id']))
+        except Exception:
+            return []
+        return users
+
+    def parse_project_result(self, body, result):
+        projects = []
+        try:
+            for re in result:
+               project = jsonutils.loads(re)['project']
+               projects.append(Project(
+                   project_id=project['id'],
+                   project_name=project['name'],
+                   domain_id=project['domain_id']))
+        except Exception:
+            return []
+        return projects
+
+    def get_project_id(self, path_info, position):
+        "Get project id from path_info"
+        match = self.project_regex.search(path_info)
+        if match:
+            return match.groups()[position]
+
+    def get_role_action_ids(self, path_info):
+        "Get user_id, project_id and role_id from path_info"
+        match = self.role_regex.search(path_info)
+        if match:
+            return (match.groups()[self.user_id_position],
+                    match.groups()[self.position],
+                    match.groups()[self.role_id_position])
 
     def __call__(self, env, start_response):
         request_method = env['REQUEST_METHOD']
@@ -81,23 +179,95 @@ class KeystoneBillingProtocol(object):
                 request_method in set(['GET', 'OPTIONS', 'HEAD']):
             return self.app(env, start_response)
 
+        try:
+            req = webob.Request(env)
+            if req.content_length:
+                body = req.json
+            else:
+                body = {}
+        except Exception:
+            body = {}
+
         if self.create_user_action(request_method, path_info):
             result = self.app(env, start_response)
+            users = self.parse_user_result(body, result)
+            for user in users:
+                self.create_user(env, start_response,
+                                 body, user)
             return result
         elif self.delete_user_action(request_method, path_info):
             return self.app(env, start_response)
         elif self.create_project_action(request_method, path_info):
             result = self.app(env, start_response)
+            projects = self.parse_project_result(body, result)
+            for project in projects:
+                self.create_project(env, start_response,
+                                    body, project)
             return result
         elif self.delete_project_action(request_method, path_info):
             return self.app(env, start_response)
         elif self.add_role_action(request_method, path_info):
-            result = self.app(env, start_response)
-            return result
+            app_result = self.app(env, start_response)
+            if not app_result[0]:
+                user_id, project_id, role_id = self.get_role_action_ids(path_info)
+                if not self._is_billing_owner(role_id):
+                    return app_result
+                else:
+                    success, result = self.add_role(env, start_response,
+                                                    user_id, project_id)
+                    if not success:
+                        app_result = result
+            return app_result
         elif self.delete_role_action(request_method, path_info):
             return self.app(env, start_response)
         else:
             return self.app(env, start_response)
+
+    def _is_billing_owner(self, role_id):
+        return role_id == cfg.CONF.billing.billing_owner_role_id
+
+    def create_user(self, env, start_response, body,
+                    user, balance=None, consumption=None,
+                    level=None):
+        balance = balance or cfg.CONF.billing.initial_balance
+        consumption = consumption or 0
+        level = level or cfg.CONF.billing.initial_level
+        self.gclient.create_account(
+            user.user_id, user.domain_id,
+            balance, consumption, level)
+
+    def create_project(self, env, start_response, body,
+                       project, consumption=None):
+        consumption = consumption or 0
+        self.gclient.create_project(
+            project.project_id, project.domain_id,
+            consumption)
+
+    def delete_project(self, env, start_response, body,
+                       project_id, region_name=None):
+        try:
+            self.gclient.delete_resources(project_id)
+        except Exception:
+            return False, self._reject_request_500(env, start_response)
+        return True, None
+
+    def add_role(self, env, start_response, user_id, project_id):
+        try:
+            self.gclient.change_billing_owner(
+                user_id, project_id)
+        except Exception:
+            return False, self._reject_request_500(env, start_response)
+        return True, None
+
+    def _reject_request_500(self, env, start_response):
+        return self._reject_request(env, start_response,
+                                    "Billing service error",
+                                    "500 BillingServiceError")
+
+    def _reject_request(self, env, start_response, resp_data, status_code):
+        resp = MiniResp('{"msg": "%s"}' % resp_data, env)
+        start_response(status_code, resp.headers)
+        return resp.body
 
 
 def filter_factory(global_conf, **local_conf):

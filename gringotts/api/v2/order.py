@@ -32,6 +32,8 @@ class OrderController(rest.RestController):
         'renew': ['PUT'],
         'resize_resource': ['POST'],
         'delete_resource': ['POST'],
+        'stop_resource': ['POST'],
+        'start_resource': ['POST'],
     }
 
     def __init__(self, order_id):
@@ -132,6 +134,18 @@ class OrderController(rest.RestController):
         remarks = '%s Has Been Deleted' % data.resource_type.capitalize()
         self.master_api.resource_deleted(request.context, self._id,
                                          action_time, remarks)
+
+    def stop_resource(self, data):
+        if data.resource_tye == 'instance':
+            self.master_api.instance_stopped(request.context, self._id,
+                                             data.action_time)
+
+    def start_resource(self, data):
+        if data.resource_type == 'instance':
+            remarks = 'Instance Has Been Started.'
+            self.master_api.resource_started(request.context, self._id,
+                                             data.action_time, data.change_to,
+                                             remarks)
 
     @wsexpose(models.Order)
     def close(self):
