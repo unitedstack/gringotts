@@ -867,6 +867,7 @@ class Connection(base.Connection):
                 project_id=subscription['project_id'],
                 region_id=subscription['region_id'],
                 domain_id=project.domain_id,
+                quantity=quantity,
             )
 
             session.add(subscription)

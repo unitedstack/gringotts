@@ -92,8 +92,6 @@ class MasterService(rpc_service.Service):
             self.load_date_jobs()
             self.load_clean_date_jobs()
 
-        self.load_30_days_date_jobs()
-
         super(MasterService, self).start()
         LOG.warning('Master started successfully.')
 
@@ -140,35 +138,6 @@ class MasterService(rpc_service.Service):
                                                order['region_id'])
 
         LOG.warning('Load date jobs successfully.')
-
-    def load_30_days_date_jobs(self):
-        # load change unit price date job
-        orders = self.gclient.get_orders(status=const.STATE_STOPPED,
-                                         region_id=cfg.CONF.region_name,
-                                         bill_methods=['hour'],
-                                         type=const.RESOURCE_INSTANCE)
-        for order in orders:
-            if not order['cron_time']:
-                LOG.warn('There is no cron_time for the stopped order: %s',
-                         order)
-                continue
-            if isinstance(order['cron_time'], basestring):
-                cron_time = timeutils.parse_strtime(
-                    order['cron_time'], fmt=ISO8601_UTC_TIME_FORMAT)
-            else:
-                cron_time = order['cron_time']
-
-            danger_time = (datetime.datetime.utcnow() +
-                           datetime.timedelta(seconds=30))
-            cron_time = cron_time - datetime.timedelta(hours=1)
-            if cron_time > danger_time:
-                self._create_date_job_after_30_days(order['order_id'],
-                                                    cron_time)
-            else:
-                LOG.warning("The order(%s) is in danger time after master "
-                            "started", order['order_id'])
-                self._change_order_unit_price(order['order_id'])
-        LOG.warning('Load 30-days date jobs successfully.')
 
     def _get_cron_orders(self, bill_methods=None, owed=None, region_id=None):
         orders = []
@@ -311,23 +280,6 @@ class MasterService(rpc_service.Service):
                              run_date=action_time,
                              replace_existing=True)
         LOG.warn('create date job for order: %s', order_id)
-
-    def _change_order_unit_price(self, order_id):
-        self.gclient.change_order(order_id, const.STATE_STOPPED)
-
-    def _create_date_job_after_30_days(self, order_id, action_time):
-        """Create a date job to change order unit price after 30 days
-
-        This job will be only used to instance, thhe job id is
-        30_days_+order_id.
-        """
-        job_id = self._make_30_days_job_id(order_id)
-        self.apsched.add_job(self._change_order_unit_price,
-                             'date',
-                             args=[order_id],
-                             id=job_id,
-                             run_date=action_time)
-        LOG.warn('create 30-days date job for order: %s', order_id)
 
     def _stop_owed_resource(self, resource_type, resource_id, region_id):
         LOG.warn("Stop owed resource(resource_type: %s, resource_id: %s)",
@@ -656,12 +608,6 @@ class MasterService(rpc_service.Service):
                                      action_time=action_time,
                                      remarks="Instance Has Been Stopped",
                                      end_time=cron_time)
-
-            # create a date job to change order unit price after 30 days
-            # let this action execute 1 hour earlier to ensure unit price
-            # be changed before pre deduct
-            self._create_date_job_after_30_days(
-                order_id, cron_time - datetime.timedelta(hours=1))
 
             # create a cron job that will execute after 30 days
             self._create_cron_job(order_id, start_date=cron_time)

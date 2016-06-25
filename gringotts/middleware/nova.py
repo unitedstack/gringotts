@@ -11,6 +11,7 @@ from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import memorycache
 from gringotts.services import nova
 from gringotts.services import glance
+from gringotts import utils as gringutils
 
 LOG = logging.getLogger(__name__)
 
@@ -244,17 +245,18 @@ class NovaBillingProtocol(base.BillingProtocol):
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)
 
-        old_flavor = nova.server_get(order.resource_id).flavor.flavor_id
+        old_flavor = nova.server_get(resource_id).flavor['id']
 
         if new_flavor == old_flavor:
             return True, None
 
+        region_id = cfg.CONF.billing.region_name
+
         new_flavor = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
-                                new_flavor)
+                                nova.flavor_get(region_id, new_flavor).name)
         old_flavor = '%s:%s' % (const.PRODUCT_INSTANCE_TYPE_PREFIX,
-                                old_flavor)
+                                nova.flavor_get(region_id, old_flavor).name)
         service = const.SERVICE_COMPUTE
-        region_id = cfg.CONF.region_name
 
         try:
             self.gclient.resize_resource_order(order_id,
