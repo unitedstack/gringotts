@@ -91,7 +91,8 @@ def server_get(instance_id, region_name=None):
                   name=server.name,
                   status=status,
                   original_status=server.status,
-                  resource_type=const.RESOURCE_INSTANCE)
+                  resource_type=const.RESOURCE_INSTANCE,
+                  flavor=server.flavor)
 
 
 def server_list_by_resv_id(resv_id, region_name=None, detailed=False):

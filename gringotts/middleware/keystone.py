@@ -24,6 +24,9 @@ KEYSTONE_OPTS = [
     cfg.StrOpt('billing_owner_role_id',
                default=None,
                help="Billing owner role id"),
+    cfg.StrOpt('billing_admin_user',
+               default=None,
+               help="Billing admin user ID"),
 ]
 cfg.CONF.register_opts(KEYSTONE_OPTS,group="billing")
 
@@ -239,9 +242,12 @@ class KeystoneBillingProtocol(object):
     def create_project(self, env, start_response, body,
                        project, consumption=None):
         consumption = consumption or 0
+        # If the billing_admin_user is not None, the user is
+        # the billing owner of all projects created.
+        user_id = cfg.CONF.billing.billing_admin_user
         self.gclient.create_project(
             project.project_id, project.domain_id,
-            consumption)
+            consumption, user_id)
 
     def delete_project(self, env, start_response, body,
                        project_id, region_name=None):
