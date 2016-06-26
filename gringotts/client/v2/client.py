@@ -392,9 +392,8 @@ class Client(object):
             return body
         return {}
 
-    def stop_resource_order(self, order_id, action_time, resource_type):
-        _body = dict(action_time=action_time,
-                     resource_type=resource_type)
+    def stop_resource_order(self, order_id, resource_type):
+        _body = dict(resource_type=resource_type)
         resp, body = self.client.post('/orders/%s/stop_resource' % order_id,
                                       body=_body)
 
@@ -402,10 +401,8 @@ class Client(object):
             return body
         return {}
 
-    def start_resource_order(self, order_id, action_time, change_to, resource_type):
-        _body = dict(action_time=action_time,
-                     change_to=change_to,
-                     resource_type=resource_type)
+    def start_resource_order(self, order_id, resource_type):
+        _body = dict(resource_type=resource_type)
         resp, body = self.client.post('/orders/%s/start_resource' % order_id,
                                       body=_body)
         if body:

@@ -794,3 +794,11 @@ class ResourceResizeBody(APIBase):
 
 class ResourceDeleteBody(APIBase):
     resource_type = wtypes.text
+
+
+class ResourceStopBody(APIBase):
+    resource_type = wtypes.text
+
+
+class ResourceStartBody(APIBase):
+    resource_type = wtypes.text
