@@ -135,16 +135,22 @@ class OrderController(rest.RestController):
         self.master_api.resource_deleted(request.context, self._id,
                                          action_time, remarks)
 
+    @wsexpose(None, body=models.ResourceStopBody)
     def stop_resource(self, data):
-        if data.resource_tye == 'instance':
+        if data.resource_type == 'instance':
+            action_time = \
+                gringutils.format_datetime(timeutils.strtime(timeutils.utcnow()))
             self.master_api.instance_stopped(request.context, self._id,
-                                             data.action_time)
+                                             action_time)
 
+    @wsexpose(None, body=models.ResourceStartBody)
     def start_resource(self, data):
         if data.resource_type == 'instance':
+            action_time = \
+                gringutils.format_datetime(timeutils.strtime(timeutils.utcnow()))
             remarks = 'Instance Has Been Started.'
             self.master_api.resource_started(request.context, self._id,
-                                             data.action_time, data.change_to,
+                                             action_time,
                                              remarks)
 
     @wsexpose(models.Order)
