@@ -83,7 +83,7 @@ class ProductItem(object):
     def get_product_name(self, body):
         raise NotImplementedError
 
-    def get_resource_volume(self, body):
+    def get_resource_volume(self, env, body):
         return 1
 
     def get_collection(self, env, body):
@@ -99,7 +99,7 @@ class ProductItem(object):
         return Collection(product_name=self.get_product_name(body),
                           service=self.service,
                           region_id=region_id,
-                          resource_volume=self.get_resource_volume(body),
+                          resource_volume=self.get_resource_volume(env, body),
                           user_id=user_id,
                           project_id=project_id)
 
@@ -294,6 +294,7 @@ class BillingProtocol(object):
                     body.pop('billing')
                     req.json = body
                 app_result = self.app(env, start_response)
+
                 resources = self.parse_app_result(body, app_result,
                                                   user_id, project_id)
 

@@ -4,6 +4,7 @@ from stevedore import extension
 from gringotts import constants as const
 from gringotts.middleware import base
 from gringotts.openstack.common import jsonutils
+from gringotts.services import cinder
 
 
 UUID_RE = r"([0-9a-f]{32}|[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12})"
@@ -14,15 +15,22 @@ class SizeItem(base.ProductItem):
     service = const.SERVICE_BLOCKSTORAGE
 
     def get_product_name(self, body):
-        if body['volume'].get('volume_type') == 'sata':
-            return const.PRODUCT_SATA_VOLUME_SIZE
-        elif body['volume'].get('volume_type') == 'ssd':
-            return const.PRODUCT_SSD_VOLUME_SIZE
-        else:
-            return const.PRODUCT_VOLUME_SIZE
+        if 'volume' in body:
+            if body['volume'].get('volume_type') == 'sata':
+                return const.PRODUCT_SATA_VOLUME_SIZE
+            elif body['volume'].get('volume_type') == 'ssd':
+                return const.PRODUCT_SSD_VOLUME_SIZE
+            else:
+                return const.PRODUCT_VOLUME_SIZE
+        elif 'snapshot' in body:
+            return const.PRODUCT_SNAPSHOT_SIZE
 
-    def get_resource_volume(self, body):
-        return body['volume']['size']
+    def get_resource_volume(self, env, body):
+        if 'volume' in body:
+            return body['volume']['size']
+        elif 'snapshot' in body:
+            volume = cinder.volume_get(body['snapshot']['volume_id'])
+            return volume.size
 
 
 class CinderBillingProtocol(base.BillingProtocol):
@@ -70,20 +78,30 @@ class CinderBillingProtocol(base.BillingProtocol):
         resources = []
         try:
             result = jsonutils.loads(result[0])
-            volume = result['volume']
-            if 'display_name' in volume:
-                resource_name = volume['display_name'] # v1
-            elif 'name' in volume:
-                resource_name = volume['name'] # v2
-            else:
-                resource_name = None
-            resources.append(base.Resource(
-                resource_id=volume['id'],
-                resource_name=resource_name,
-                type=const.RESOURCE_VOLUME,
-                status=const.STATE_RUNNING,
-                user_id=user_id,
-                project_id=project_id))
+            if 'volume' in result:
+                volume = result['volume']
+                if 'display_name' in volume:
+                    resource_name = volume['display_name'] # v1
+                elif 'name' in volume:
+                    resource_name = volume['name'] # v2
+                else:
+                    resource_name = None
+                resources.append(base.Resource(
+                    resource_id=volume['id'],
+                    resource_name=resource_name,
+                    type=const.RESOURCE_VOLUME,
+                    status=const.STATE_RUNNING,
+                    user_id=user_id,
+                    project_id=project_id))
+            elif 'snapshot' in result:
+                snapshot = result['snapshot']
+                resources.append(base.Resource(
+                    resource_id=snapshot['id'],
+                    resource_name=snapshot['name'],
+                    type=const.RESOURCE_SNAPSHOT,
+                    status=const.STATE_RUNNING,
+                    user_id=user_id,
+                    project_id=project_id))
         except Exception:
             return []
         return resources

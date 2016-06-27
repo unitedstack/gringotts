@@ -59,7 +59,8 @@ def image_get(image_id, region_name=None):
                  image_label=image.get('image_label', 'default').lower(),
                  status=status,
                  original_status=image.status,
-                 resource_type=const.RESOURCE_IMAGE)
+                 resource_type=const.RESOURCE_IMAGE,
+                 size=image.size)
 
 
 @register(mtype='list')

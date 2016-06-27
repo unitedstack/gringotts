@@ -94,7 +94,7 @@ class DiskItem(base.ProductItem):
     def get_product_name(self, body):
         return const.PRODUCT_VOLUME_SIZE
 
-    def get_resource_volume(self, body):
+    def get_resource_volume(self, env, body):
         flavor_id = body['server']['flavorRef']
         flavor = _get_flavor(flavor_id)
         return flavor['disk']
