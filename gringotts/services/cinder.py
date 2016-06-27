@@ -82,7 +82,8 @@ def volume_get(volume_id, region_name=None):
                   status=status,
                   original_status=volume.status,
                   resource_type=const.RESOURCE_VOLUME,
-                  attachments=volume.attachments)
+                  attachments=volume.attachments,
+                  size=volume.size)
 
 
 @register(resource=const.RESOURCE_SNAPSHOT, mtype='get')

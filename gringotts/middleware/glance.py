@@ -4,7 +4,8 @@ from oslo_config import cfg
 
 from gringotts import constants as const
 from gringotts.middleware import base
-from gringotts.openstack.common import uuidutils
+from gringotts.openstack.common import jsonutils
+from gringotts.services import glance
 
 
 UUID_RE = r"([0-9a-f]{32}|[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12})"
@@ -17,6 +18,11 @@ class SizeItem(base.ProductItem):
 
     def get_product_name(self, body):
         return const.PRODUCT_SNAPSHOT_SIZE
+
+    def get_resource_volume(self, env, body):
+        base_image_id = env['HTTP_X_IMAGE_META_PROPERTY_BASE_IMAGE_REF']
+        image = glance.image_get(base_image_id, cfg.CONF.billing.region_name)
+        return int(image.size) / (1024 ** 3)
 
 
 class GlanceBillingProtocol(base.BillingProtocol):
@@ -40,9 +46,10 @@ class GlanceBillingProtocol(base.BillingProtocol):
     def parse_app_result(self, body, result, user_id, project_id):
         resources = []
         try:
+            result = jsonutils.loads(result[0])
             resources.append(base.Resource(
-                resource_id=uuidutils.generate_uuid(),
-                resource_name=body['name'],
+                resource_id=result['image']['id'],
+                resource_name=result['image']['name'],
                 type=const.RESOURCE_SNAPSHOT,
                 status=const.STATE_RUNNING,
                 user_id=user_id,
