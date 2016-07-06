@@ -20,7 +20,9 @@ class SizeItem(base.ProductItem):
         return const.PRODUCT_SNAPSHOT_SIZE
 
     def get_resource_volume(self, env, body):
-        base_image_id = env['HTTP_X_IMAGE_META_PROPERTY_BASE_IMAGE_REF']
+        base_image_id = env.get('HTTP_X_IMAGE_META_PROPERTY_BASE_IMAGE_REF')
+        if not base_image_id:
+            return 0
         image = glance.image_get(base_image_id, cfg.CONF.billing.region_name)
         return int(image.size) / (1024 ** 3)
 
