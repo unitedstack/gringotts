@@ -229,7 +229,7 @@ class ProjectsController(rest.RestController):
                 LOG.warn('User %s has no payed projects' % user_id)
                 return []
 
-            projects = keystone.get_projects_by_project_ids(project_ids)
+            projects = self._list_keystone_projects()
 
             for u, p in itertools.product(user_projects, projects):
                 if u.project_id == p['id']:
@@ -255,7 +255,7 @@ class ProjectsController(rest.RestController):
             if not user_id:
                 user_id = request.context.user_id
 
-            k_projects = keystone.get_projects_by_user(user_id)
+            k_projects = keystone.get_project_list(name=user_id)
             project_ids = [p['id'] for p in k_projects]
 
             if not project_ids:
@@ -302,17 +302,25 @@ class ProjectsController(rest.RestController):
                 LOG.warn('User %s has no payed projects' % user_id)
                 return []
 
-            k_projects = keystone.get_projects_by_project_ids(project_ids)
+            k_projects = self._list_keystone_projects()
 
             for k, g in itertools.product(k_projects, g_projects):
-                if k['id'] == g.project_id:
+                if k.id == g.project_id:
                     up = models.UserProject(project_id=g.project_id,
-                                            project_name=k['name'],
+                                            project_name=k.name,
                                             domain_id=g.domain_id,
                                             billing_owner=dict(user_id=g.user_id))
                     result.append(up)
 
         return result
+
+    def _list_keystone_projects(self):
+        projects = []
+        domain_ids = \
+            [domain.id for domain in keystone.get_domain_list()]
+        for domain_id in domain_ids:
+            projects.extend(keystone.get_project_list(domain_id))
+        return projects
 
     @wsexpose(None, body=models.Project)
     def post(self, data):
