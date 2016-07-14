@@ -169,7 +169,8 @@ def snapshot_list(project_id, region_name=None, detailed=True, project_name=None
                                        user_id=None,
                                        project_id=project_id,
                                        project_name=project_name,
-                                       created_at=created_at))
+                                       created_at=created_at,
+                                       volume_id=sp.volume_id))
     return formatted_snap
 
 

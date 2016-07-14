@@ -55,8 +55,16 @@ OPTS = [
                help="The recharge url"),
     cfg.StrOpt('order_recharge_url',
                default="https://console.ustack.com/bill/order",
-               help="The order recharge url")
-
+               help="The order recharge url"),
+    cfg.IntOpt('check_resources_interval',
+               default=24,
+               help="The interval to check if resources match with orders"),
+    cfg.IntOpt('check_owed_resources_interval',
+               default=24,
+               help="The interval to check if resources match with orders"),
+    cfg.IntOpt('check_cron_jobs_interval',
+               default=12,
+               help="The interval to check if resources match with orders")
 ]
 
 cfg.CONF.register_opts(OPTS, group="checker")
@@ -202,9 +210,15 @@ class CheckerService(os_service.Service):
         start_date = (datetime.datetime.utcnow() +
                       datetime.timedelta(seconds=60))
         non_center_jobs = [
-            (self.check_if_resources_match_orders, 1, start_date),
-            (self.check_if_owed_resources_match_owed_orders, 1, start_date),
-            (self.check_if_cronjobs_match_orders, 1, start_date),
+            (self.check_if_resources_match_orders,
+             cfg.CONF.checker.check_resources_interval,
+             start_date),
+            (self.check_if_owed_resources_match_owed_orders,
+             cfg.CONF.checker.check_owed_resources_interval,
+             start_date),
+            (self.check_if_cronjobs_match_orders,
+             cfg.CONF.checker.check_cron_jobs_interval,
+             start_date),
         ]
 
         nine_clock = self._absolute_9_clock()
@@ -811,7 +825,7 @@ class CheckerService(os_service.Service):
                     if not orders:
                         continue
 
-                    contact = keystone.get_uos_user(account['user_id'])
+                    contact = keystone.get_user(account['user_id'])
                     _projects = self.gclient.get_projects(
                         user_id=account['user_id'],
                         type='simple')

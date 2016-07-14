@@ -247,6 +247,10 @@ def get_project_list(domain=None, name=None):
     return get_ks_client().projects.list(domain=domain, name=name)
 
 
+def get_domain_list(name=None, enabled=None):
+    return get_ks_client().domains.list(name=name, enabled=enabled)
+
+
 def get_services():
     # Read from cache first
     cache = _get_cache()
@@ -311,26 +315,6 @@ def get_uos_user_by_name(user_name):
         LOG.warn("can't not find user %s from keystone" % user_name)
         raise exception.NotFound()
     return r.json()['user']
-
-
-def get_projects_by_project_ids(project_ids=[]):
-
-    auth_url = get_auth_url()
-    internal_api = lambda api: auth_url + '/US-INTERNAL'+ '/' + api
-
-    projects = []
-    _project_ids = [project_ids[i:i+50]
-                    for i in range(0, len(project_ids), 50)]
-
-    for __project_ids in _project_ids:
-        query = {'ids': ','.join(__project_ids)}
-
-        r = requests.get(internal_api('get_projects'),
-                         params=query,
-                         headers={'Content-Type': 'application/json'})
-        if r.status_code != 404:
-            projects += r.json()['projects']
-    return projects
 
 
 def get_projects_by_user(user_id):
