@@ -272,27 +272,6 @@ class NovaBillingProtocol(base.BillingProtocol):
 
         return True, None
 
-    def stop_resource_order(self, env, body, start_response, order_id):
-        try:
-            self.gclient.stop_resource_order(order_id, 'instance')
-        except Exception as e:
-            msg = "Unable to stop the order: %s" % order_id
-            LOG.exception(msg)
-            return False, self._reject_request_500(env, start_response)
-
-        return True, None
-
-    def start_resource_order(self, env, body, start_response, order_id):
-        try:
-            change_to = const.STATE_RUNNING
-            self.gclient.start_resource_order(order_id, 'instance')
-        except Exception as e:
-            msg = "Unable to start the order: %s" % order_id
-            LOG.exception(msg)
-            return False, self._reject_request_500(env, start_response)
-
-        return True, None
-
 
 def filter_factory(global_conf, **local_conf):
     conf = global_conf.copy()

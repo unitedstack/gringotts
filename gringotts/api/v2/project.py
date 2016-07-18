@@ -50,7 +50,7 @@ class BillingOwnerController(rest.RestController):
     def get(self):
         self.conn = pecan.request.db_conn
         account = self.conn.get_billing_owner(request.context,
-                                                      self.project_id)
+                                              self.project_id)
         try:
             if cfg.CONF.external_billing.enable:
                 external_balance = self.external_client.get_external_balance(
