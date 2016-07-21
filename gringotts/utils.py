@@ -117,6 +117,8 @@ STATE_MAPPING = {
     'PAUSED': const.STATE_SUSPEND,
     'True': const.STATE_RUNNING,
     'False': const.STATE_STOPPED,
+    'true': const.STATE_RUNNING,
+    'false': const.STATE_STOPPED,
 }
 
 

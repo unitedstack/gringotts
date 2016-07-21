@@ -157,11 +157,14 @@ class BillingProtocol(object):
         self.black_list = [
             self.create_resource_action,
             self.delete_resource_action,
+            self.no_billing_resource_action,
         ]
         self.resource_regexs = []
+        self.no_billing_resource_regexs = []
         self.resize_resource_actions = []
         self.stop_resource_actions = []
         self.start_resource_actions = []
+        self.no_billing_resource_actions = []
 
         # make billing client
         self.gclient = client.Client(username=self.admin_user,
@@ -350,6 +353,17 @@ class BillingProtocol(object):
                                           unit_price, unit,
                                           period, renew, resource)
                 return app_result
+        # NOTE(heha): There are some resources that are not billed.
+        # But when we do some action to the resources, some orders will
+        # be affected. Like deleting the loadbalancer that is not billed, the
+        # listeners associated with it will be deleted too. And the listeners
+        # are billed. So the deleting action of loadbalancer will affect
+        # the orders of listeners.
+        elif self.no_billing_resource_action(request_method, path_info, body):
+            method_name = request_mehtod.lower() + '_' + \
+                self.get_no_billing_resource_type(path_info, 0)
+            self.no_billing_resource_method[method_name](env, start_response,
+                                                         request_mtehod, path_info, body)
         else:
             resource_id = self.get_resource_id(path_info, self.position)
 
@@ -415,14 +429,16 @@ class BillingProtocol(object):
             elif self.stop_resource_action(request_method, path_info, body):
                 app_result = self.app(env, start_response)
                 if not app_result[0]:
-                    success, result = self.stop_resource_order(env, body, start_response, order.get('order_id'))
+                    success, result = self.stop_resource_order(env, body, start_response,
+                                                               order.get('order_id'), order.get('type'))
                     if not success:
                         app_result = result
                 return app_result
             elif self.start_resource_action(request_method, path_info, body):
                 app_result = self.app(env, start_response)
                 if not app_result[0]:
-                    success, result = self.start_resource_order(env, body, start_response, order.get('order_id'))
+                    success, result = self.start_resource_order(env, body, start_response,
+                                                                order.get('order_id'), order.get('type'))
                     if not success:
                         app_result = result
                 return app_result
@@ -547,6 +563,29 @@ class BillingProtocol(object):
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)
 
+    def stop_resource_order(self, env, body,
+                            start_response, order_id, resource_type):
+        try:
+            self.gclient.stop_resource_order(order_id, resource_type)
+        except Exception as e:
+            msg = "Unable to stop the order: %s" % order_id
+            LOG.exception(msg)
+            return False, self._reject_request_500(env, start_response)
+
+        return True, None
+
+    def start_resource_order(self, env, body,
+                             start_response, order_id, resource_type):
+        try:
+            change_to = const.STATE_RUNNING
+            self.gclient.start_resource_order(order_id, resource_type)
+        except Exception as e:
+            msg = "Unable to start the order: %s" % order_id
+            LOG.exception(msg)
+            return False, self._reject_request_500(env, start_response)
+
+        return True, None
+
     def get_order_by_resource_id(self, env, start_response, resource_id):
         try:
             order = self.gclient.get_order_by_resource_id(resource_id)
@@ -620,9 +659,22 @@ class BillingProtocol(object):
                 return True
         return False
 
+    def no_billing_resource_action(self, method, path_info, body):
+        """The action that the resource was not billed."""
+        for action in self.no_billing_resource_actions:
+            if action(method, path_info, body):
+                return True
+        return False
+
     def get_resource_id(self, path_info, position):
         """Get resource id from various path_info"""
         for resource_regex in self.resource_regexs:
+            match = resource_regex.search(path_info)
+            if match:
+                return match.groups()[position]
+
+    def get_no_billing_resource_type(self, path_info, position):
+        for resource_regex in self.no_billing_resource_regexs:
             match = resource_regex.search(path_info)
             if match:
                 return match.groups()[position]

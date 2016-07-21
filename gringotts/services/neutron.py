@@ -168,6 +168,9 @@ def loadbalancer_list(project_id, region_name=None, project_name=None):
 
     return formatted_loadbalancer
 
+def loadbalancer_get(lb_id, region_name=None):
+    return get_neutronclient(region_name).\
+        show_loadbalancer(lb_id)['loadbalancer']
 
 @register(mtype='list')
 @wrap_exception(exc_type='list')
