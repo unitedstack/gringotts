@@ -143,8 +143,9 @@ class OrderController(rest.RestController):
             self.master_api.instance_stopped(request.context, self._id,
                                              action_time)
         else:
+            remarks = '%s Has Been Stopped' % data.resource_type.capitalize()
             self.master_api.resource_stopped(request.context, self._id,
-                                             action_time)
+                                             action_time, remarks)
 
     @wsexpose(None, body=models.ResourceStartBody)
     def start_resource(self, data):
