@@ -412,7 +412,7 @@ class BillingProtocol(object):
                         return result
 
                     app_result = self.app(env, start_response)
-                    if not app_result[0]:
+                    if self.check_if_resize_action_success(order['type'], app_result):
                         success, result = self.resize_resource_order(env,
                                                                      body,
                                                                      start_response,
@@ -428,7 +428,7 @@ class BillingProtocol(object):
 
             elif self.stop_resource_action(request_method, path_info, body):
                 app_result = self.app(env, start_response)
-                if not app_result[0]:
+                if self.check_if_stop_action_success(order['type'], app_result):
                     success, result = self.stop_resource_order(env, body, start_response,
                                                                order.get('order_id'), order.get('type'))
                     if not success:
@@ -436,7 +436,7 @@ class BillingProtocol(object):
                 return app_result
             elif self.start_resource_action(request_method, path_info, body):
                 app_result = self.app(env, start_response)
-                if not app_result[0]:
+                if self.check_if_start_action_success(order['type'], app_result):
                     success, result = self.start_resource_order(env, body, start_response,
                                                                 order.get('order_id'), order.get('type'))
                     if not success:
@@ -460,6 +460,15 @@ class BillingProtocol(object):
                 env['HTTP_X_ROLES'] = env['HTTP_X_ROLES'] + ',month_billing'
                 env['HTTP_X_ROLE'] = env['HTTP_X_ROLE'] + ',month_billing'
                 return self.app(env, start_response)
+
+    def check_if_resize_action_success(self, resource_type, result):
+        return not result[0]
+
+    def check_if_stop_action_success(self, resource_type, result):
+        return not result[0]
+
+    def check_if_start_action_success(self, resource_type, result):
+        return not result[0]
 
     def check_if_in_blacklist(self, method, path_info, body):
         for black_method in self.black_list:
@@ -577,7 +586,6 @@ class BillingProtocol(object):
     def start_resource_order(self, env, body,
                              start_response, order_id, resource_type):
         try:
-            change_to = const.STATE_RUNNING
             self.gclient.start_resource_order(order_id, resource_type)
         except Exception as e:
             msg = "Unable to start the order: %s" % order_id

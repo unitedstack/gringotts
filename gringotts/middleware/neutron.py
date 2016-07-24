@@ -44,7 +44,7 @@ class ConnectionLimitItem(base.ProductItem):
         return const.PRODUCT_LISTENER
 
     def get_resource_volume(self, env, body):
-        return body['listener'].get('connection_limit') / 1000
+        return int(body['listener'].get('connection_limit')) / 1000
 
 
 class NeutronBillingProtocol(base.BillingProtocol):
@@ -107,6 +107,20 @@ class NeutronBillingProtocol(base.BillingProtocol):
                 namespace='gringotts.%s.product_items' % name,
                 invoke_on_load=True,
                 invoke_args=(self.gclient,))
+
+    def check_if_resize_action_success(self, resource_type, result):
+        if resource_type == const.RESOURCE_LISTENER:
+            return 'listener' in result[0]
+        elif resource_type == const.RESOURCE_FLOATINGIP:
+            return 'rate_limit' in result[0]
+
+    def check_if_stop_action_success(self, resource_type, result):
+        if resource_type == const.RESOURCE_LISTENER:
+            return 'listener' in result[0]
+
+    def check_if_start_action_success(self, resource_type, result):
+        if resource_type == const.RESOURCE_LISTENER:
+            return 'listener' in result[0]
 
     def change_fip_ratelimit_action(self, method, path_info, body):
         if method == 'PUT' \
@@ -234,9 +248,10 @@ class NeutronBillingProtocol(base.BillingProtocol):
     def resize_resource_order(self, env, body, start_response, order_id,
                               resource_id, resource_type):
         if resource_type == const.RESOURCE_FLOATINGIP:
-            quantity = body['rate_limit']
+            quantity = pricing.rate_limit_to_unit(
+                body['floatingip']['rate_limit'])
         elif resource_type == const.RESOURCE_LISTENER:
-            quantity = body['listener']['connection_limit']
+            quantity = int(body['listener']['connection_limit']) / 1000
 
         try:
             self.gclient.resize_resource_order(order_id,
