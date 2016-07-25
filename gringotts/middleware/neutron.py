@@ -57,7 +57,7 @@ class NeutronBillingProtocol(base.BillingProtocol):
             r'^/%s([.][^.]+)?$' % RESOURCE_RE, re.UNICODE)
 
         self.change_fip_ratelimit_regex = re.compile(
-            r'^/floatingips/%s/'
+            r'^/(floatingips)/%s/'
             r'update_floatingip_ratelimit([.][^.]+)?$' % (UUID_RE))
         self.update_listener_regex = re.compile(
             r'^/(lbaas/listeners)/%s([.][^.]+)?$' % (UUID_RE))
