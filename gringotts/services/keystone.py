@@ -243,8 +243,8 @@ def get_user_list():
     return users
 
 
-def get_project_list(domain=None, name=None):
-    return get_ks_client().projects.list(domain=domain, name=name)
+def get_project_list(domain=None, name=None, user=None):
+    return get_ks_client().projects.list(domain=domain, name=name, user=user)
 
 
 def get_domain_list(name=None, enabled=None):

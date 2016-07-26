@@ -493,8 +493,8 @@ class OrdersController(rest.RestController):
 
         if limit_user_id:  # normal user
             user_id = None
-            projects = keystone.get_projects_by_user(limit_user_id)
-            _project_ids = [project['id'] for project in projects]
+            projects = keystone.get_project_list(user=limit_user_id)
+            _project_ids = [project.id for project in projects]
             if project_id:
                 project_ids = ([project_id]
                                if project_id in _project_ids
