@@ -1482,7 +1482,6 @@ class Connection(base.Connection):
 
         return self._row_to_db_account_model(account)
 
-    @require_context
     def get_project(self, context, project_id):
         try:
             project = get_session().query(sa_models.Project).\

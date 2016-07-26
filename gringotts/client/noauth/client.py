@@ -49,3 +49,7 @@ class Client(object):
     def change_billing_owner(self, user_id, project_id):
         _body = dict(user_id=user_id)
         self.client.put('/projects/%s/billing_owner' % project_id, body=_body)
+
+    def get_project(self, project_id):
+        resp, body = self.client.get('/projects/%s' % project_id)
+        return body

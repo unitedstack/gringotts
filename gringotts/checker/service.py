@@ -47,9 +47,6 @@ OPTS = [
                      'regions'),
     cfg.StrOpt('support_email',
                help="The cloud manager email"),
-    cfg.BoolOpt('send_email_to_sales',
-                default=False,
-                help='disable the function of sending email to sales'),
     cfg.StrOpt('recharge_url',
                default="https://console.ustack.com/bill/account_charge",
                help="The recharge url"),
@@ -243,11 +240,6 @@ class CheckerService(os_service.Service):
                                      hours=period,
                                      start_date=start_date)
 
-        if cfg.CONF.checker.send_email_to_sales:
-            self.apsched.add_job(self.send_accounts_to_sales,
-                                 'cron',
-                                 month='1-12', day='last',
-                                 hour='23', minute='59', second='59')
         LOG.warn("[%s] Load jobs successfully, waiting for other checkers "
                  "to join the group...", self.member_id)
 
@@ -259,123 +251,6 @@ class CheckerService(os_service.Service):
         if nowutc_time > clock:
             nowutc_date = nowutc_date + datetime.timedelta(hours=24)
         return datetime.datetime.combine(nowutc_date, clock)
-
-    def send_accounts_to_sales(self):
-        period_end_time = datetime.datetime.utcnow()
-        period_start_time = datetime.datetime(period_end_time.year,
-                                              period_end_time.month,
-                                              1, 0, 0, 0)
-        try:
-            accounts = self._assigned_accounts()
-        except Exception:
-            LOG.exception('Failed to get assigned accounts')
-            return
-
-        LOG.warn("[%s] Sending accounts to sales, assigned accounts "
-                 "number: %s", self.member_id, len(accounts))
-
-        email_bodies = {}
-        sales_email_name = {}
-
-        for account in accounts:
-            sales_id = account['sales_id']
-            if not sales_email_name.get(sales_id):
-                sales = keystone.get_uos_user(sales_id)
-                if not sales:
-                    continue
-
-                sales_email = sales['email']
-                sales_name = sales.get('real_name') or sales['name']
-
-                sales_email_name[sales_id] = (sales_email, sales_name)
-
-            uos_user = keystone.get_uos_user(account['user_id'])
-            if not uos_user:
-                continue
-
-            # get name, email, mobile, company of the account
-            name = uos_user.get('real_name') or uos_user['name']
-            email = uos_user.get('email')
-            mobile = uos_user.get('mobile_number') or 'unknown'
-            company = uos_user.get('company') or 'unknown'
-
-            # get the type of the user, eg: Main account
-            users = keystone.get_account_type(
-                value=account['user_id'])['users']
-            if users:
-                if not users[0]['enabled']:
-                    user_type = u'Inactivated User'
-                elif users[0]['is_domain_owner']:
-                    user_type = u'Main account'
-                else:
-                    user_type = u'Sub account'
-            else:
-                user_type = u'Unknown'
-
-            # get the status of the account
-            status = u'Enabled' if uos_user['enabled'] else u"Nonactivated"
-
-            # get the register time of the account
-            created_at = utils.format_datetime(
-                uos_user.get('created_at') or account['created_at'])
-
-            # get the charge, coupon, bonus of the account
-            charge = 0
-            coupon = 0
-            bonus = 0
-            charges = self.gclient.get_charges(account['user_id'])
-            for one in charges:
-                if one['type'] == 'bonus':
-                    bonus += float(one['value'])
-                elif one['type'] == 'money':
-                    charge += float(one['value'])
-                elif one['type'] == 'coupon':
-                    coupon += float(one['value'])
-                else:
-                    LOG.info('%s is unknown charge type!' % one['type'])
-
-            # get the balance of the account
-            balance = round(float(account['balance']), 4)
-
-            # get consumption in a period, the period is a month for the moment
-            period_consumption = self.gclient.get_orders_summary(
-                account['user_id'],
-                period_start_time,
-                period_end_time)
-            period_consumption = round(
-                float(period_consumption['total_price']), 4)
-
-            # predict the consumption per day
-            predict_day_consumption = self.gclient.get_consumption_per_day(
-                account['user_id'])
-            predict_day_consumption = round(
-                float(predict_day_consumption['price_per_day']), 4)
-
-            # get the days that the balance can support
-            remain_consumption_day = 0
-            if predict_day_consumption:
-                remain_consumption_day = int(balance / predict_day_consumption)
-
-            # get the capital consumption
-            total_charge = charge + coupon + bonus
-            capital_consumption = 0
-            if total_charge:
-                capital_consumption = round(
-                    (charge / total_charge) * period_consumption, 4)
-
-            if sales_email not in email_bodies:
-                email_bodies[sales_email] = []
-
-            email_bodies[sales_email].append((name, email, mobile, company,
-                                              user_type, status, created_at,
-                                              charge, bonus, coupon, balance,
-                                              predict_day_consumption,
-                                              remain_consumption_day,
-                                              period_consumption,
-                                              capital_consumption))
-
-        self.notifier.send_account_info(self.ctxt, email_bodies,
-                                        sales_email_name)
 
     def _check_resource_to_order(self, resource, resource_to_order,
                                  bad_resources, try_to_fix):
