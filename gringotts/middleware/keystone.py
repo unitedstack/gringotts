@@ -129,7 +129,7 @@ class KeystoneBillingProtocol(object):
             return True
         return False
 
-    def delete_role_action(self, method, path_info):
+    def unassign_role_action(self, method, path_info):
         if method == "DELETE" and self.role_regex.search(path_info):
             return True
         return False
@@ -221,8 +221,19 @@ class KeystoneBillingProtocol(object):
                     if not success:
                         app_result = result
             return app_result
-        elif self.delete_role_action(request_method, path_info):
+        elif self.unassign_role_action(request_method, path_info):
+            billing_owner, project_id, role_id = \
+                self.get_role_action_ids(path_info)
+            success, result = self.get_project(env, start_response, project_id)
+            if not success:
+                return result
+
+            current_billing_owner = result['user_id']
+            if current_billing_owner == billing_owner:
+                return self._reject_request_403(env, start_response)
+
             return self.app(env, start_response)
+
         else:
             return self.app(env, start_response)
 
@@ -264,6 +275,18 @@ class KeystoneBillingProtocol(object):
         except Exception:
             return False, self._reject_request_500(env, start_response)
         return True, None
+
+    def get_project(self, env, start_response, project_id):
+        try:
+            result = self.gclient.get_project(project_id)
+        except Exception:
+            return False, self._reject_request_500(env, start_response)
+        return True, result
+
+    def _reject_request_403(self, env, start_response):
+        return self._reject_request(env, start_response,
+                                    "The project must have a billing owner",
+                                    "403 Forbidden")
 
     def _reject_request_500(self, env, start_response):
         return self._reject_request(env, start_response,

@@ -49,8 +49,12 @@ class BillingOwnerController(rest.RestController):
     @wsexpose(models.UserAccount)
     def get(self):
         self.conn = pecan.request.db_conn
-        account = self.conn.get_billing_owner(request.context,
-                                              self.project_id)
+        try:
+            account = self.conn.get_billing_owner(request.context,
+                                                  self.project_id)
+        except exception.AccountNotFound:
+            return None
+
         try:
             if cfg.CONF.external_billing.enable:
                 external_balance = self.external_client.get_external_balance(

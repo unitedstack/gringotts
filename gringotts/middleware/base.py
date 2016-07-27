@@ -268,6 +268,13 @@ class BillingProtocol(object):
             user_id = env['HTTP_X_AUTH_USER_ID']
             project_id = env['HTTP_X_AUTH_PROJECT_ID']
 
+        success, result = \
+            self.check_if_project_has_billing_owner(env,
+                                                    start_response,
+                                                    project_id)
+        if not success:
+            return result
+
         if self.create_resource_action(request_method, path_info, body):
             # parse and validate bill parameters
             bill_params = self._parse_bill_params_from_body(body)
@@ -496,6 +503,23 @@ class BillingProtocol(object):
                   'for the reason: %s' % e
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)
+
+    def check_if_project_has_billing_owner(self, env,
+                                           start_response, project_id):
+        try:
+            account = self.gclient.get_billing_owner(project_id)
+            if not account:
+                result = self._reject_request(env, start_response,
+                                              'The project has no billing owner',
+                                              '403 Forbidden')
+                return False, result
+        except Exception as e:
+            msg = 'Unable to get account info from billing service, ' \
+                  'for the reason: %s' % e
+            LOG.exception(msg)
+            return False, self._reject_request_500(env, start_response)
+
+        return True, None
 
     def freeze_balance(self, env, start_response, project_id, total_price):
         try:

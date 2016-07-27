@@ -42,11 +42,26 @@ class ProjectController(rest.RestController):
         self._id = project_id
         self.external_client = external_client
 
+    def _project(self):
+        self.conn = pecan.request.db_conn
+        try:
+            project = self.conn.get_project(request.context,
+                                            project_id=self._id)
+        except Exception as e:
+            LOG.error('project %s no found' % self._id)
+            raise exception.ProjectNotFound(project_id=self._id)
+        return project
+
     @pecan.expose()
     def _lookup(self, subpath, *remainder):
         if subpath == 'billing_owner':
             return (BillingOwnerController(self._id, self.external_client),
                     remainder)
+
+    @wsexpose(models.Project)
+    def get(self):
+        """Return this project."""
+        return models.Project.from_db_model(self._project())
 
 
 class ProjectsController(rest.RestController):
