@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import copy
 import re
 
@@ -7,6 +9,8 @@ from oslo_config import cfg
 
 from gringotts.client.noauth import client
 from gringotts.openstack.common import jsonutils
+from keystone.common import dependency
+from keystone.common import driver_hints
 
 LOG = logging.getLogger(__name__)
 cfg.CONF.import_group("billing", "gringotts.middleware.base")
@@ -21,12 +25,15 @@ KEYSTONE_OPTS = [
     cfg.StrOpt('billing_endpoint',
                default='http://127.0.0.1:8975',
                help="Billing endpoint"),
-    cfg.StrOpt('billing_owner_role_id',
+    cfg.StrOpt('billing_owner_role_name',
+               default='billing_owner',
+               help="Billing owner role name"),
+    cfg.StrOpt('billing_admin_user_name',
                default=None,
-               help="Billing owner role id"),
-    cfg.StrOpt('billing_admin_user',
+               help="Billing admin user name"),
+    cfg.StrOpt('billing_admin_user_domain_name',
                default=None,
-               help="Billing admin user ID"),
+               help="Billing admin user domain name"),
 ]
 cfg.CONF.register_opts(KEYSTONE_OPTS,group="billing")
 
@@ -71,6 +78,7 @@ class Project(object):
         return copy.copy(self.__dict__)
 
 
+@dependency.requires('role_api', 'resource_api', 'identity_api')
 class KeystoneBillingProtocol(object):
 
     def __init__(self, app, conf):
@@ -160,6 +168,41 @@ class KeystoneBillingProtocol(object):
             return []
         return projects
 
+    @property
+    def billing_owner_role_id(self):
+        role_name = cfg.CONF.billing.billing_owner_role_name
+        hints = driver_hints.Hints()
+        hints.add_filter('name', role_name)
+        role = self.role_api.list_roles(hints)
+        if not role:
+            LOG.warn("The %s role didn't exist." % role_name)
+            return None
+        return role[0]['id']
+
+    @property
+    def billing_admin_user_id(self):
+        user_name = cfg.CONF.billing.billing_admin_user_name
+        if not user_name:
+            return None
+        domain_name = \
+            cfg.CONF.billing.billing_admin_user_domain_name
+        try:
+            domain = \
+                self.resource_api.get_domain_by_name(domain_name)
+            domain_id = domain['id']
+        except Exception as e:
+            LOG.warn(e)
+            return None
+
+        try:
+            user = \
+                self.identity_api.get_user_by_name(user_name, domain_id)
+        except Exception as e:
+            LOG.warn(e)
+            return None
+
+        return user['id']
+
     def get_project_id(self, path_info, position):
         "Get project id from path_info"
         match = self.project_regex.search(path_info)
@@ -209,27 +252,40 @@ class KeystoneBillingProtocol(object):
             return result
         elif self.delete_project_action(request_method, path_info):
             return self.app(env, start_response)
+
+        # Changing the billing owner of a project has two actions, and
+        # the billing_owner role must exist in Kesytone.
+        # Firstly, assign the billing owner role to a user on a project.
+        # If the project had a billing owner previously, now the project
+        # is assigned with two billing owner roles. Secondly, unassign
+        # the billing owner role to the previous billing owner on the
+        # project.
         elif self.add_role_action(request_method, path_info):
+            user_id, project_id, role_id = self.get_role_action_ids(path_info)
             app_result = self.app(env, start_response)
+
+            if not self._is_billing_owner_role(role_id):
+                return app_result
+
             if not app_result[0]:
-                user_id, project_id, role_id = self.get_role_action_ids(path_info)
-                if not self._is_billing_owner(role_id):
-                    return app_result
-                else:
-                    success, result = self.add_role(env, start_response,
-                                                    user_id, project_id)
-                    if not success:
-                        app_result = result
+                success, result = self.add_role(env, start_response,
+                                                user_id, project_id)
+                if not success:
+                    app_result = result
             return app_result
         elif self.unassign_role_action(request_method, path_info):
-            billing_owner, project_id, role_id = \
+            user_id, project_id, role_id = \
                 self.get_role_action_ids(path_info)
+
+            if not self._is_billing_owner_role(role_id):
+                return self.app(env, start_response)
+
             success, result = self.get_project(env, start_response, project_id)
             if not success:
                 return result
 
             current_billing_owner = result['user_id']
-            if current_billing_owner == billing_owner:
+            if current_billing_owner == user_id:
                 return self._reject_request_403(env, start_response)
 
             return self.app(env, start_response)
@@ -237,8 +293,8 @@ class KeystoneBillingProtocol(object):
         else:
             return self.app(env, start_response)
 
-    def _is_billing_owner(self, role_id):
-        return role_id == cfg.CONF.billing.billing_owner_role_id
+    def _is_billing_owner_role(self, role_id):
+        return role_id == self.billing_owner_role_id
 
     def create_user(self, env, start_response, body,
                     user, balance=None, consumption=None,
@@ -253,9 +309,7 @@ class KeystoneBillingProtocol(object):
     def create_project(self, env, start_response, body,
                        project, consumption=None):
         consumption = consumption or 0
-        # If the billing_admin_user is not None, the user is
-        # the billing owner of all projects created.
-        user_id = cfg.CONF.billing.billing_admin_user
+        user_id = self.billing_admin_user_id
         self.gclient.create_project(
             project.project_id, project.domain_id,
             consumption, user_id)
