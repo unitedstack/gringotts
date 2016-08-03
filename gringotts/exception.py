@@ -249,6 +249,10 @@ class AccountNotFound(NotFound):
     message = _("Account %(user_id)s not found")
 
 
+class AccountLevelUpdateFailed(GringottsException):
+    message = _("Account level update failed")
+
+
 class DeductNotFound(NotFound):
     message = _("Deduct req_id %(req_id)s not found")
 

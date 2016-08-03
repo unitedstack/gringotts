@@ -4,8 +4,13 @@ from __future__ import absolute_import
 import datetime
 import functools
 import os
+import threading
 
 from oslo_config import cfg
+from oslo_db import api as oslo_db_api
+from oslo_db import exception as db_exc
+from oslo_db import options as oslo_db_options
+from oslo_db.sqlalchemy import session as db_session
 from sqlalchemy import desc, asc
 from sqlalchemy import func
 from sqlalchemy import not_
@@ -14,13 +19,11 @@ import wsme
 
 from gringotts import constants as const
 from gringotts import context as gring_context
-from gringotts.db import base
+from gringotts.db import api
 from gringotts.db import models as db_models
 from gringotts.db.sqlalchemy import migration
 from gringotts.db.sqlalchemy import models as sa_models
 from gringotts import exception
-from gringotts.openstack.common.db import exception as db_exception
-from gringotts.openstack.common.db.sqlalchemy import session as db_session
 from gringotts.openstack.common import jsonutils
 from gringotts.openstack.common import log
 from gringotts.openstack.common import timeutils
@@ -33,8 +36,11 @@ LOG = log.getLogger(__name__)
 cfg.CONF.import_opt('enable_owe', 'gringotts.master.service')
 cfg.CONF.import_opt('allow_delay_seconds',
                     'gringotts.master.service', group='master')
+cfg.CONF.register_opts(oslo_db_options.database_opts, 'database')
 
-get_session = db_session.get_session
+_FACADE = None
+_LOCK = threading.Lock()
+
 quantize = gringutils._quantize_decimal
 
 
@@ -80,6 +86,30 @@ def require_domain_context(f):
         gring_context.require_domain_context(args[1])
         return f(*args, **kwargs)
     return wrapper
+
+
+def _create_facade_lazily():
+    global _LOCK, _FACADE
+
+    if _FACADE is None:
+        with _LOCK:
+            if _FACADE is None:
+                _FACADE = db_session.EngineFacade.from_config(cfg.CONF)
+    return _FACADE
+
+
+def get_engine():
+    facade = _create_facade_lazily()
+    return facade.get_engine()
+
+
+def get_session():
+    facade = _create_facade_lazily()
+    return facade.get_session()
+
+
+def get_backend():
+    return Connection(cfg.CONF)
 
 
 def model_query(context, model, *args, **kwargs):
@@ -163,18 +193,7 @@ def _paginate_query(query, model, limit, sort_keys, offset=None,
     return query
 
 
-class SQLAlchemyStorage(base.StorageEngine):
-    """Put the data into a SQLAlchemy database.
-    """
-
-    @staticmethod
-    def get_connection(conf):
-        """Return a Connection instance based on the configuration settings.
-        """
-        return Connection(conf)
-
-
-class Connection(base.Connection):
+class Connection(api.Connection):
     """SqlAlchemy connection."""
 
     def __init__(self, conf):
@@ -187,8 +206,7 @@ class Connection(base.Connection):
         migration.db_sync()
 
     def clear(self):
-        session = db_session.get_session()
-        engine = session.get_bind()
+        engine = get_engine()
         for table in reversed(sa_models.Base.metadata.sorted_tables):
             engine.execute(table.delete())
 
@@ -351,7 +369,7 @@ class Connection(base.Connection):
         return p_dict
 
     def create_product(self, context, product):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             product_ref = sa_models.Product()
             product_ref.update(self._product_object_to_dict(product))
@@ -406,7 +424,7 @@ class Connection(base.Connection):
         product = self.get_product(context, product_id)
         product.deleted = True
 
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             query = model_query(context, sa_models.Product)
             query = query.filter_by(product_id=product.product_id)
@@ -416,7 +434,7 @@ class Connection(base.Connection):
         return self._row_to_db_product_model(ref)
 
     def update_product(self, context, product):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             query = model_query(context, sa_models.Product)
             query = query.filter_by(product_id=product.product_id)
@@ -425,7 +443,7 @@ class Connection(base.Connection):
         return self._row_to_db_product_model(ref)
 
     def reset_product(self, context, product, excluded_projects=[]):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             # get all active orders in specified region
             orders = session.query(sa_models.Order).\
@@ -488,7 +506,7 @@ class Connection(base.Connection):
 
     @require_admin_context
     def create_order(self, context, **order):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             # get project
             try:
@@ -614,7 +632,7 @@ class Connection(base.Connection):
     def update_order(self, context, **kwargs):
         """Change unit price of this order
         """
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             # Get subs of this order
             subs = model_query(
@@ -655,7 +673,7 @@ class Connection(base.Connection):
 
     @require_admin_context
     def close_order(self, context, order_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 order = model_query(
@@ -829,7 +847,7 @@ class Connection(base.Connection):
 
     @require_admin_context
     def create_subscription(self, context, **subscription):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             # Get product
             try:
@@ -875,7 +893,7 @@ class Connection(base.Connection):
         return self._row_to_db_subscription_model(subscription)
 
     def update_subscription(self, context, **kwargs):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             subs = model_query(
                 context, sa_models.Subscription, session=session).\
@@ -887,7 +905,7 @@ class Connection(base.Connection):
                 sub.quantity = kwargs['quantity']
 
     def update_flavor_subscription(self, context, **kwargs):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 if kwargs['old_flavor']:
@@ -968,7 +986,7 @@ class Connection(base.Connection):
 
     @require_context
     def get_subscription(self, context, subscription_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             query = model_query(context, sa_models.Subscription)
             query = query.filter_by(subscription_id=subscription_id)
@@ -998,7 +1016,7 @@ class Connection(base.Connection):
 
     @require_context
     def get_bill(self, context, bill_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             query = model_query(context, sa_models.Bill)
             ref = query.filter_by(bill_id=bill_id).one()
@@ -1006,7 +1024,7 @@ class Connection(base.Connection):
 
     @require_context
     def get_latest_bill(self, context, order_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             query = model_query(context, sa_models.Bill)
             query = query.filter_by(order_id=order_id)
@@ -1015,7 +1033,7 @@ class Connection(base.Connection):
 
     @require_context
     def get_owed_bills(self, context, order_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             query = model_query(context, sa_models.Bill)
             query = query.filter_by(order_id=order_id)
@@ -1139,7 +1157,7 @@ class Connection(base.Connection):
         return query.one().count or 0, query.one().sum or 0
 
     def create_account(self, context, account):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             account_ref = sa_models.Account()
             account_ref.update(account.as_dict())
@@ -1163,7 +1181,7 @@ class Connection(base.Connection):
     def delete_account(self, context, user_id):
         """delete the account and projects"""
 
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 account = session.query(sa_models.Account).\
@@ -1233,13 +1251,25 @@ class Connection(base.Connection):
 
         return query.one().count or 0
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def change_account_level(self, context, user_id, level, project_id=None):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             account = session.query(sa_models.Account).\
                 filter_by(user_id=user_id).\
                 with_lockmode('update').one()
-            account.level = level
+            params = {'level': level}
+
+            rows_update = session.query(sa_models.Account).\
+                filter_by(user_id=user_id).\
+                filter_by(level=account.level).\
+                update(params, synchronize_session='evaluate')
+
+            if not rows_update:
+                LOG.debug('The row was updated in a concurrent transaction, '
+                          'we will fetch another one')
+                raise db_exc.RetryRequest(exception.AccountLevelUpdateFailed())
 
         return self._row_to_db_account_model(account)
 
@@ -1247,7 +1277,7 @@ class Connection(base.Connection):
                        operator=None, **data):
         """Do the charge charge account trick
         """
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             account = session.query(sa_models.Account).\
                 filter_by(user_id=user_id).\
@@ -1293,7 +1323,7 @@ class Connection(base.Connection):
     def deduct_account(self, context, user_id, deduct=True, **data):
         """Deduct account by user_id
         """
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             if deduct:
                 account = session.query(sa_models.Account).\
@@ -1325,7 +1355,7 @@ class Connection(base.Connection):
     def set_charged_orders(self, context, user_id, project_id=None):
         """Set owed orders to charged
         """
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             # set owed order in all regions to charged
             if project_id:
@@ -1346,7 +1376,7 @@ class Connection(base.Connection):
                 order.charged = True
 
     def reset_charged_orders(self, context, order_ids):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             for order_id in order_ids:
                 try:
@@ -1406,7 +1436,7 @@ class Connection(base.Connection):
         return query.one().sum or 0, query.one().count or 0
 
     def create_project(self, context, project):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             project_ref = sa_models.Project(**project.as_dict())
             user_project_ref = sa_models.UserProject(**project.as_dict())
@@ -1432,7 +1462,7 @@ class Connection(base.Connection):
 
     @require_admin_context
     def freeze_balance(self, context, project_id, total_price):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 project = model_query(context, sa_models.Project).\
@@ -1458,7 +1488,7 @@ class Connection(base.Connection):
 
     @require_admin_context
     def unfreeze_balance(self, context, project_id, total_price):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 project = model_query(context, sa_models.Project).\
@@ -1543,7 +1573,7 @@ class Connection(base.Connection):
         return (self._row_to_db_project_model(p) for p in projects)
 
     def change_billing_owner(self, context, project_id, user_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             # ensure user exists
             try:
@@ -1597,7 +1627,7 @@ class Connection(base.Connection):
         2, Update bill successfully, but set account to owed, that is account
            is not owed and balance is less than 0
         """
-        session = db_session.get_session()
+        session = get_session()
         result = {'type': -1, 'resource_owed': False}
         with session.begin():
             # Get order
@@ -1755,7 +1785,7 @@ class Connection(base.Connection):
         2, Create bill successfully, but set account to owed, that is account
            is not owed and balance is less than 0
         """
-        session = db_session.get_session()
+        session = get_session()
         result = {'type': -1, 'resource_owed': False}
         with session.begin():
             # Get order
@@ -1955,7 +1985,7 @@ class Connection(base.Connection):
     @require_admin_context
     def close_bill(self, context, order_id, action_time,
                    external_balance=None):
-        session = db_session.get_session()
+        session = get_session()
         result = {'type': -1, 'resource_owed': False}
         with session.begin():
             # get order
@@ -2063,7 +2093,7 @@ class Connection(base.Connection):
 
     @require_admin_context
     def fix_order(self, context, order_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             order = model_query(context, sa_models.Order, session=session).\
                 filter_by(order_id=order_id).\
@@ -2095,7 +2125,7 @@ class Connection(base.Connection):
 
     @require_context
     def create_precharge(self, context, **kwargs):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             operator_id = context.user_id
             for i in xrange(kwargs['number']):
@@ -2144,7 +2174,7 @@ class Connection(base.Connection):
         return result.count
 
     def delete_precharge(self, context, code):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 precharge = model_query(
@@ -2167,7 +2197,7 @@ class Connection(base.Connection):
         return self._row_to_db_precharge_model(precharge)
 
     def dispatch_precharge(self, context, code, remarks=None):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 precharge = model_query(
@@ -2189,7 +2219,7 @@ class Connection(base.Connection):
         return self._row_to_db_precharge_model(precharge)
 
     def use_precharge(self, context, code, user_id=None, project_id=None):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 precharge = session.query(sa_models.PreCharge).\
@@ -2241,7 +2271,7 @@ class Connection(base.Connection):
 
     @require_context
     def fix_resource(self, context, resource_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             query = session.query(sa_models.Order).\
                 filter_by(resource_id=resource_id)
@@ -2275,7 +2305,7 @@ class Connection(base.Connection):
 
     @require_context
     def fix_stopped_order(self, context, order_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             order = session.query(sa_models.Order).\
                 filter_by(order_id=order_id).one()
@@ -2332,7 +2362,7 @@ class Connection(base.Connection):
             account.consumption -= more_fee
 
     def transfer_money(self, cxt, data):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             account_to = session.query(sa_models.Account).\
                 filter_by(user_id=data.user_id_to).\
@@ -2382,7 +2412,7 @@ class Connection(base.Connection):
             session.add(charge_from)
 
     def set_accounts_salesperson(self, context, user_id_list, sales_id):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             # make sure sales_id is a valid account
             try:
@@ -2403,7 +2433,7 @@ class Connection(base.Connection):
                     raise exception.AccountNotFound(user_id=user_id)
 
     def get_salesperson_amount(self, context, sales_id):
-        session = db_session.get_session()
+        session = get_session()
         query = session.query(
             sa_models.Account,
             func.count(sa_models.Account.id).label('count'),
@@ -2419,7 +2449,7 @@ class Connection(base.Connection):
 
     def get_salesperson_customer_accounts(self, context, sales_id,
                                           offset=None, limit=None):
-        session = db_session.get_session()
+        session = get_session()
         query = session.query(sa_models.Account).filter_by(
             sales_id=sales_id)
         try:
@@ -2443,7 +2473,7 @@ class Connection(base.Connection):
 
         So we must re-caculate the unit_price if the renew_method is changed.
         """
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 order = model_query(
@@ -2485,7 +2515,7 @@ class Connection(base.Connection):
         return self._row_to_db_order_model(order)
 
     def switch_auto_renew(self, context, order_id, action):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 order = model_query(
@@ -2515,7 +2545,7 @@ class Connection(base.Connection):
         return self._row_to_db_order_model(order)
 
     def renew_order(self, context, order_id, renew):
-        session = db_session.get_session()
+        session = get_session()
         with session.begin():
             try:
                 order = model_query(

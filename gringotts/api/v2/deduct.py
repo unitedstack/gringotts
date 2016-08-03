@@ -8,6 +8,7 @@ from wsmeext.pecan import wsexpose
 from wsme import types as wtypes
 
 from oslo_config import cfg
+from oslo_db import exception as db_exc
 
 from gringotts.policy import check_policy
 from gringotts import exception
@@ -16,7 +17,6 @@ from gringotts.api.v2 import models
 from gringotts.db import models as db_models
 from gringotts.openstack.common import log
 from gringotts.openstack.common import uuidutils
-from gringotts.openstack.common.db import exception as db_exception
 
 
 LOG = log.getLogger(__name__)
@@ -89,7 +89,7 @@ class PayController(rest.RestController):
             deduct = self.conn.deduct_account(request.context,
                                               data.accountNum,
                                               **data.as_dict())
-        except db_exception.DBDuplicateEntry:
+        except db_exc.DBDuplicateEntry:
             LOG.exception('Duplicated deduct req_id: %s' % data.reqId)
             raise exception.DuplicatedDeduct(req_id=data.reqId)
         except exception.NotAuthorized as e:

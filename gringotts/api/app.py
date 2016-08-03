@@ -8,7 +8,6 @@ import pecan
 from oslo_config import cfg
 from paste import deploy
 
-from gringotts import db
 from gringotts.api import config
 from gringotts.api import hooks
 from gringotts.api import middleware
@@ -124,7 +123,7 @@ def get_pecan_config():
 def setup_app(config=None):
 
     app_hooks = [hooks.ConfigHook(),
-                 hooks.DBHook(db.get_connection(CONF)),
+                 hooks.DBHook(),
                  hooks.ContextHook(),
                  hooks.LimitHook()]
 
@@ -148,7 +147,7 @@ def setup_app(config=None):
 def setup_noauth_app(config=None):
 
     app_hooks = [hooks.ConfigHook(),
-                 hooks.DBHook(db.get_connection(CONF)),
+                 hooks.DBHook(),
                  hooks.ContextHook(),
                  hooks.LimitHook()]
 

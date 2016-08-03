@@ -3,8 +3,8 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 from logging.config import fileConfig
 
-from gringotts.openstack.common.db.sqlalchemy import session as sa_session
 from gringotts.db.sqlalchemy import models
+from gringotts.db import api as db_api
 
 
 # this is the Alembic Config object, which provides
@@ -51,7 +51,7 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
-    engine = sa_session.get_session().get_bind()
+    engine = db_api.get_engine()
     #engine = engine_from_config(
     #        config.get_section(config.config_ini_section),
     #        prefix='sqlalchemy.',
