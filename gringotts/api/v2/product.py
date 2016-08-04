@@ -73,6 +73,9 @@ class ProductController(rest.RestController):
         except Exception:
             LOG.error('Product %s not found' % self._id)
             raise exception.ProductIdNotFound(product_id=self._id)
+
+        product.unit_price = \
+            gringutils.transform_unit_price_string(product.unit_price)
         return product
 
     @wsexpose(models.Product, wtypes.text)

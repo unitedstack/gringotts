@@ -9,6 +9,7 @@ import re
 from oslo_config import cfg
 from pecan import hooks
 
+from gringotts.db import api as db_api
 from gringotts import exception
 from gringotts.openstack.common import log
 from gringotts.openstack.common import memorycache
@@ -40,11 +41,8 @@ class DBHook(hooks.PecanHook):
     """Attache the db connection to the request
     """
 
-    def __init__(self, conn):
-        self.conn = conn
-
     def before(self, state):
-        state.request.db_conn = self.conn
+        state.request.db_conn = db_api.get_instance()
 
 
 class ContextHook(hooks.PecanHook):
