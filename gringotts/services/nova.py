@@ -43,6 +43,14 @@ class Server(Resource):
         }
         return msg
 
+    def to_env(self):
+        return dict(HTTP_X_USER_ID=self.user_id, HTTP_X_PROJECT_ID=self.project_id)
+
+    def to_body(self):
+        body = {}
+        body['server'] = dict(imageRef=self.image_id, flavorRef=self.flavor_id)
+        return body
+
 
 def get_novaclient(region_name=None):
     ks_cfg = cfg.CONF.keystone_authtoken

@@ -165,10 +165,10 @@ class CheckerService(os_service.Service):
         self.RESOURCE_STOPPED_STATE = services.RESOURCE_STOPPED_STATE
         self.RESOURCE_GET_MAP = services.RESOURCE_GET_MAP
 
-        # NOTE(suo): Import waiter plugins to invoke register_class methods.
+        # NOTE(suo): Import 'common' to invoke register_class methods.
         # Don't import this in module level, because it need to read
         # config file, so it should be imported after service initialization
-        from gringotts.waiter import plugins  # noqa
+        from gringotts.checker import common  # noqa
 
         self.RESOURCE_CREATE_MAP = services.RESOURCE_CREATE_MAP
 
@@ -305,15 +305,9 @@ class CheckerService(os_service.Service):
             # Situation 5: The order's unit_price is different from the
             # resource's actual price
             else:
-                resource_status = (resource.admin_state
-                                   if hasattr(resource, 'admin_state')
-                                   else resource.status)
                 unit_price = (
                     self.RESOURCE_CREATE_MAP[resource.resource_type].\
-                    get_unit_price(order['order_id'],
-                                   resource.to_message(),
-                                   resource_status,
-                                   cron_time=order['cron_time']))
+                    get_unit_price(resource, 'hour'))
                 order_unit_price = utils._quantize_decimal(order['unit_price'])
                 if unit_price is not None and unit_price != order_unit_price:
                     try_to_fix['5'].append(Situation5Item(order['order_id'],
@@ -444,16 +438,15 @@ class CheckerService(os_service.Service):
             LOG.warn("[%s] Situation 1: In project(%s), the resource(%s) "
                      "has no order",
                      self.member_id, resource.project_id, resource.id)
-            if cfg.CONF.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
                 create_cls = self.RESOURCE_CREATE_MAP[resource.resource_type]
-                create_cls.process_notification(resource.to_message(),
-                                                resource.status)
+                create_cls.create_order(resource)
         # Situation 2
         for item in try_to_fix_situ_2:
             LOG.warn("[%s] Situation 2: In project(%s), the order(%s) and "
                      "its resource's status doesn't match",
                      self.member_id, item.project_id, item.order_id)
-            if cfg.CONF.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
                 if (item.resource_type == const.RESOURCE_INSTANCE and
                         item.change_to == const.STATE_STOPPED):
                     self.master_api.instance_stopped(self.ctxt,
@@ -470,7 +463,7 @@ class CheckerService(os_service.Service):
             LOG.warn("[%s] Situation 3: In project(%s), the order(%s) "
                      "has no bills",
                      self.member_id, item.project_id, item.order_id)
-            if cfg.CONF.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
                 self.master_api.resource_created_again(
                     self.ctxt,
                     item.order_id,
@@ -481,7 +474,7 @@ class CheckerService(os_service.Service):
             LOG.warn("[%s] Situation 4: In project(%s), the order(%s)'s "
                      "resource has been deleted.",
                      self.member_id, item.project_id, item.order_id)
-            if cfg.CONF.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
                 self.master_api.resource_deleted(self.ctxt,
                                                  item.order_id,
                                                  item.deleted_at,
@@ -492,10 +485,10 @@ class CheckerService(os_service.Service):
                      "unit_price is wrong, should be %s",
                      self.member_id, item.project_id,
                      item.order_id, item.unit_price)
-            if cfg.CONF.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
                 resource_type = item.resource.resource_type
                 create_cls = self.RESOURCE_CREATE_MAP[resource_type]
-                create_cls.change_unit_price(item.resource.to_message(),
+                create_cls.change_unit_price(item.resource,
                                              item.resource.status,
                                              item.order_id)
 
@@ -584,7 +577,7 @@ class CheckerService(os_service.Service):
         for resource in should_stop_resources:
             LOG.warn("[%s] The resource(%s) is owed, should be stopped",
                      self.member_id, resource)
-            if cfg.CONF.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
                 try:
                     self.STOP_METHOD_MAP[resource.resource_type](
                         resource.id, self.region_name)
@@ -594,7 +587,7 @@ class CheckerService(os_service.Service):
         for resource in should_delete_resources:
             LOG.warn("[%s] The resource(%s) is reserved for its full days, "
                      "should be deleted", self.member_id, resource)
-            if cfg.CONF.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
                 try:
                     self.DELETE_METHOD_MAP[resource.resource_type](
                         resource.id, self.region_name)
@@ -634,7 +627,7 @@ class CheckerService(os_service.Service):
             # stopped order means the instances that have been stopped
             # within 30 days
             stopped_order_count = self.gclient.get_stopped_order_count(
-                self.region_name, 
+                self.region_name,
                 type=const.RESOURCE_INSTANCE,
                 bill_methods=['hour'])
 
@@ -989,7 +982,8 @@ class CheckerService(os_service.Service):
         for user in users:
             LOG.warn("[%s] Situation 6: The user(%s) has not been created "
                      "in gringotts", self.member_id, user.user_id)
-            if cfg.CONF.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
+                # TODO(chengkun): create bill account
                 create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_USER]
                 create_cls.process_notification(user.to_message())
 
@@ -1068,7 +1062,8 @@ class CheckerService(os_service.Service):
             LOG.warn("[%s] Situation 7: The project(%s) exists in keystone "
                      "but not in gringotts, its billing owner is %s",
                      self.member_id, p.project_id, p.billing_owner_id)
-            if cfg.CONF.try_to_fix and p.billing_owner_id:
+            if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
+                # TODO(chengkun): create bill project
                 create_cls = self.RESOURCE_CREATE_MAP[const.RESOURCE_PROJECT]
                 create_cls.process_notification(p.to_message())
 
@@ -1076,7 +1071,7 @@ class CheckerService(os_service.Service):
             LOG.warn("[%s] Situation 8: The project(%s) has been deleted, "
                      "but its resources has not been cleared",
                      self.member_id, p.project_id)
-            if cfg.CONF.try_to_fix:
+            if cfg.CONF.checker.try_to_fix:
                 try:
                     self.gclient.delete_resources(p.project_id)
                 except Exception:
@@ -1088,7 +1083,7 @@ class CheckerService(os_service.Service):
             LOG.warn("[%s] Situation 9: The project(%s)'s billing owner in "
                      "gringotts is not equal to keystone's, should be: %s",
                      self.member_id, p.project_id, p.billing_owner_id)
-            if cfg.CONF.try_to_fix and p.billing_owner_id:
+            if cfg.CONF.checker.try_to_fix and p.billing_owner_id:
                 try:
                     self.gclient.change_billing_owner(p.project_id,
                                                       p.billing_owner_id)

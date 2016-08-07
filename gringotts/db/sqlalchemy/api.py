@@ -924,15 +924,13 @@ class Connection(api.Connection):
                     filter_by(deleted=False).\
                     with_lockmode('update').one()
             except NoResultFound:
-                msg = "Product with name(%s/%s) within service(%s) in "
-                "region_id(%s) not found" % \
+                msg = "Product with name(%s/%s) within service(%s) in region_id(%s) not found" % \
                     (kwargs['old_flavor'], kwargs['new_flavor'],
                      kwargs['service'], kwargs['region_id'])
                 LOG.error(msg)
                 return None
             except MultipleResultsFound:
-                msg = "Duplicated products with name(%s/%s) within "
-                "service(%s) in region_id(%s)" % \
+                msg = "Duplicated products with name(%s/%s) within service(%s) in region_id(%s)" % \
                     (kwargs['old_flavor'], kwargs['new_flavor'],
                      kwargs['service'], kwargs['region_id'])
                 LOG.error(msg)

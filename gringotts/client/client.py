@@ -95,7 +95,7 @@ class Client(object):
         # headers
         headers = kwargs.setdefault('headers', dict())
         headers['User-Agent'] = "python-gringclient"
- 
+
         # others
         if self.cert:
             kwargs.setdefault('cert', self.cert)

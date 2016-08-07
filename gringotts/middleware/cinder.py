@@ -1,3 +1,4 @@
+import logging
 import re
 from stevedore import extension
 
@@ -6,6 +7,8 @@ from gringotts.middleware import base
 from gringotts.openstack.common import jsonutils
 from gringotts.services import cinder
 
+
+LOG = logging.getLogger(__name__)
 
 UUID_RE = r"([0-9a-f]{32}|[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12})"
 RESOURCE_RE = r"(volumes|snapshots)"
