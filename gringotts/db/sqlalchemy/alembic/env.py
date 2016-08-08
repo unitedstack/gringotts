@@ -4,7 +4,7 @@ from sqlalchemy import engine_from_config, pool
 from logging.config import fileConfig
 
 from gringotts.db.sqlalchemy import models
-from gringotts.db import api as db_api
+from gringotts.db.sqlalchemy import api as db_api
 
 
 # this is the Alembic Config object, which provides
