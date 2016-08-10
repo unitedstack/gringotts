@@ -52,6 +52,7 @@ def _floatingipset_available():
 
 
 class FloatingIp(Resource):
+
     def to_message(self):
         msg = {
             'event_type': 'floatingip.create.end.again',
@@ -67,6 +68,22 @@ class FloatingIp(Resource):
             'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
+
+    def to_env(self):
+        """fack http env variables for use product items.
+        :returns: env(dict)
+
+        """
+        return dict(HTTP_X_USER_ID=None, HTTP_X_PROJECT_ID=self.project_id)
+
+    def to_body(self):
+        """fack http body.
+        :returns: body(dict)
+
+        """
+        body = {}
+        body[self.resource_type] = dict(rate_limit=self.size)
+        return body
 
 
 class FloatingIpSet(Resource):
@@ -102,6 +119,12 @@ class Router(Resource):
         }
         return msg
 
+    def to_env(self):
+        return dict(HTTP_X_USER_ID=None, HTTP_X_PROJECT_ID=self.project_id)
+
+    def to_body(self):
+        return {}
+
 
 class Listener(Resource):
     def to_message(self):
@@ -119,6 +142,14 @@ class Listener(Resource):
             'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
+
+    def to_env(self):
+        return dict(HTTP_X_USER_ID=None, HTTP_X_PROJECT_ID=self.project_id)
+
+    def to_body(self):
+        body = {}
+        body[self.resource_type] = dict(connection_limit=self.connection_limit)
+        return body
 
 
 class SecurityGroup(Resource):

@@ -367,10 +367,10 @@ class BillingProtocol(object):
         # are billed. So the deleting action of loadbalancer will affect
         # the orders of listeners.
         elif self.no_billing_resource_action(request_method, path_info, body):
-            method_name = request_mehtod.lower() + '_' + \
+            method_name = request_method.lower() + '_' + \
                 self.get_no_billing_resource_type(path_info, 0)
             self.no_billing_resource_method[method_name](env, start_response,
-                                                         request_mtehod, path_info, body)
+                                                         request_method, path_info, body)
         else:
             resource_id = self.get_resource_id(path_info, self.position)
 

@@ -36,6 +36,13 @@ class Image(Resource):
         }
         return msg
 
+    def to_env(self):
+        return dict(HTTP_X_USER_ID=None, HTTP_X_PROJECT_ID=self.project_id,
+                    HTTP_X_IMAGE_META_PROPERTY_BASE_IMAGE_REF=self.id)
+
+    def to_body(self):
+        return {}
+
 def get_glanceclient(region_name=None):
     endpoint = ks_client.get_endpoint(region_name, 'image')
     if endpoint[-1] != '/':

@@ -37,6 +37,18 @@ class Volume(Resource):
         }
         return msg
 
+    def to_env(self):
+        """
+        :returns: TODO
+
+        """
+        return dict(HTTP_X_USER_ID=self.user_id, HTTP_X_PROJECT_ID=self.project_id)
+
+    def to_body(self):
+        body = {}
+        body[self.resource_type] = dict(volume_type=self.type, size=self.size)
+        return body
+
 
 class Snapshot(Resource):
     def to_message(self):
@@ -52,6 +64,14 @@ class Snapshot(Resource):
             'timestamp': utils.format_datetime(timeutils.strtime())
         }
         return msg
+
+    def to_env(self):
+        return dict(HTTP_X_USER_ID=self.user_id, HTTP_X_PROJECT_ID=self.project_id)
+
+    def to_body(self):
+        body = {}
+        body[self.resource_type] = dict(volume_id=self.id)
+        return body
 
 
 def get_cinderclient(region_name=None):

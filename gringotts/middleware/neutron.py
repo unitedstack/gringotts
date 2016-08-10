@@ -1,6 +1,7 @@
 import re
 from stevedore import extension
 
+import logging
 from oslo_config import cfg
 
 from gringotts import constants as const
@@ -10,6 +11,8 @@ from gringotts.openstack.common import uuidutils
 from gringotts.price import pricing
 from gringotts.services import neutron
 
+
+LOG = logging.getLogger(__name__)
 
 UUID_RE = r'([0-9a-f]{32}' \
     r'|[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12})'
