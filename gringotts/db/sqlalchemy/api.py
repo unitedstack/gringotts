@@ -420,6 +420,8 @@ class Connection(api.Connection):
             raise exception.ProductIdNotFound(product_id)
         return self._row_to_db_product_model(ref)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def delete_product(self, context, product_id):
         product = self.get_product(context, product_id)
         product.deleted = True
@@ -433,6 +435,8 @@ class Connection(api.Connection):
             ref = query.one()
         return self._row_to_db_product_model(ref)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def update_product(self, context, product):
         session = get_session()
         with session.begin():
@@ -442,6 +446,8 @@ class Connection(api.Connection):
             ref = query.one()
         return self._row_to_db_product_model(ref)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def reset_product(self, context, product, excluded_projects=[]):
         session = get_session()
         with session.begin():
@@ -505,6 +511,8 @@ class Connection(api.Connection):
         return self._row_to_db_product_model(product)
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def create_order(self, context, **order):
         session = get_session()
         with session.begin():
@@ -513,7 +521,7 @@ class Connection(api.Connection):
                 project = model_query(
                     context, sa_models.Project, session=session).\
                     filter_by(project_id=order['project_id']).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the project: %s',
                           order['project_id'])
@@ -597,7 +605,7 @@ class Connection(api.Connection):
                         context, sa_models.UserProject, session=session).\
                         filter_by(project_id=order['project_id']).\
                         filter_by(user_id=project.user_id).\
-                        with_lockmode('update').one()
+                        one()
                 except NoResultFound:
                     LOG.error('Could not find the relationship between '
                               'user(%s) and project(%s)',
@@ -616,7 +624,7 @@ class Connection(api.Connection):
                     account = model_query(
                         context, sa_models.Account, session=session).\
                         filter_by(user_id=project.user_id).\
-                        with_lockmode('update').one()
+                        one()
                 except NoResultFound:
                     LOG.error('Could not find the account: %s',
                               project.user_id)
@@ -629,6 +637,8 @@ class Connection(api.Connection):
         return self._row_to_db_order_model(ref)
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def update_order(self, context, **kwargs):
         """Change unit price of this order
         """
@@ -668,10 +678,11 @@ class Connection(api.Connection):
 
             model_query(context, sa_models.Order, session=session).\
                 filter_by(order_id=kwargs['order_id']).\
-                with_lockmode('update').\
                 update(a_order)
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def close_order(self, context, order_id):
         session = get_session()
         with session.begin():
@@ -679,7 +690,7 @@ class Connection(api.Connection):
                 order = model_query(
                     context, sa_models.Order, session=session).\
                     filter_by(order_id=order_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 raise exception.OrderNotFound(order_id=order_id)
             order.unit_price = quantize('0.0000')
@@ -846,6 +857,8 @@ class Connection(api.Connection):
         return (self._row_to_db_order_model(o) for o in result)
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def create_subscription(self, context, **subscription):
         session = get_session()
         with session.begin():
@@ -856,7 +869,7 @@ class Connection(api.Connection):
                         name=subscription['product_name']).filter_by(
                             service=subscription['service']).filter_by(
                                 region_id=subscription['region_id']).\
-                    filter_by(deleted=False).with_lockmode('update').one()
+                    filter_by(deleted=False).one()
             except NoResultFound:
                 msg = 'Product with name(%s) within service(%s) in' \
                     ' region_id(%s) not found' % (
@@ -892,6 +905,8 @@ class Connection(api.Connection):
 
         return self._row_to_db_subscription_model(subscription)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def update_subscription(self, context, **kwargs):
         session = get_session()
         with session.begin():
@@ -899,11 +914,13 @@ class Connection(api.Connection):
                 context, sa_models.Subscription, session=session).\
                 filter_by(order_id=kwargs['order_id']).\
                 filter_by(type=kwargs['change_to']).\
-                with_lockmode('update').all()
+                all()
 
             for sub in subs:
                 sub.quantity = kwargs['quantity']
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def update_flavor_subscription(self, context, **kwargs):
         session = get_session()
         with session.begin():
@@ -915,14 +932,14 @@ class Connection(api.Connection):
                         filter_by(service=kwargs['service']).\
                         filter_by(region_id=kwargs['region_id']).\
                         filter_by(deleted=False).\
-                        with_lockmode('update').one()
+                        one()
                 new_product = model_query(
                     context, sa_models.Product, session=session).\
                     filter_by(name=kwargs['new_flavor']).\
                     filter_by(service=kwargs['service']).\
                     filter_by(region_id=kwargs['region_id']).\
                     filter_by(deleted=False).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 msg = "Product with name(%s/%s) within service(%s) in region_id(%s) not found" % \
                     (kwargs['old_flavor'], kwargs['new_flavor'],
@@ -943,7 +960,7 @@ class Connection(api.Connection):
                         filter_by(order_id=kwargs['order_id']).\
                         filter_by(product_id=old_product.product_id).\
                         filter_by(type=kwargs['change_to']).\
-                        with_lockmode('update').one()
+                        one()
                 else:
                     subs = model_query(
                         context, sa_models.Subscription, session=session).\
@@ -1176,6 +1193,8 @@ class Connection(api.Connection):
             raise exception.AccountNotFound(user_id=user_id)
         return self._row_to_db_account_model(ref)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def delete_account(self, context, user_id):
         """delete the account and projects"""
 
@@ -1256,7 +1275,7 @@ class Connection(api.Connection):
         with session.begin():
             account = session.query(sa_models.Account).\
                 filter_by(user_id=user_id).\
-                with_lockmode('update').one()
+                one()
             params = {'level': level}
 
             rows_update = session.query(sa_models.Account).\
@@ -1271,6 +1290,8 @@ class Connection(api.Connection):
 
         return self._row_to_db_account_model(account)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def update_account(self, context, user_id, project_id=None,
                        operator=None, **data):
         """Do the charge charge account trick
@@ -1279,7 +1300,7 @@ class Connection(api.Connection):
         with session.begin():
             account = session.query(sa_models.Account).\
                 filter_by(user_id=user_id).\
-                with_lockmode('update').one()
+                one()
             account.balance += data['value']
 
             if account.balance >= 0:
@@ -1312,12 +1333,14 @@ class Connection(api.Connection):
             if data.get('invitee'):
                 invitee = session.query(sa_models.Account).\
                     filter_by(user_id=data.get('invitee')).\
-                    with_lockmode('update').one()
+                    one()
                 invitee.reward_value = data['value']
 
         return self._row_to_db_charge_model(charge), is_first_charge
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def deduct_account(self, context, user_id, deduct=True, **data):
         """Deduct account by user_id
         """
@@ -1326,7 +1349,7 @@ class Connection(api.Connection):
             if deduct:
                 account = session.query(sa_models.Account).\
                     filter_by(user_id=user_id).\
-                    with_lockmode('update').one()
+                    one()
                 account.balance -= data['money']
 
             deduct = sa_models.Deduct(req_id=data['reqId'],
@@ -1373,6 +1396,8 @@ class Connection(api.Connection):
                 order.date_time = None
                 order.charged = True
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def reset_charged_orders(self, context, order_ids):
         session = get_session()
         with session.begin():
@@ -1459,6 +1484,8 @@ class Connection(api.Connection):
         return self._row_to_db_account_model(account)
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def freeze_balance(self, context, project_id, total_price):
         session = get_session()
         with session.begin():
@@ -1471,7 +1498,7 @@ class Connection(api.Connection):
             try:
                 account = session.query(sa_models.Account).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 raise exception.AccountNotFound(user_id=project.user_id)
 
@@ -1485,6 +1512,8 @@ class Connection(api.Connection):
         return self._row_to_db_account_model(account)
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def unfreeze_balance(self, context, project_id, total_price):
         session = get_session()
         with session.begin():
@@ -1497,7 +1526,7 @@ class Connection(api.Connection):
             try:
                 account = session.query(sa_models.Account).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 raise exception.AccountNotFound(user_id=project.user_id)
 
@@ -1570,6 +1599,8 @@ class Connection(api.Connection):
 
         return (self._row_to_db_project_model(p) for p in projects)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def change_billing_owner(self, context, project_id, user_id):
         session = get_session()
         with session.begin():
@@ -1586,7 +1617,7 @@ class Connection(api.Connection):
                 project = model_query(
                     context, sa_models.Project, session=session).\
                     filter_by(project_id=project_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the project: %s' % project_id)
                 raise exception.ProjectNotFound(project_id=project_id)
@@ -1594,7 +1625,7 @@ class Connection(api.Connection):
             # change user_id of all orders belongs to this project
             orders = model_query(context, sa_models.Order, session=session).\
                 filter_by(project_id=project_id).\
-                with_lockmode('update').all()
+                all()
             for order in orders:
                 order.user_id = user_id
 
@@ -1616,6 +1647,8 @@ class Connection(api.Connection):
                                                   domain_id=project.domain_id))
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def update_bill(self, context, order_id, external_balance=None):
         """Update the latest bill, there are three type of results:
         0, Update bill successfully, including account is owed and order is
@@ -1631,7 +1664,7 @@ class Connection(api.Connection):
             # Get order
             order = model_query(context, sa_models.Order, session=session).\
                 filter_by(order_id=order_id).\
-                with_lockmode('update').one()
+                one()
 
             # Update the latest bill
             try:
@@ -1658,7 +1691,7 @@ class Connection(api.Connection):
                 project = model_query(
                     context, sa_models.Project, session=session).\
                     filter_by(project_id=order.project_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the project: %s', order.project_id)
                 raise exception.ProjectNotFound(project_id=order.project_id)
@@ -1700,7 +1733,7 @@ class Connection(api.Connection):
                     context, sa_models.UserProject, session=session).\
                     filter_by(project_id=order.project_id).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error("Could not find the relationship between user(%s) "
                           "and project(%s)",
@@ -1718,7 +1751,7 @@ class Connection(api.Connection):
                 account = model_query(
                     context, sa_models.Account, session=session).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the account: %s', project.user_id)
                 raise exception.AccountNotFound(user_id=project.user_id)
@@ -1770,6 +1803,8 @@ class Connection(api.Connection):
             return result
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def create_bill(self, context, order_id, action_time=None,
                     remarks=None, end_time=None,
                     external_balance=None):
@@ -1789,7 +1824,7 @@ class Connection(api.Connection):
             # Get order
             order = model_query(context, sa_models.Order, session=session).\
                 filter_by(order_id=order_id).\
-                with_lockmode('update').one()
+                one()
 
             if order.status == const.STATE_CHANGING:
                 return result
@@ -1811,7 +1846,7 @@ class Connection(api.Connection):
                 project = model_query(
                     context, sa_models.Project, session=session).\
                     filter_by(project_id=order.project_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the project: %s', order.project_id)
                 raise exception.ProjectNotFound(project_id=order.project_id)
@@ -1821,7 +1856,7 @@ class Connection(api.Connection):
                 account = model_query(
                     context, sa_models.Account, session=session).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the account: %s', project.user_id)
                 raise exception.AccountNotFound(user_id=project.user_id)
@@ -1911,7 +1946,7 @@ class Connection(api.Connection):
                     context, sa_models.UserProject, session=session).\
                     filter_by(project_id=order.project_id).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the relationship between user(%s) '
                           'and project(%s)',
@@ -1981,6 +2016,8 @@ class Connection(api.Connection):
             return False
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def close_bill(self, context, order_id, action_time,
                    external_balance=None):
         session = get_session()
@@ -1989,7 +2026,7 @@ class Connection(api.Connection):
             # get order
             order = model_query(context, sa_models.Order, session=session).\
                 filter_by(order_id=order_id).\
-                with_lockmode('update').one()
+                one()
 
             # Update the latest bill
             try:
@@ -2023,7 +2060,7 @@ class Connection(api.Connection):
                 project = model_query(
                     context, sa_models.Project, session=session).\
                     filter_by(project_id=order.project_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the project: %s', order.project_id)
                 raise exception.ProjectNotFound(project_id=order.project_id)
@@ -2037,7 +2074,7 @@ class Connection(api.Connection):
                     context, sa_models.UserProject, session=session).\
                     filter_by(project_id=order.project_id).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the relationship between user(%s) '
                           'and project(%s)',
@@ -2053,7 +2090,6 @@ class Connection(api.Connection):
                 account = model_query(
                     context, sa_models.Account, session=session).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').\
                     one()
             except NoResultFound:
                 LOG.error('Could not find the account: %s' % order.project_id)
@@ -2090,18 +2126,20 @@ class Connection(api.Connection):
             return result
 
     @require_admin_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def fix_order(self, context, order_id):
         session = get_session()
         with session.begin():
             order = model_query(context, sa_models.Order, session=session).\
                 filter_by(order_id=order_id).\
-                with_lockmode('update').one()
+                one()
             bills = model_query(context, sa_models.Bill, session=session).\
                 filter_by(order_id=order_id).all()
             account = model_query(
                 context, sa_models.Account, session=session).\
                 filter_by(project_id=order.project_id).\
-                with_lockmode('update').one()
+                one()
 
             one_hour_later = timeutils.utcnow() + datetime.timedelta(hours=1)
             more_fee = 0
@@ -2171,6 +2209,8 @@ class Connection(api.Connection):
             return 0
         return result.count
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def delete_precharge(self, context, code):
         session = get_session()
         with session.begin():
@@ -2194,6 +2234,8 @@ class Connection(api.Connection):
             raise exception.PreChargeNotFound(precharge_code=code)
         return self._row_to_db_precharge_model(precharge)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def dispatch_precharge(self, context, code, remarks=None):
         session = get_session()
         with session.begin():
@@ -2216,6 +2258,8 @@ class Connection(api.Connection):
 
         return self._row_to_db_precharge_model(precharge)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def use_precharge(self, context, code, user_id=None, project_id=None):
         session = get_session()
         with session.begin():
@@ -2237,7 +2281,7 @@ class Connection(api.Connection):
                 account = model_query(
                     context, sa_models.Account, session=session).\
                     filter_by(user_id=user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 raise exception.AccountNotFound(user_id=user_id)
 
@@ -2268,6 +2312,8 @@ class Connection(api.Connection):
         return self._row_to_db_precharge_model(precharge)
 
     @require_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def fix_resource(self, context, resource_id):
         session = get_session()
         with session.begin():
@@ -2302,6 +2348,8 @@ class Connection(api.Connection):
             session.delete(new_order)
 
     @require_context
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def fix_stopped_order(self, context, order_id):
         session = get_session()
         with session.begin():
@@ -2359,15 +2407,17 @@ class Connection(api.Connection):
             account.balance += more_fee
             account.consumption -= more_fee
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def transfer_money(self, cxt, data):
         session = get_session()
         with session.begin():
             account_to = session.query(sa_models.Account).\
                 filter_by(user_id=data.user_id_to).\
-                with_lockmode('update').one()
+                one()
             account_from = session.query(sa_models.Account).\
                 filter_by(user_id=data.user_id_from).\
-                with_lockmode('update').one()
+                one()
 
             if cxt.domain_id != account_to.domain_id or \
                     cxt.domain_id != account_from.domain_id or \
@@ -2409,6 +2459,8 @@ class Connection(api.Connection):
                                            remarks=remarks)
             session.add(charge_from)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def set_accounts_salesperson(self, context, user_id_list, sales_id):
         session = get_session()
         with session.begin():
@@ -2424,7 +2476,7 @@ class Connection(api.Connection):
             for user_id in user_id_list:
                 try:
                     account = session.query(sa_models.Account).filter_by(
-                        user_id=user_id).with_lockmode('update').one()
+                        user_id=user_id).one()
                     account.sales_id = sales_id
                 except (NoResultFound):
                     LOG.warning('Account %s does not exist', user_id)
@@ -2460,6 +2512,8 @@ class Connection(api.Connection):
             # This salesperson has no customer
             return ()
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def activate_auto_renew(self, context, order_id, renew):
         """Activate or update auto renew
 
@@ -2477,7 +2531,7 @@ class Connection(api.Connection):
                 order = model_query(
                     context, sa_models.Order, session=session).\
                     filter_by(order_id=order_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 raise exception.OrderNotFound(order_id=order_id)
 
@@ -2512,6 +2566,8 @@ class Connection(api.Connection):
 
         return self._row_to_db_order_model(order)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def switch_auto_renew(self, context, order_id, action):
         session = get_session()
         with session.begin():
@@ -2519,7 +2575,7 @@ class Connection(api.Connection):
                 order = model_query(
                     context, sa_models.Order, session=session).\
                     filter_by(order_id=order_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 raise exception.OrderNotFound(order_id=order_id)
 
@@ -2542,6 +2598,8 @@ class Connection(api.Connection):
             order.updated_at = datetime.datetime.utcnow()
         return self._row_to_db_order_model(order)
 
+    @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
+                               retry_on_request=True)
     def renew_order(self, context, order_id, renew):
         session = get_session()
         with session.begin():
@@ -2549,7 +2607,7 @@ class Connection(api.Connection):
                 order = model_query(
                     context, sa_models.Order, session=session).\
                     filter_by(order_id=order_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 raise exception.OrderNotFound(order_id=order_id)
 
@@ -2569,7 +2627,7 @@ class Connection(api.Connection):
                 project = model_query(
                     context, sa_models.Project, session=session).\
                     filter_by(project_id=order.project_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the project: %s', order.project_id)
                 raise exception.ProjectNotFound(project_id=order.project_id)
@@ -2579,7 +2637,7 @@ class Connection(api.Connection):
                 account = model_query(
                     context, sa_models.Account, session=session).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the account: %s', project.user_id)
                 raise exception.AccountNotFound(user_id=project.user_id)
@@ -2655,7 +2713,7 @@ class Connection(api.Connection):
                     context, sa_models.UserProject, session=session).\
                     filter_by(project_id=order.project_id).\
                     filter_by(user_id=project.user_id).\
-                    with_lockmode('update').one()
+                    one()
             except NoResultFound:
                 LOG.error('Could not find the relationship between user(%s) '
                           'and project(%s)',
