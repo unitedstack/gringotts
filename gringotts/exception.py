@@ -89,6 +89,10 @@ class ConnectionError(GringottsException):
     """Something went wrong trying to connect to a server"""
 
 
+class ConsumptionUpdateFailed(GringottsException):
+    message = _("Consumption update failed")
+
+
 class Timeout(GringottsException):
     """The request time out"""
 
@@ -249,8 +253,8 @@ class AccountNotFound(NotFound):
     message = _("Account %(user_id)s not found")
 
 
-class AccountLevelUpdateFailed(GringottsException):
-    message = _("Account level update failed")
+class AccountUpdateFailed(GringottsException):
+    message = _("Account update failed")
 
 
 class DeductNotFound(NotFound):
@@ -281,8 +285,16 @@ class ProjectNotFound(NotFound):
     message = _("Project %(project_id)s could not be found")
 
 
+class ProjectUpdateFailed(GringottsException):
+    message = _("Project update failed")
+
+
 class UserProjectNotFound(NotFound):
     message = _("Relationship between User %(user_id)s and Project %(project_id)s not found")
+
+
+class UserProjectUpdateFailed(GringottsException):
+    message = _("User Project update failed")
 
 
 class ProjectCreateFailed(GringottsException):
@@ -323,6 +335,14 @@ class ResourceOrderNotFound(NotFound):
 
 class OrderNotFound(NotFound):
     message = _("Order %(order_id)s not found")
+
+
+class OrderUpdateFailed(GringottsException):
+    message = _("Order update failed")
+
+
+class SubscriptionUpdateFailed(GringottsException):
+    message = _("Subscription update failed")
 
 
 class ProductIdNotFound(NotFound):
