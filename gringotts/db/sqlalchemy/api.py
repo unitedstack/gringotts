@@ -368,6 +368,19 @@ class Connection(api.Connection):
 
         return p_dict
 
+    def _compare_and_swap(self, query, ref, filters,
+                          params, failed_exception):
+        update_filters = {}
+        for f in filters:
+            update_filters[f] = getattr(ref, f)
+        rows_update = query.filter_by(**update_filters).\
+            update(params, synchronize_session='evaluate')
+
+        if not rows_update:
+            LOG.debug('The row was updated in a concurrent transaction, '
+                      'we will fetch another one')
+            raise db_exc.RetryRequest(failed_exception)
+
     def create_product(self, context, product):
         session = get_session()
         with session.begin():
@@ -510,6 +523,22 @@ class Connection(api.Connection):
 
         return self._row_to_db_product_model(product)
 
+    def _update_consumption(self, context, session,
+                            obj, model, total_price,
+                            user_id=False):
+        consumption = obj.consumption + total_price
+        params = dict(consumption=consumption,
+                      updated_at = datetime.datetime.utcnow())
+        filters = params.keys()
+        filters.append('project_id')
+        if user_id:
+            filters.append('user_id')
+        self._compare_and_swap(model_query(context,
+                                           model,
+                                           session=session),
+                               obj, filters, params,
+                               exception.ConsumptionUpdateFailed())
+
     @require_admin_context
     @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
                                retry_on_request=True)
@@ -614,10 +643,11 @@ class Connection(api.Connection):
                         user_id=project.user_id,
                         project_id=order['project_id'])
 
-                project.consumption += total_price
-                project.updated_at = datetime.datetime.utcnow()
-                user_project.consumption += total_price
-                user_project.updated_at = datetime.datetime.utcnow()
+                self._update_consumption(context, session, project,
+                                         sa_models.Project, total_price)
+                self._update_consumption(context, session, user_project,
+                                         sa_models.UserProject, total_price,
+                                         True)
 
                 # Update account
                 try:
@@ -630,9 +660,18 @@ class Connection(api.Connection):
                               project.user_id)
                     raise exception.AccountNotFound(user_id=project.user_id)
 
-                account.frozen_balance -= total_price
-                account.consumption += total_price
-                account.updated_at = datetime.datetime.utcnow()
+                frozen_balance = account.frozen_balance - total_price
+                consumption = account.consumption + total_price
+                params = dict(frozen_balance=frozen_balance,
+                              consumption=consumption,
+                              updated_at=datetime.datetime.utcnow())
+                filters = params.keys()
+                filters.append('user_id')
+                self._compare_and_swap(model_query(context,
+                                                   sa_models.Account,
+                                                   session=session),
+                                       account, filters, params,
+                                       exception.AccountUpdateFailed())
 
         return self._row_to_db_order_model(ref)
 
@@ -667,18 +706,26 @@ class Connection(api.Connection):
                     sub.quantity, price_data)
 
             # update the order
-            a_order = dict(unit_price=unit_price,
-                           updated_at=datetime.datetime.utcnow())
+            order = model_query(context, sa_models.Order, session=session).\
+                filter_by(order_id=kwargs['order_id']).\
+                one()
+
+            params = dict(unit_price=unit_price,
+                          updated_at=datetime.datetime.utcnow())
 
             if kwargs['change_order_status']:
-                a_order.update(
+                params.update(
                     status=kwargs['first_change_to'] or kwargs['change_to'])
             if kwargs['cron_time']:
-                a_order.update(cron_time=kwargs['cron_time'])
+                params.update(cron_time=kwargs['cron_time'])
 
-            model_query(context, sa_models.Order, session=session).\
-                filter_by(order_id=kwargs['order_id']).\
-                update(a_order)
+            filters = params.keys()
+            filters.append('order_id')
+            self._compare_and_swap(model_query(context,
+                                               sa_models.Order,
+                                               session=session),
+                                   order, filters, params,
+                                   exception.OrderUpdateFailed())
 
     @require_admin_context
     @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
@@ -693,9 +740,18 @@ class Connection(api.Connection):
                     one()
             except NoResultFound:
                 raise exception.OrderNotFound(order_id=order_id)
-            order.unit_price = quantize('0.0000')
-            order.status = const.STATE_DELETED
-            order.updated_at = datetime.datetime.utcnow()
+
+            params = dict(unit_price=quantize('0.0000'),
+                          status=const.STATE_DELETED,
+                          updated_at=datetime.datetime.utcnow())
+            filters = params.keys()
+            filters.append('order_id')
+
+            self._compare_and_swap(model_query(context,
+                                               sa_models.Order,
+                                               session=session),
+                                   order, filters, params,
+                                   exception.OrderUpdateFiled())
         return self._row_to_db_order_model(order)
 
     @require_context
@@ -917,7 +973,15 @@ class Connection(api.Connection):
                 all()
 
             for sub in subs:
-                sub.quantity = kwargs['quantity']
+                params = dict(quantity=kwargs['quantity'])
+                filters = params.keys()
+                filters.append('type')
+                filters.append('order_id')
+                self._compare_and_swap(model_query(context,
+                                                   sa_models.Subscription,
+                                                   session=session),
+                                       sub, filters, params,
+                                       exception.SubscriptionUpdateFailed())
 
     @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
                                retry_on_request=True)
@@ -982,8 +1046,17 @@ class Connection(api.Connection):
                     (kwargs['order_id'], kwargs['change_to'])
                 LOG.error(msg)
                 return None
-            sub.unit_price = new_product.unit_price
-            sub.product_id = new_product.product_id
+
+            params = dict(unit_price=new_product.unit_price,
+                          product_id=new_product.product_id)
+            filters = params.keys()
+            filters.append('order_id')
+            filters.append('type')
+            self._compare_and_swap(model_query(context,
+                                               sa_models.Subscription,
+                                               session=session),
+                                   sub, filters, params,
+                                   exception.SubscriptionUpdateFailed())
 
     @require_context
     def get_subscriptions_by_order_id(self, context, order_id, user_id=None,
@@ -1277,16 +1350,14 @@ class Connection(api.Connection):
                 filter_by(user_id=user_id).\
                 one()
             params = {'level': level}
+            filters = params.keys()
+            filters.append('user_id')
 
-            rows_update = session.query(sa_models.Account).\
-                filter_by(user_id=user_id).\
-                filter_by(level=account.level).\
-                update(params, synchronize_session='evaluate')
-
-            if not rows_update:
-                LOG.debug('The row was updated in a concurrent transaction, '
-                          'we will fetch another one')
-                raise db_exc.RetryRequest(exception.AccountLevelUpdateFailed())
+            self._compare_and_swap(model_query(context,
+                                               sa_models.Account,
+                                               session=session),
+                                   account, filters, params,
+                                   exception.AccountUpdateFailed())
 
         return self._row_to_db_account_model(account)
 
@@ -1350,7 +1421,16 @@ class Connection(api.Connection):
                 account = session.query(sa_models.Account).\
                     filter_by(user_id=user_id).\
                     one()
-                account.balance -= data['money']
+
+                params = dict(balance=account.balance-data['money'])
+                filters = params.keys()
+                filters.append('user_id')
+
+                self._compare_and_swap(model_query(context,
+                                                   sa_models.Account,
+                                                   session=session),
+                                       account, filters, params,
+                                       exception.AccountUpdatetFailed())
 
             deduct = sa_models.Deduct(req_id=data['reqId'],
                                       deduct_id=uuidutils.generate_uuid(),
@@ -1627,10 +1707,24 @@ class Connection(api.Connection):
                 filter_by(project_id=project_id).\
                 all()
             for order in orders:
-                order.user_id = user_id
+                params = dict(user_id=user_id)
+                filters = params.keys()
+                filters.append('project_id')
+                self._compare_and_swap(model_query(context,
+                                                   sa_models.Order,
+                                                   session=session),
+                                       order, filters, params,
+                                       exception.OrderUpdateFailed())
 
             # change payer of this project
-            project.user_id = user_id
+            params = dict(user_id=user_id)
+            filters = params.keys()
+            filters.append('project_id')
+            self._compare_and_swap(model_query(context,
+                                               sa_models.Project,
+                                               session=session),
+                                   project, filters, params,
+                                   exception.ProjectUpdateFailed())
 
             # add/update relationship between user and project
             try:
@@ -1639,7 +1733,15 @@ class Connection(api.Connection):
                     filter_by(user_id=user_id).\
                     filter_by(project_id=project_id).\
                     one()
-                user_project.updated_at = timeutils.utcnow()
+                params = dict(updated_at=timeutils.utcnow())
+                filters = params.keys()
+                filters.append('user_id')
+                filters.append('project_id')
+                self._compare_and_swap(model_query(context,
+                                                   sa_models.UserProject,
+                                                   session=session),
+                                       user_project, filters, params,
+                                       exception.UserProjectUpdateFailed())
             except NoResultFound:
                 session.add(sa_models.UserProject(user_id=user_id,
                                                   project_id=project_id,
