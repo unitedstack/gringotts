@@ -193,8 +193,8 @@ class NeutronCheck(CheckBase):
                                         order_id, type=state)
 
         GCLIENT.create_order(order_id, CONF.region_name,
-                                  unit_price, period=period,
-                                  renew=renew, **parsed_resource.as_dict)
+                             unit_price, period=period,
+                             renew=renew, **parsed_resource.as_dict)
 
     def get_unit_price(self, resource, method):
         unit_price = 0

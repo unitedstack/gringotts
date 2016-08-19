@@ -17,7 +17,6 @@ from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import uuidutils
 from gringotts import service
 from gringotts import services
-from gringotts.services import alert
 from gringotts.services import keystone
 from gringotts import utils
 
@@ -416,10 +415,10 @@ class CheckerService(os_service.Service):
 
         # NOTE(suo): We only do the auto-fix when there is not any exceptions
 
-        # Alert bad resources
+        # Warning bad resources
         bad_resources = [x for x in bad_resources_2 if x in bad_resources_1]
         if bad_resources:
-            alert.alert_bad_resources(bad_resources)
+            LOG.warn('There was some bad resources: %s' % bad_resources)
 
         # Fix bad resources and orders
         try_to_fix_situ_1 = [x for x in try_to_fix_2['1']
@@ -693,7 +692,7 @@ class CheckerService(os_service.Service):
                     if not orders:
                         continue
 
-                    contact = keystone.get_user(account['user_id'])
+                    contact = keystone.get_user(account['user_id']).to_dict()
                     _projects = self.gclient.get_projects(
                         user_id=account['user_id'],
                         type='simple')
@@ -708,13 +707,11 @@ class CheckerService(os_service.Service):
                             order['resource_id'],
                             region_name=order['region_id'])
                         if not resource:
-                            # alert that the resource not exists
+                            # NOTE(chengkun): just warning if the resource not exists
                             LOG.warn("[%s] The resource(%s|%s) has been "
                                      "deleted",
                                      self.member_id,
                                      order['type'], order['resource_id'])
-                            alert.wrong_billing_order(order,
-                                                      'resource_deleted')
                             continue
 
                         order_d = {}
@@ -784,13 +781,11 @@ class CheckerService(os_service.Service):
                             order['resource_id'],
                             region_name=order['region_id'])
                         if not resource:
-                            # alert that the resource not exists
+                            # just warning the resource not exists
                             LOG.warn("[%s] The resource(%s|%s) may has been "
                                      "deleted",
                                      self.member_id, order['type'],
                                      order['resource_id'])
-                            alert.wrong_billing_order(order,
-                                                      'resource_deleted')
                             continue
 
                         price_per_hour += utils._quantize_decimal(
@@ -876,13 +871,11 @@ class CheckerService(os_service.Service):
                         order['resource_id'],
                         region_name=order['region_id'])
                     if not resource:
-                        # alert that the resource not exists
+                        # warning that the resource not exists
                         LOG.warn("[%s] The resource(%s|%s) has been "
                                  "deleted",
                                  self.member_id,
                                  order['type'], order['resource_id'])
-                        alert.wrong_billing_order(order,
-                                                  'resource_deleted')
                         continue
 
                     order_d = {}

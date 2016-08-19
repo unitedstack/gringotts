@@ -16,7 +16,8 @@ class EmailNotifier(notifier.Notifier):
 
     @staticmethod
     def notify_has_owed(context, account, contact, projects, **kwargs):
-        # Get account info
+        # TODO(chengkun): Now we can't get user contact info,
+        # and it will be "unknown". we will add in the future
         account_name = contact.get('real_name') or contact['email'].split('@')[0]
         mobile_number = contact.get('mobile_number') or "unknown"
         company = contact.get('company') or "unknown"
@@ -135,8 +136,6 @@ class EmailNotifier(notifier.Notifier):
         """
         # Get account info
         account_name = contact.get('real_name') or contact['email'].split('@')[0]
-        mobile_number = contact.get('mobile_number') or "unknown"
-        company = contact.get('company') or "unknown"
 
         # Notify user
         payload = {
