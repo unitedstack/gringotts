@@ -82,9 +82,14 @@ class LicenseItem(base.ProductItem):
     service = const.SERVICE_COMPUTE
 
     def get_product_name(self, body):
-        image_id = body['server']['imageRef']
-        image = _get_image(image_id)
-        product_name = 'license:%s' % image['image_label']
+        # NOTE(chengkun): if we start instance from volume, there
+        # are no License, so we should not use 'imageRef'
+        if body['server'].has_key('imageRef'):
+            image_id = body['server']['imageRef']
+            image = _get_image(image_id)
+            product_name = 'license:%s' % image['image_label']
+        else:
+            product_name = None
         return product_name
 
 
