@@ -1,25 +1,13 @@
-import calendar
 import pecan
-import wsme
-import datetime
-import decimal
 
 from pecan import rest
 from pecan import request
 from wsmeext.pecan import wsexpose
 from wsme import types as wtypes
 
-from oslo_config import cfg
-
-from gringotts import exception
-from gringotts import utils as gringutils
-
 from gringotts.api import acl
 from gringotts.api.v2 import models
-from gringotts.db import models as db_models
 from gringotts.openstack.common import log
-from gringotts.openstack.common import timeutils
-from gringotts.openstack.common import uuidutils
 
 
 LOG = log.getLogger(__name__)

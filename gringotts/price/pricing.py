@@ -1,10 +1,7 @@
 
-import six
-
 from decimal import Decimal
 
 from gringotts import exception
-from gringotts.openstack.common import jsonutils
 from gringotts import utils as gringutils
 
 
@@ -29,7 +26,7 @@ def calculate_segmented_price(quantity, price_list):
 
     q = int(quantity)
     total_price = quantize_decimal(0)
-    for p in price_list:
+    for p in sorted(price_list, key=lambda p: p['count'], reverse=True):
         if q > p['count']:
             total_price += (q - p['count']) * quantize_decimal(p['price'])
             q = p['count']

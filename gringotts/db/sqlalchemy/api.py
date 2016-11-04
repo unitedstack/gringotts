@@ -360,7 +360,9 @@ class Connection(api.Connection):
                         new_seg = seg.as_dict()
                         new_seg['price'] = str(new_seg['price'])
                         new_segmented.append(new_seg)
-                    p_dict['unit_price'][key]['segmented'] = new_segmented
+                    p_dict['unit_price'][key]['segmented'] = \
+                        sorted(new_segmented, key=lambda p: p['count'],
+                               reverse=True)
             p_dict['unit_price'] = jsonutils.dumps(p_dict['unit_price'])
         except KeyError:
             LOG.error("The unit_price lack of some key words.")
@@ -2192,7 +2194,7 @@ class Connection(api.Connection):
                 account = model_query(
                     context, sa_models.Account, session=session).\
                     filter_by(user_id=project.user_id).\
-                    one()
+                    with_lockmode('update').one()
             except NoResultFound:
                 LOG.error('Could not find the account: %s' % order.project_id)
                 raise exception.AccountNotFound(project_id=order.project_id)

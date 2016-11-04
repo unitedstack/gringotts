@@ -1,5 +1,3 @@
-import pecan
-import wsme
 import itertools
 
 from oslo_config import cfg
