@@ -145,8 +145,8 @@ class KeystoneBillingProtocol(object):
     def parse_user_result(self, body, result):
         users = []
         try:
-            for re in result:
-                user = jsonutils.loads(re)['user']
+            for r in result:
+                user = jsonutils.loads(r)['user']
                 users.append(User(
                     user_id=user['id'],
                     user_name=user['name'],
@@ -158,8 +158,8 @@ class KeystoneBillingProtocol(object):
     def parse_project_result(self, body, result):
         projects = []
         try:
-            for re in result:
-               project = jsonutils.loads(re)['project']
+            for r in result:
+               project = jsonutils.loads(r)['project']
                projects.append(Project(
                    project_id=project['id'],
                    project_name=project['name'],

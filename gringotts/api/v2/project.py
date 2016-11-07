@@ -1,5 +1,4 @@
 import pecan
-import wsme
 import datetime
 import itertools
 
@@ -18,9 +17,7 @@ from gringotts import utils as gringutils
 from gringotts.api.v2 import models
 from gringotts.db import models as db_models
 from gringotts.services import keystone
-from gringotts.checker import notifier
 from gringotts.openstack.common import log
-from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
 
 

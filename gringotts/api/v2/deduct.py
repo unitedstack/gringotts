@@ -1,22 +1,18 @@
 import pecan
 import wsme
-import datetime
 
 from pecan import rest
 from pecan import request
 from wsmeext.pecan import wsexpose
 from wsme import types as wtypes
 
-from oslo_config import cfg
 from oslo_db import exception as db_exc
 
 from gringotts.policy import check_policy
 from gringotts import exception
 from gringotts import utils as gringutils
 from gringotts.api.v2 import models
-from gringotts.db import models as db_models
 from gringotts.openstack.common import log
-from gringotts.openstack.common import uuidutils
 
 
 LOG = log.getLogger(__name__)
@@ -32,7 +28,7 @@ class GetBalanceController(rest.RestController):
 
         try:
             account = self.conn.get_account(request.context, accountNum)
-        except Exception as e:
+        except Exception:
             LOG.error('account %s not found' % accountNum)
             raise exception.AccountNotFound(user_id=accountNum)
 
@@ -53,14 +49,14 @@ class CheckReqController(rest.RestController):
 
         status = "0"
         try:
-            deduct = self.conn.get_deduct(request.context, reqId)
+            self.conn.get_deduct(request.context, reqId)
         except exception.DeductNotFound:
             LOG.warn('Deduct Req: %s not found' % reqId)
             status = "-1"
-        except exception.NotAuthorized as e:
+        except exception.NotAuthorized:
             LOG.exception('Fail to get the deduct req: %s' % reqId)
             raise exception.NotAuthorized()
-        except Exception as e:
+        except Exception:
             msg = "Fail to get the deduct req: %s" % reqId
             LOG.exception(msg)
             raise exception.DBError(reason=msg)
@@ -92,10 +88,10 @@ class PayController(rest.RestController):
         except db_exc.DBDuplicateEntry:
             LOG.exception('Duplicated deduct req_id: %s' % data.reqId)
             raise exception.DuplicatedDeduct(req_id=data.reqId)
-        except exception.NotAuthorized as e:
+        except exception.NotAuthorized:
             LOG.exception('Fail to deduct the account: %s' % data.accountNum)
             raise exception.NotAuthorized()
-        except Exception as e:
+        except Exception:
             msg = "Fail to deduct the account: %s, charge value: %s" % (data.accountNum, data.money)
             LOG.exception(msg)
             raise exception.DBError(reason=msg)

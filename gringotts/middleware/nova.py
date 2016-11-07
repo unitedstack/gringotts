@@ -7,11 +7,9 @@ from gringotts import constants as const
 from gringotts import exception
 from gringotts.middleware import base
 from gringotts.openstack.common import jsonutils
-from gringotts.openstack.common import timeutils
 from gringotts.openstack.common import memorycache
 from gringotts.services import nova
 from gringotts.services import glance
-from gringotts import utils as gringutils
 
 LOG = logging.getLogger(__name__)
 

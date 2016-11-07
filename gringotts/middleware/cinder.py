@@ -32,7 +32,7 @@ class SizeItem(base.ProductItem):
         if 'volume' in body:
             return body['volume']['size']
         elif 'snapshot' in body:
-            volume = cinder.volume_get(body['snapshot']['volume_id'])
+            volume = cinder.snapshot_get(body['snapshot']['volume_id'])
             return volume.size
 
 
@@ -118,7 +118,7 @@ class CinderBillingProtocol(base.BillingProtocol):
             self.gclient.resize_resource_order(order_id,
                                                quantity=quantity,
                                                resource_type=resource_type)
-        except Exception as e:
+        except Exception:
             msg = "Unbale to resize the order: %s" % order_id
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)

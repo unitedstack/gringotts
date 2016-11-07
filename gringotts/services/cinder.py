@@ -117,6 +117,7 @@ def snapshot_get(snapshot_id, region_name=None):
     status = utils.transform_status(sp.status)
     return Snapshot(id=sp.id,
                     name=sp.display_name,
+                    size=sp.size,
                     status=status,
                     original_status=sp.status,
                     resource_type=const.RESOURCE_SNAPSHOT)

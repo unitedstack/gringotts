@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import datetime
-import json
 
 from oslo_config import cfg
 import pecan
