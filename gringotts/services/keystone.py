@@ -289,7 +289,7 @@ def get_project(project_id):
 def get_uos_user(user_id):
 
     auth_url = get_auth_url()
-    internal_api = lambda api: auth_url + '/US-INTERNAL'+ '/' + api
+    internal_api = lambda api: auth_url + '/US-INTERNAL' + '/' + api
 
     query = {'query': {'id': user_id}}
     r = requests.post(internal_api('get_user'),
@@ -305,7 +305,7 @@ def get_uos_user(user_id):
 def get_uos_user_by_name(user_name):
 
     auth_url = get_auth_url()
-    internal_api = lambda api: auth_url + '/US-INTERNAL'+ '/' + api
+    internal_api = lambda api: auth_url + '/US-INTERNAL' + '/' + api
 
     query = {'query': {'name': user_name}}
     r = requests.post(internal_api('get_user'),

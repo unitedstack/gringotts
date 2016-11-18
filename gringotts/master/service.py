@@ -581,6 +581,21 @@ class MasterService(rpc_service.Service):
             # create a new bill for the updated order
             self._create_bill(ctxt, order_id, action_time, remarks)
 
+    def resource_restore(self, ctxt, order_id, action_time, remarks):
+        """The order can be restored, when the resource restored
+
+        """
+        with self._get_lock(order_id):
+            LOG.debug("Restore order, its order_id: %s, action_time: %s,"
+                      , order_id, action_time)
+
+            # change the order's unit price and its active subscriptions
+            self.gclient.change_order(order_id,
+                                      const.STATE_RUNNING)
+
+            # create a new bill for the updated order
+            self._create_bill(ctxt, order_id, action_time, remarks)
+
     def instance_stopped(self, ctxt, order_id, action_time):
         """Instance stopped for a month continuously will not be charged
 

@@ -34,6 +34,7 @@ class OrderController(rest.RestController):
         'delete_resource': ['POST'],
         'stop_resource': ['POST'],
         'start_resource': ['POST'],
+        'restore_resource': ['POST'],
     }
 
     def __init__(self, order_id):
@@ -151,8 +152,17 @@ class OrderController(rest.RestController):
     def start_resource(self, data):
         action_time = \
             gringutils.format_datetime(timeutils.strtime(timeutils.utcnow()))
-        remarks = '%s Has Been Started' % data.resource_type.capitalize() 
+        remarks = '%s Has Been Started' % data.resource_type.capitalize()
         self.master_api.resource_started(request.context, self._id,
+                                         action_time,
+                                         remarks)
+
+    @wsexpose(None, body=models.ResourceRestoreBody)
+    def restore_resource(self, data):
+        action_time = \
+            gringutils.format_datetime(timeutils.strtime(timeutils.utcnow()))
+        remarks = '%s Has Been Restored' % data.resource_type.capitalize()
+        self.master_api.resource_restore(request.context, self._id,
                                          action_time,
                                          remarks)
 

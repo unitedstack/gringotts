@@ -12,11 +12,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import copy
 import json
-import sys
 
-from keystoneclient import access
 from troveclient.v1 import client as trove_client
 from oslo_config import cfg
 

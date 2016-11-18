@@ -65,6 +65,9 @@ class LocalAPI(object):
         self._service.resource_resized(ctxt, order_id, action_time,
                                        quantity, remarks)
 
+    def resource_restore(self, ctxt, order_id, action_time, remarks):
+        self._service.resource_restore(ctxt, order_id, action_time, remarks)
+
     def instance_stopped(self, ctxt, order_id, action_time):
         self._service.instance_stopped(ctxt, order_id, action_time)
 

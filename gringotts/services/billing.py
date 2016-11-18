@@ -16,7 +16,7 @@ def get_gringclient(region_name=None):
 
 def check_avaliable(region_name=None):
     client = get_gringclient(region_name)
-    result = client.get('/')
+    client.get('/')
 
 
 def get_accounts(region_name=None):

@@ -11,7 +11,7 @@ from gringotts.exception import GringottsException
 LOG = log.getLogger(__name__)
 
 
-def wrap_exception(exc_type=None, with_raise=True):
+def wrap_exception(exc_type=None, with_raise=False):
     """ Wrap exception around resource method
 
     This decorator wraps a method to catch any exceptions that may get thrown.
@@ -61,6 +61,7 @@ def wrap_exception(exc_type=None, with_raise=True):
                     raise GringottsException(message=msg)
                 else:
                     LOG.error(msg)
+                    return []
         return functools.wraps(f)(wrapped)
     return inner
 

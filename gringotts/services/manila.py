@@ -1,5 +1,4 @@
 import functools
-import time
 from oslo_config import cfg
 import logging as log
 
@@ -11,7 +10,6 @@ from gringotts.services import Resource
 from manilaclient.v1 import client as manila_client
 from manilaclient.exceptions import NotFound
 from gringotts.services import keystone as ks_client
-from gringotts.openstack.common import uuidutils
 from gringotts.openstack.common import timeutils
 
 
@@ -91,8 +89,8 @@ def share_list(project_id, region_name=None, detailed=True, project_name=None):
                                       status=status,
                                       original_status=share.status,
                                       resource_type=const.RESOURCE_SHARE,
-                                      user_id = None,
-                                      project_id = project_id,
+                                      user_id=None,
+                                      project_id=project_id,
                                       project_name=project_name,
                                       created_at=created_at))
     return formatted_shares

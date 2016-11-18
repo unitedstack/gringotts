@@ -1,7 +1,6 @@
 import functools
 import logging as log
 
-from oslo_config import cfg
 from ceilometerclient import client as cmclient
 from ceilometerclient.openstack.common.apiclient.exceptions import NotFound
 
