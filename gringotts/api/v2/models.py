@@ -802,3 +802,7 @@ class ResourceStopBody(APIBase):
 
 class ResourceStartBody(APIBase):
     resource_type = wtypes.text
+
+
+class ResourceRestoreBody(APIBase):
+    resource_type = wtypes.text

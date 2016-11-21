@@ -11,7 +11,7 @@ from novaclient.exceptions import NotFound
 from gringotts.openstack.common import timeutils
 
 from gringotts.services import keystone as ks_client
-from gringotts.services import wrap_exception,register
+from gringotts.services import wrap_exception, register
 from gringotts.services import Resource
 
 

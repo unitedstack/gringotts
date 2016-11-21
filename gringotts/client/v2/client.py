@@ -408,3 +408,11 @@ class Client(object):
         if body:
             return body
         return {}
+
+    def restore_resource_order(self, order_id, resource_type):
+        _body = dict(resource_type=resource_type)
+        resp, body = self.client.post('/orders/%s/restore_resource' % order_id,
+                                      body=_body)
+        if body:
+            return body
+        return {}

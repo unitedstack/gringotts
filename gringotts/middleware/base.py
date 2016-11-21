@@ -164,6 +164,9 @@ class BillingProtocol(object):
         self.resize_resource_actions = []
         self.stop_resource_actions = []
         self.start_resource_actions = []
+
+        # NOTE(chengkun): now restore resource only use in Instance
+        self.restore_resource_actions = []
         self.no_billing_resource_actions = []
 
         # make billing client
@@ -441,6 +444,7 @@ class BillingProtocol(object):
                     if not success:
                         app_result = result
                 return app_result
+
             elif self.start_resource_action(request_method, path_info, body):
                 app_result = self.app(env, start_response)
                 if self.check_if_start_action_success(order['type'], app_result):
@@ -449,8 +453,21 @@ class BillingProtocol(object):
                     if not success:
                         app_result = result
                 return app_result
+
+            elif self.restore_resource_action(request_method, path_info, body):
+                if not order.get('unit') or order.get('unit') == 'hour':
+                    app_result = self.app(env, start_response)
+                    if not app_result[0]:
+                        success, result = self.restore_resource_order \
+                            (env, start_response,
+                             order['order_id'], order['type'])
+                        if not success:
+                            app_result = result
+                    return app_result
+
             else:
                 # by-hour resource only can be operated when the balance is sufficient
+                # check user if owed or not
                 if not order.get('unit') or order.get('unit') == 'hour':
                     min_balance = "0"
                     success, result = self.check_if_owed(env, start_response,
@@ -523,7 +540,7 @@ class BillingProtocol(object):
 
     def freeze_balance(self, env, start_response, project_id, total_price):
         try:
-            account = self.gclient.freeze_balance(project_id, total_price)
+            self.gclient.freeze_balance(project_id, total_price)
             return True, False
         except exception.PaymentRequired:
             LOG.warn("The balance of the billing owner of "
@@ -546,7 +563,7 @@ class BillingProtocol(object):
         if failed to create the resource for some reason.
         """
         try:
-            account = self.gclient.unfreeze_balance(project_id, total_price)
+            self.gclient.unfreeze_balance(project_id, total_price)
             return True, False
         except exception.PaymentRequired:
             LOG.warn("The frozen balance of the billing owner of "
@@ -591,7 +608,7 @@ class BillingProtocol(object):
         try:
             self.gclient.close_order(order_id)
             return True, None
-        except Exception as e:
+        except Exception:
             msg = "Unable to close the order: %s" % order_id
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)
@@ -600,7 +617,7 @@ class BillingProtocol(object):
                             start_response, order_id, resource_type):
         try:
             self.gclient.stop_resource_order(order_id, resource_type)
-        except Exception as e:
+        except Exception:
             msg = "Unable to stop the order: %s" % order_id
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)
@@ -611,7 +628,7 @@ class BillingProtocol(object):
                              start_response, order_id, resource_type):
         try:
             self.gclient.start_resource_order(order_id, resource_type)
-        except Exception as e:
+        except Exception:
             msg = "Unable to start the order: %s" % order_id
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)
@@ -646,12 +663,23 @@ class BillingProtocol(object):
     def get_resource_count(self, body):
         return True, 1
 
-    def delete_resource_order(self, env, start_response, order_id, resource_type):
+    def delete_resource_order(self, env, start_response,
+                              order_id, resource_type):
         try:
             self.gclient.delete_resource_order(order_id, resource_type)
             return True, None
-        except Exception as e:
+        except Exception:
             msg = "Unable to delete the order: %s" % order_id
+            LOG.exception(msg)
+            return False, self._reject_request_500(env, start_response)
+
+    def restore_resource_order(self, env, start_response,
+                               order_id, resource_type):
+        try:
+            self.gclient.restore_resource_order(order_id, resource_type)
+            return True, None
+        except Exception:
+            msg = "Unable to restore the order: %s" % order_id
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)
 
@@ -690,6 +718,12 @@ class BillingProtocol(object):
             if action(method, path_info, body):
                 return True
         return False
+
+    def restore_resource_action(self, method, path_info, body):
+        for action in self.restore_resource_actions:
+            if action(method, path_info, body):
+                return True
+            return False
 
     def no_billing_resource_action(self, method, path_info, body):
         """The action that the resource was not billed."""

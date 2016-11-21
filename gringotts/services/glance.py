@@ -1,7 +1,6 @@
 import functools
 import logging as log
 
-from oslo_config import cfg
 import  glanceclient
 from glanceclient.exc import NotFound,HTTPNotFound
 
@@ -42,6 +41,7 @@ class Image(Resource):
 
     def to_body(self):
         return {}
+
 
 def get_glanceclient(region_name=None):
     endpoint = ks_client.get_endpoint(region_name, 'image')

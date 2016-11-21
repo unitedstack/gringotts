@@ -125,6 +125,7 @@ class NovaBillingProtocol(base.BillingProtocol):
             self.attach_volume_to_server_action,
             self.start_server_action,
             self.stop_server_action,
+            self.restore_server_action,
         ]
         self.resource_regexs = [
             self.resource_regex,
@@ -139,6 +140,9 @@ class NovaBillingProtocol(base.BillingProtocol):
         ]
         self.start_resource_actions = [
             self.start_server_action,
+        ]
+        self.restore_resource_actions = [
+            self.restore_server_action,
         ]
         self.product_items = extension.ExtensionManager(
             namespace='gringotts.server.product_items',
@@ -188,6 +192,13 @@ class NovaBillingProtocol(base.BillingProtocol):
     def attach_volume_to_server_action(self, method, path_info, body):
         if method == "POST" \
             and self.attach_volume_to_server_regex.search(path_info):
+            return True
+        return False
+
+    def restore_server_action(self, method, path_info, body):
+        if method == "POST" \
+            and self.server_action_regex.search(path_info) and \
+            body.has_key('restore'):
             return True
         return False
 
@@ -268,7 +279,7 @@ class NovaBillingProtocol(base.BillingProtocol):
                                                old_flavor=old_flavor,
                                                service=service,
                                                region_id=region_id)
-        except Exception as e:
+        except Exception:
             msg = "Unable to resize the order: %s" % order_id
             LOG.exception(msg)
             return False, self._reject_request_500(env, start_response)
