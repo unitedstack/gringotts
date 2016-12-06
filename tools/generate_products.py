@@ -1,12 +1,12 @@
 import argparse
 import json
 import os
-import sys
-import requests
 
 from decimal import Decimal, ROUND_HALF_UP
 from gringotts.client import client as gring_client
-from novaclient.v1_1 import client as nova_client
+from keystoneclient.auth.identity import v3
+from keystoneclient import session as ksc_session
+from novaclient import client as nova_client
 
 
 parser = argparse.ArgumentParser(description='Generate products')
@@ -18,6 +18,14 @@ parser.add_argument('--password',
                     metavar='OS_PASSWORD',
                     default=os.environ.get('OS_PASSWORD', 'admin'),
                     help='Password to use for OpenStack service access.')
+parser.add_argument('--user_domain_id',
+                    metavar='USER_DOMAIN_ID',
+                    default=os.environ.get('OS_USER_DOMAIN_ID', 'default'),
+                    help='User domain id to use for OpenStack service access.')
+parser.add_argument('--project_domain_id',
+                    metavar='PROJECT_DOMAIN_ID',
+                    default=os.environ.get('OS_PROJECT_DOMAIN_ID', 'default'),
+                    help='Project domain id to use for OpenStack service access.')
 parser.add_argument('--tenant_name',
                     metavar='OS_TENANT_NAME',
                     default=os.environ.get('OS_TENANT_NAME', 'admin'),
@@ -29,6 +37,10 @@ parser.add_argument('--auth_url',
 parser.add_argument('--recreate_flavor',
                     metavar='BOOL', type=bool, default=False,
                     help='Recreate flavor or not')
+parser.add_argument('--region_name',
+                    metavar='region_name',
+                    default='RegionOne',
+                    help='The region name of OpenStack service')
 args = parser.parse_args()
 
 
@@ -50,13 +62,28 @@ gc = gring_client.Client(username=args.username,
                          auth_url=force_v3_api(args.auth_url))
 
 
-nc = nova_client.Client(username=args.username,
-                        api_key=args.password,
-                        project_id=args.tenant_name,
-                        auth_url=args.auth_url)
+def get_session():
+    keystone_host = args.auth_url
+    auth = v3.Password(
+        auth_url=keystone_host,
+        username=args.username,
+        password=args.password,
+        project_name=args.tenant_name,
+        user_domain_id=args.user_domain_id,
+        project_domain_id=args.project_domain_id)
+    session = ksc_session.Session(auth=auth)
+    return session
 
 
-def create_or_update_product(name, service, region_id, unit_price, extra=None):
+def get_client():
+    n_client = nova_client.Client(version=2,
+    session=get_session(),
+    region_name=args.region_name)
+    return n_client
+
+nc = get_client()
+
+def create_or_update_product(name, service, region_id, unit_price):
     params = dict(name=name,
                   service=service,
                   region_id=region_id)
@@ -68,8 +95,7 @@ def create_or_update_product(name, service, region_id, unit_price, extra=None):
                 unit_price=unit_price,
                 type="regular",
                 unit="hour",
-                description="some desc",
-                extra=extra)
+                description="some desc")
 
     if product['products']:
         gc.put('/products/%s' % product['products'][0]['product_id'],
@@ -78,25 +104,10 @@ def create_or_update_product(name, service, region_id, unit_price, extra=None):
         gc.post('/products', body=body)
 
 
-def _set_flavor_key(flavor_id, **meta):
-    if not nc.client.management_url:
-        nc.authenticate()
-    endpoint = nc.client.management_url
-    url = "%s/flavors/%s/os-extra_specs" % (endpoint, flavor_id)
-    headers = {
-        "X-Auth-Token": nc.client.auth_token,
-        "Content-Type": "application/json",
-    }
-    body = {
-        "extra_specs": meta
-    }
-    requests.post(url, data=json.dumps(body), headers=headers)
-
-
 def create_flavor(name, ram, vcpus, disk):
     flavor = nc.flavors.create(name, ram, vcpus, disk)
-    meta = {'hw_video:ram_max_mb': 64}
-    _set_flavor_key(flavor.id, **meta)
+    meta = {'hw_video:ram_max_mb':'64'}
+    flavor.set_keys(meta)
 
 
 def clear_flavors():
@@ -168,37 +179,42 @@ if __name__ == '__main__':
         for name, ram, vcpus, disk in flavors:
             create_flavor(name, ram, vcpus, disk)
 
-    seg_ip_bgp = {"hourly_price": ("0", [[100, "0.3611"], [50, "0.2778"], [30, "0.2222"], [0, "0.0300"]])}
+    region = args.region_name
+    def get_unit_price(data):
+        segmented = []
+        for s in data:
+            segmented.append({'count': s[0], 'price': s[1]})
+        unit_price = {"price":{"base_price": "0",
+                               "type": "segmented",
+                               "segmented": segmented}}
+        return unit_price
     products = [
-        ('instance:micro-1', 'compute', 'test1', '0.0560', None),
-        ('instance:micro-2', 'compute', 'test1', '0.1110', None),
-        ('instance:standard-1', 'compute', 'test1', '0.222', None),
-        ('instance:standard-2', 'compute', 'test1', '0.444', None),
-        ('instance:standard-4', 'compute', 'test1', '0.889', None),
-        ('instance:standard-8', 'compute', 'test1', '1.778', None),
-        ('instance:standard-12', 'compute', 'test1', '2.667', None),
-        ('instance:standard-16', 'compute', 'test1', '3.556', None),
-        ('instance:memory-1', 'compute', 'test1', '0.3610', None),
-        ('instance:memory-2', 'compute', 'test1', '0.7220', None),
-        ('instance:memory-4', 'compute', 'test1', '1.4440', None),
-        ('instance:memory-8', 'compute', 'test1', '2.8890', None),
-        ('instance:memory-12', 'compute', 'test1', '4.3330', None),
-        ('instance:compute-2', 'compute', 'test1', '0.3330', None),
-        ('instance:compute-4', 'compute', 'test1', '0.6670', None),
-        ('instance:compute-8', 'compute', 'test1', '2.8890', None),
-        ('instance:compute-12', 'compute', 'test1', '2.000', None),
-        ('ip.floating.BGP', 'network', 'test1', '0.0347', seg_ip_bgp),
-        ('volume.size', 'block_storage', 'test1', '0.0020', None),
-        ('sata.volume.size', 'block_storage', 'test1', '0.0006', None),
-        ('snapshot.size', 'block_storage', 'test1', '0.0002', None),
-        ('listener', 'network', 'test1', '0.03', None),
-        ('alarm', 'monitor', 'test1', '0.03', None),
+        ('instance:micro-1', 'compute', region, get_unit_price([[0, '0.0560']])),
+        ('instance:micro-2', 'compute', region, get_unit_price([[0, '0.1110']])),
+        ('instance:standard-1', 'compute', region, get_unit_price([[0, '0.2220']])),
+        ('instance:standard-2', 'compute', region, get_unit_price([[0, '0.4440']])),
+        ('instance:standard-4', 'compute', region, get_unit_price([[0, '0.8890']])),
+        ('instance:standard-8', 'compute', region, get_unit_price([[0, '1.7780']])),
+        ('instance:standard-12', 'compute', region, get_unit_price([[0, '2.6670']])),
+        ('instance:standard-16', 'compute', region, get_unit_price([[0, '3.5560']])),
+        ('instance:memory-1', 'compute', region, get_unit_price([[0, '0.3610']])),
+        ('instance:memory-2', 'compute', region, get_unit_price([[0, '0.7220']])),
+        ('instance:memory-4', 'compute', region, get_unit_price([[0, '1.4440']])),
+        ('instance:memory-8', 'compute', region, get_unit_price([[0, '2.8890']])),
+        ('instance:memory-12', 'compute', region, get_unit_price([[0, '4.3330']])),
+        ('instance:compute-2', 'compute', region, get_unit_price([[0, '0.3330']])),
+        ('instance:compute-4', 'compute', region, get_unit_price([[0, '0.6670']])),
+        ('instance:compute-8', 'compute', region, get_unit_price([[0, '1.3330']])),
+        ('instance:compute-12', 'compute', region, get_unit_price([[0, '2.0000']])),
+        ('ip.floating', 'network', region, get_unit_price([[0, '0.0300']])),
+        ('volume.size', 'block_storage', region, get_unit_price([[0, '0.0060']])),
+        ('sata.volume.size', 'block_storage', region, get_unit_price([[0, '0.0060']])),
+        ('ssd.volume.size', 'block_storage', region, get_unit_price([[0, '0.0200']])),
+        ('snapshot.size', 'block_storage', region, get_unit_price([[0, '0.0020']])),
+        ('listener', 'network', region, get_unit_price([[0, '0.0010']])),
     ]
-    for name, service, region_id, unit_price, extra in products:
+    for name, service, region_id, unit_price in products:
         try:
-            if not extra:
-                extra = {"hourly_price": ("0", [[0, unit_price]])}
-            extra = make_seg_price(**extra)
-            create_or_update_product(name, service, region_id, unit_price, extra)
+            create_or_update_product(name, service, region_id, unit_price)
         except Exception:
             raise
