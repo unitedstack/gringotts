@@ -822,7 +822,7 @@ class Connection(api.Connection):
             query = query.group_by(sa_models.Bill.order_id)
 
         if with_count:
-            total_count = len(query.all())
+            total_count = query.count()
 
         result = paginate_query(context, sa_models.Order,
                                 limit=limit, offset=offset,
