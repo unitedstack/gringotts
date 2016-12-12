@@ -32,7 +32,7 @@ class SizeItem(base.ProductItem):
         if 'volume' in body:
             return body['volume']['size']
         elif 'snapshot' in body:
-            volume = cinder.snapshot_get(body['snapshot']['volume_id'])
+            volume = cinder.volume_get(body['snapshot']['volume_id'])
             return volume.size
 
 
