@@ -1,6 +1,7 @@
 import logging
 import re
 from stevedore import extension
+from oslo_config import cfg
 
 from gringotts import constants as const
 from gringotts.middleware import base
@@ -32,7 +33,8 @@ class SizeItem(base.ProductItem):
         if 'volume' in body:
             return body['volume']['size']
         elif 'snapshot' in body:
-            volume = cinder.volume_get(body['snapshot']['volume_id'])
+            volume = cinder.volume_get(body['snapshot']['volume_id'],
+                                       cfg.CONF.billing.region_name)
             return volume.size
 
 
