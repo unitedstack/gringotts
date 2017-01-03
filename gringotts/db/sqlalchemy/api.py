@@ -804,7 +804,7 @@ class Connection(api.Connection):
             query = query.filter_by(region_id=region_id)
         if user_id:
             query = query.filter_by(user_id=user_id)
-        if project_ids is not None:
+        if project_ids:
             query = query.filter(sa_models.Order.project_id.in_(project_ids))
         if owed is not None:
             query = query.filter_by(owed=owed)
