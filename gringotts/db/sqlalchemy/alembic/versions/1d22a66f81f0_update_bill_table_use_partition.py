@@ -17,6 +17,7 @@ def upgrade():
     op.execute("alter table bill modify id int NOT NULL;")
     op.execute("alter table bill drop primary key;")
     op.execute("alter table bill add primary key(id, start_time);")
+    op.execute("alter table bill modify id int NOT NULL AUTO_INCREMENT;")
     op.execute("alter table bill partition by RANGE(YEAR(start_time)) \
                subpartition by hash(MONTH(start_time)) \
                (partition p_2015 values less than (2016), \
