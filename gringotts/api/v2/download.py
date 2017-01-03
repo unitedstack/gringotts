@@ -169,13 +169,19 @@ class OrdersController(rest.RestController):
             project = projects.get(project_id)
             if project:
                 return project
-            project = keystone.get_project(project_id)
-            project_name = project.name if project else None
-            projects[project_id] = models.SimpleProject(
-                project_id=project_id,
-                project_name=project_name
-            )
-            return projects[project_id]
+            try:
+                project = keystone.get_project(project_id)
+                project_name = project.name if project else None
+                projects[project_id] = models.SimpleProject(
+                    project_id=project_id,
+                    project_name=project_name)
+                return projects[project_id]
+            except Exception as e:
+                # Note(chengkun): some project was deleted from keystone,
+                # But the project's order still in the gringotts. so when
+                # we get the order it will raise 404 project not found error
+                LOG.error('error to get project: %s' % e)
+                return None
 
         MAP = [
             {"running": u"运行中",
@@ -222,6 +228,8 @@ class OrdersController(rest.RestController):
                                           end_time=end_time)
             user = _get_user(order.user_id)
             project = _get_project(order.project_id)
+            if project is None:
+                continue
             order.created_at += datetime.timedelta(hours=8)
             created_at = \
                 timeutils.strtime(order.created_at, fmt=OUTPUT_TIME_FORMAT)
