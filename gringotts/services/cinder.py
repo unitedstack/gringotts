@@ -70,7 +70,7 @@ class Snapshot(Resource):
 
     def to_body(self):
         body = {}
-        body[self.resource_type] = dict(volume_id=self.id)
+        body[self.resource_type] = dict(snapshot_id=self.id)
         return body
 
 
