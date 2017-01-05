@@ -33,8 +33,13 @@ class SizeItem(base.ProductItem):
         if 'volume' in body:
             return body['volume']['size']
         elif 'snapshot' in body:
-            volume = cinder.volume_get(body['snapshot']['volume_id'],
-                                       cfg.CONF.billing.region_name)
+            try:
+                volume = cinder.volume_get(body['snapshot']['volume_id'],
+                                           cfg.CONF.billing.region_name)
+            except Exception:
+                # INFO(chengkun): just use for checker service
+                volume = cinder.snapshot_get(body['snapshot']['snapshot_id'],
+                                             cfg.CONF.billing.region_name)
             return volume.size
 
 
