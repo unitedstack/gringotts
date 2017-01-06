@@ -52,7 +52,7 @@ class GlanceBillingProtocol(base.BillingProtocol):
             resources.append(base.Resource(
                 resource_id=result['image']['id'],
                 resource_name=result['image']['name'],
-                type=const.RESOURCE_SNAPSHOT,
+                type=const.RESOURCE_IMAGE,
                 status=const.STATE_RUNNING,
                 user_id=user_id,
                 project_id=project_id))
